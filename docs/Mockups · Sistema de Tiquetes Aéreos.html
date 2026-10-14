@@ -1,0 +1,181 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Mockups · Sistema de Tiquetes Aéreos</title>
+<style>
+:root{color-scheme:light;--b:#00708f;--bg:#fff;--t:#222;--l:#bbb;--g:#eee;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;display:flex;font:14px Arial,Helvetica,sans-serif;background:var(--bg);color:var(--t)}
+nav{width:210px;flex:none;height:100vh;overflow:auto;position:sticky;top:0;border-right:1px solid var(--l);padding:8px;font-size:12px}
+nav h4{margin:10px 0 3px;color:var(--b)}nav a{display:block;color:inherit;text-decoration:none;padding:2px 4px}nav a:hover{background:var(--g)}
+main{flex:1;padding:16px;min-width:0}
+.s{display:none}.s:target,main:not(:has(:target)) #inicio{display:block}
+.f{max-width:920px;margin:auto;border:1px solid var(--l);position:relative;background:var(--bg);min-height:480px}
+.u{background:var(--g);padding:5px 10px;font-size:11px;color:#777;border-bottom:1px solid var(--l)}
+.hd{background:var(--b);color:#fff;margin:0;padding:10px;text-align:center;font-size:17px}
+.p{padding:16px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+label{display:block;font-size:12px;font-weight:bold;margin:8px 0}
+input,select,textarea{width:100%;padding:6px;border:1px solid var(--l);background:var(--bg);color:var(--t);margin-top:3px;font:inherit}
+textarea{height:70px}.i{font-weight:normal}.i input{width:auto;margin:0 6px 0 0}
+.btn{display:inline-block;background:var(--b);color:#fff;padding:7px 16px;border-radius:5px;margin:6px 4px 0 0;font-size:13px;border:1px solid var(--b)}
+.btn.o{background:none;color:var(--b)}.btn.r{background:#b33;border-color:#b33}
+table{width:100%;border-collapse:collapse;margin:8px 0}th{background:var(--b);color:#fff}td,th{border:1px solid var(--l);padding:6px;text-align:left}
+.c{border:1px solid var(--l);border-radius:6px;padding:10px;margin:8px 0}
+.ph{background:var(--g);height:90px;display:grid;place-items:center;color:#888;border:1px dashed var(--l)}
+.n{font-size:11px;color:#888}.tot{text-align:right;font-weight:bold;font-size:16px}
+.bot{position:absolute;right:12px;bottom:12px;background:var(--b);color:#fff;padding:8px 12px;border-radius:20px;font-size:12px}
+i{display:inline-block;background:#2a9d3c;border-radius:5px}.y{background:#f2b705}.rd{background:#e04545}.bl{background:#3c72d8}.x{position:relative}.x::after{content:"";position:absolute;left:0;right:0;top:-3px;height:3px;background:repeating-linear-gradient(90deg,#000 0 3px,#fc0 3px 6px)}
+.pl{width:300px;border:2px solid var(--l);border-radius:150px 150px 28px 28px;background:var(--g);overflow:hidden}.nose{height:80px;display:grid;place-items:end center;padding-bottom:6px;font-size:11px;color:#777}.sc{height:440px;overflow-y:auto;padding:0 10px 10px}
+.rw{display:grid;grid-template-columns:repeat(3,28px) 30px repeat(3,28px);gap:4px;justify-content:center;align-items:center;margin:5px 0}.rw i{height:28px}.rw b,.rw span{text-align:center;font-size:11px}.h{position:sticky;top:0;background:var(--g);z-index:1;padding:4px 0;margin:0}
+.cb{text-align:center;font-size:11px;font-weight:bold;background:var(--b);color:#fff;border-radius:4px;padding:3px;margin:10px 0 4px}.sd{text-align:center;font-size:10px;color:#b33;border-top:1px dashed #b33;border-bottom:1px dashed #b33;margin:8px 0;padding:2px}
+.lg{max-width:240px;border:1px dashed var(--l);padding:6px 12px;font-size:12px}.lg div{margin:10px 0}.lg i{width:18px;height:18px;margin-right:8px;vertical-align:middle}
+.md{border:2px solid var(--b);border-radius:10px;padding:14px;max-width:360px;margin:12px auto;text-align:center}
+.bb{background:var(--g);padding:6px 10px;border-radius:10px;margin:6px 0;max-width:70%}.me{margin-left:auto;background:var(--b);color:#fff}
+@media(max-width:700px){body{display:block}nav{width:auto;height:auto;position:static}.g,.g3{grid-template-columns:1fr}}
+</style></head><body>
+<nav><b>Mockups · Tiquetes</b>
+<h4>Público / Cliente</h4><a href="#inicio">Inicio</a><a href="#registro">Registro</a><a href="#login">Iniciar sesión</a><a href="#recuperar">Recuperar contraseña</a><a href="#verificar">Verificar correo</a><a href="#perfil">Perfil / Cerrar sesión</a>
+<h4>Búsqueda</h4><a href="#buscar">Buscar vuelos</a><a href="#resultados">Resultados</a><a href="#detalle">Detalle de vuelo</a><a href="#catalogo">Catálogo por ciudad</a>
+<h4>Compra y reserva</h4><a href="#viajeros">Datos de viajeros</a><a href="#clase">Clase y trayecto</a><a href="#carrito">Carrito</a><a href="#confirma">Confirmación</a><a href="#historial">Historial</a><a href="#cancelar">Cancelar</a>
+<h4>Check-in</h4><a href="#checkin">Check-in</a><a href="#sillas">Mapa de sillas</a><a href="#pasabordo">Pasabordo</a>
+<h4>Administrador / Root</h4><a href="#avuelos">Lista y cancelar vuelos</a><a href="#aprogramar">Programar vuelo</a><a href="#aeditar">Editar vuelo</a><a href="#apromo">Promociones</a><a href="#root">Administradores (root)</a>
+<h4>Otros</h4><a href="#noticias">Noticias</a><a href="#mensajes">Mensajería</a><a href="#billetera">Billetera</a><a href="#medios">Medios de pago</a><a href="#chatbot">Chatbot</a><a href="#recom">Recomendaciones</a></nav>
+<main>
+
+<section class="s" id="inicio"><div class="f"><div class="u">🔒 plataforma.com/inicio</div><h2 class="hd">Inicio · Aerolínea XX</h2><div class="p">
+<div class="c">LOGO &nbsp;·&nbsp; Vuelos &nbsp;·&nbsp; Catálogo &nbsp;·&nbsp; Noticias</div>
+<div class="ph" style="height:130px">Imagen del vuelo destacado</div><div class="c" style="text-align:center"><b>Bienvenido</b><br>Inicie sesión o cree su cuenta gratis<br><a class="btn">Iniciar sesión</a><a class="btn o">Registrarse</a></div><h3>Vuelos destacados</h3>
+<div class="g3"><div class="c">Ciudad A → Ciudad B<br>dd/mm/aaaa · 00:00<br><b>$000.000</b><br><a class="btn">Ver</a></div><div class="c">Ciudad A → Ciudad C<br>dd/mm/aaaa · 00:00<br><b>$000.000</b><br><a class="btn">Ver</a></div><div class="c">Ciudad B → Ciudad D<br>dd/mm/aaaa · 00:00<br><b>$000.000</b><br><a class="btn">Ver</a></div></div>
+<h3>Noticias</h3><div class="c"><b>Nuevo vuelo</b> Ciudad A → Ciudad B</div><div class="c"><b>Promoción</b> Vuelo 0001 a $000.000</div></div><div class="bot">💬 Chatbot</div></div></section>
+
+<section class="s" id="registro"><div class="f"><div class="u">🔒 plataforma.com/registro</div><h2 class="hd">Registro de cliente</h2><div class="p">
+<div class="g"><label>DNI<input></label><label>Nombres<input></label><label>Apellidos<input></label><label>Fecha de nacimiento<input type="date"></label><label>Lugar de nacimiento<input></label><label>Dirección de facturación<input></label><label>Género<select><option>Seleccione</option></select></label><label>Correo electrónico<input></label><label>Nombre de usuario<input></label><label>Contraseña<input type="password"></label></div>
+<label>Imagen de usuario (opcional)<input type="file"></label><label class="i"><input type="checkbox">Acepto la política de tratamiento de datos</label><a class="btn">Registrarse</a></div></div></section>
+
+<section class="s" id="login"><div class="f"><div class="u">🔒 plataforma.com/login</div><h2 class="hd">Iniciar sesión</h2><div class="p" style="max-width:360px;margin:auto">
+<label>Correo electrónico<input></label><label>Contraseña<input type="password"></label><a class="btn">Iniciar sesión</a><p><a href="#recuperar">¿Olvidó su contraseña?</a> · <a href="#registro">Registrarse</a></p></div></div></section>
+
+<section class="s" id="recuperar"><div class="f"><div class="u">🔒 plataforma.com/recuperar</div><h2 class="hd">Recuperar contraseña</h2><div class="p" style="max-width:360px;margin:auto">
+<label>Correo electrónico registrado<input></label><a class="btn">Enviar enlace</a><hr><p class="n">Vista del enlace recibido por correo:</p><label>Nueva contraseña<input type="password"></label><label>Confirmar contraseña<input type="password"></label><a class="btn">Guardar</a></div></div></section>
+
+<section class="s" id="verificar"><div class="f"><div class="u">🔒 plataforma.com/verificar</div><h2 class="hd">Verificar correo electrónico</h2><div class="p" style="max-width:360px;margin:auto">
+<div class="c">Enviamos un enlace de verificación a <b>correo@ejemplo.com</b>. Su cuenta permanece sin verificar hasta completar este paso.</div><label>Código de verificación<input></label><a class="btn">Verificar</a><a class="btn o">Reenviar código</a></div></div></section>
+
+<section class="s" id="perfil"><div class="f"><div class="u">🔒 plataforma.com/perfil</div><h2 class="hd">Mi perfil</h2><div class="p">
+<div class="g"><div class="ph">Imagen de perfil</div><div><label>Cambiar imagen<input type="file"></label><label class="i"><input type="checkbox">Suscrito a noticias y promociones</label></div></div>
+<div class="g"><label>Nombres<input></label><label>Apellidos<input></label><label>Fecha de nacimiento<input type="date"></label><label>Dirección de facturación<input></label><label>Género<select><option>Seleccione</option></select></label><label>Correo (no editable)<input disabled></label></div>
+<a class="btn">Guardar cambios</a><a class="btn r">Cerrar sesión</a></div></div></section>
+
+<section class="s" id="buscar"><div class="f"><div class="u">🔒 plataforma.com/buscar</div><h2 class="hd">Buscar vuelos</h2><div class="p">
+<label class="i"><input type="radio" name="t">Solo ida &nbsp; <input type="radio" name="t">Ida y regreso</label>
+<div class="g"><label>Origen<select><option>Ciudad A</option></select></label><label>Destino<select><option>Ciudad B</option></select></label><label>Fecha de ida<input type="date"></label><label>Fecha de regreso<input type="date"></label><label>Pasajeros (máx. 5)<input type="number" value="1"></label><label>Clase (filtro)<select><option>Todas</option><option>Primera</option><option>Económica</option></select></label></div>
+<a class="btn">Buscar</a></div></div></section>
+
+<section class="s" id="resultados"><div class="f"><div class="u">🔒 plataforma.com/resultados</div><h2 class="hd">Resultados de búsqueda</h2><div class="p">
+<div class="g3"><label>Tipo de vuelo<select><option>Todos</option></select></label><label>Hora<select><option>Cualquiera</option></select></label><label>Costo máximo<input></label></div>
+<h4>Ida · Ciudad A → Ciudad B</h4>
+<table><tr><th>Vuelo</th><th>Salida</th><th>Llegada</th><th>Duración</th><th>Precio/persona</th><th>Cupos</th><th></th></tr>
+<tr><td>0001</td><td>00:00</td><td>00:00</td><td>0h 00m</td><td>$000.000</td><td>Disponibles</td><td><a class="btn">Seleccionar</a></td></tr>
+<tr><td>0002</td><td>00:00</td><td>00:00</td><td>0h 00m</td><td>$000.000</td><td>Insuficientes</td><td><a class="btn o">Ver detalle</a></td></tr></table>
+<h4>Regreso · Ciudad B → Ciudad A</h4><table><tr><th>Vuelo</th><th>Salida</th><th>Llegada</th><th>Precio</th><th></th></tr><tr><td>0003</td><td>00:00</td><td>00:00</td><td>$000.000</td><td><a class="btn">Seleccionar</a></td></tr></table>
+<p class="n">Sin resultados: «Ningún vuelo cumple los criterios indicados».</p></div></div></section>
+
+<section class="s" id="detalle"><div class="f"><div class="u">🔒 plataforma.com/vuelo/0001</div><h2 class="hd">Detalle del vuelo 0001</h2><div class="p">
+<div class="g"><div class="ph">Imagen del destino</div><div class="c">Origen: Ciudad A<br>Destino: Ciudad B<br>Salida: dd/mm/aaaa 00:00<br>Llegada (hora destino): dd/mm/aaaa 00:00<br>Tiempo de vuelo: 0h 00m<br>Costo por persona: <b>$000.000</b></div></div>
+<a class="btn">Reservar</a><a class="btn">Comprar</a><a class="btn o">Volver</a></div></div></section>
+
+<section class="s" id="catalogo"><div class="f"><div class="u">🔒 plataforma.com/catalogo</div><h2 class="hd">Catálogo de vuelos por ciudad</h2><div class="p">
+<label>Ciudad de origen<select><option>Ciudad A</option></select></label>
+<table><tr><th>Destino</th><th>Salida</th><th>Llegada</th><th>Duración</th><th>Costo</th><th></th></tr>
+<tr><td>Ciudad B</td><td>dd/mm 00:00</td><td>dd/mm 00:00</td><td>0h 00m</td><td>$000.000</td><td><a class="btn">Ver detalle</a></td></tr>
+<tr><td>Ciudad C</td><td>dd/mm 00:00</td><td>dd/mm 00:00</td><td>0h 00m</td><td>$000.000</td><td><a class="btn">Ver detalle</a></td></tr></table></div></div></section>
+
+<section class="s" id="viajeros"><div class="f"><div class="u">🔒 plataforma.com/compra/viajeros</div><h2 class="hd">Datos de los viajeros</h2><div class="p">
+<div class="c"><b>Viajero 1</b> (tiquete 1 de 2)<div class="g3"><label>Documento<input></label><label>Nombres<input></label><label>Apellidos<input></label><label>Fecha de nacimiento<input type="date"></label><label>Género<select><option>Seleccione</option></select></label><label>Teléfono<input></label><label>Correo<input></label><label>Nombre de contacto<input></label><label>Teléfono de contacto<input></label></div></div>
+<div class="c"><b>Viajero 2</b> (tiquete 2 de 2)<div class="g3"><label>Documento<input></label><label>Nombres<input></label><label>Apellidos<input></label></div><p class="n">Mismos campos que el viajero 1</p></div>
+<p class="n">Debe haber al menos un viajero mayor de edad.</p><a class="btn">Continuar</a></div></div></section>
+
+<section class="s" id="clase"><div class="f"><div class="u">🔒 plataforma.com/compra/clase</div><h2 class="hd">Clase y tipo de trayecto</h2><div class="p">
+<div class="g"><div class="c"><b>Trayecto</b><br><label class="i"><input type="radio" name="a">Único (ida)</label><label class="i"><input type="radio" name="a">Completo (ida y regreso)</label></div><div class="c"><b>Clase</b><br><label class="i"><input type="radio" name="b">Primera clase</label><label class="i"><input type="radio" name="b">Clase económica</label></div></div>
+<div class="c">Resumen: Ciudad A → Ciudad B · 2 pasajeros · <b>$000.000</b></div><a class="btn">Agregar al carrito</a></div></div></section>
+
+<section class="s" id="carrito"><div class="f"><div class="u">🔒 plataforma.com/carrito</div><h2 class="hd">Carrito de compras</h2><div class="p">
+<table><tr><th>Vuelo</th><th>Viajero</th><th>Clase</th><th>Precio</th><th></th></tr><tr><td>0001</td><td>Nombre Apellido</td><td>Económica</td><td>$000.000</td><td><a class="btn o">Quitar</a></td></tr><tr><td>0001</td><td>Nombre Apellido</td><td>Económica</td><td>$000.000 (promo)</td><td><a class="btn o">Quitar</a></td></tr></table>
+<p class="tot">Total: $000.000</p><p>Saldo de billetera: $000.000</p>
+<div class="c" style="border-color:#b33">Saldo insuficiente. <a class="btn o">Depositar</a></div>
+<a class="btn o">Reservar</a><a class="btn">Pagar con billetera</a></div></div></section>
+
+<section class="s" id="confirma"><div class="f"><div class="u">🔒 plataforma.com/compra/confirmacion</div><h2 class="hd">Confirmación</h2><div class="p">
+<div class="g"><div class="c"><b>✔ Compra exitosa</b><br>Código de reserva: <b>ABC123</b><br>Vuelo 0001 · Silla asignada: 00A<br>Se envió el código a cada correo de viajero.</div><div class="c"><b>✔ Reserva creada</b><br>Vigente hasta: dd/mm/aaaa 00:00<br>Se libera automáticamente si no se compra.<br><a class="btn">Convertir en compra</a></div></div></div></div></section>
+
+<section class="s" id="historial"><div class="f"><div class="u">🔒 plataforma.com/historial</div><h2 class="hd">Mi historial</h2><div class="p">
+<a class="btn">Compras</a><a class="btn o">Reservas</a><a class="btn o">Cancelaciones</a>
+<table><tr><th>Vuelo</th><th>Viajeros</th><th>Estado</th><th>Valor</th><th>Check-in</th><th>Acciones</th></tr>
+<tr><td>0001</td><td>Nombre Apellido</td><td>Comprada</td><td>$000.000</td><td>Pendiente</td><td><a class="btn">Check-in</a><a class="btn r">Cancelar</a></td></tr>
+<tr><td>0002</td><td>Nombre Apellido</td><td>Vigente</td><td>$000.000</td><td>—</td><td><a class="btn">Comprar</a><a class="btn r">Cancelar</a></td></tr>
+<tr><td>0003</td><td>Nombre Apellido</td><td>Cancelada</td><td>$000.000</td><td>—</td><td></td></tr></table></div></div></section>
+
+<section class="s" id="cancelar"><div class="f"><div class="u">🔒 plataforma.com/historial</div><h2 class="hd">Cancelar reserva / compra</h2><div class="p">
+<div class="md"><b>¿Desea cancelar?</b><p>Vuelo 0001 · Ciudad A → Ciudad B<br>Se abonarán <b>$000.000</b> a su billetera y se liberarán las sillas.</p><a class="btn r">Confirmar cancelación</a><a class="btn o">Volver</a></div></div></div></section>
+
+<section class="s" id="checkin"><div class="f"><div class="u">🔒 plataforma.com/checkin</div><h2 class="hd">Check-in</h2><div class="p" style="max-width:420px;margin:auto">
+<label class="i"><input type="radio" name="c">Código de reserva</label><label class="i"><input type="radio" name="c">Número de documento</label><label class="i"><input type="radio" name="c">Mis tiquetes (sesión iniciada)</label>
+<label>Código o documento<input></label><label class="i"><input type="checkbox">Hacer check-in de todos los viajeros del código</label>
+<p class="n">Disponible desde 24 horas antes de la salida.</p><a class="btn">Continuar</a></div></div></section>
+
+<section class="s" id="sillas"><div class="f"><div class="u">🔒 plataforma.com/checkin/sillas</div><h2 class="hd">Selección de silla · Vuelo 0001</h2><div class="p">
+<p class="n" style="text-align:center">Clase adquirida: Económica · Sillas actuales: 15A y 15B · Cambios restantes: 1 · Desplácese para recorrer el avión</p>
+<div style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;align-items:flex-start"><div class="lg"><div><i class="y"></i>Asiento no disponible para reservar</div><div><i></i>Asiento disponible para reservar</div><div><i class="rd"></i>El asiento ya ha sido reservado</div><div><i class="bl"></i>Asiento asignado a uno de los pasajeros en esta reserva</div><div><i class="x"></i>Asientos con espacio extra para las piernas</div></div>
+<div class="pl"><div class="nose">▲ Frente · Cabina</div><div class="sc"><div class="rw h"><span>A</span><span>B</span><span>C</span><span></span><span>D</span><span>E</span><span>F</span></div><div class="cb">Primera clase</div><div class="rw"><i class="y"></i><i class="y"></i><i class="y"></i><b>1</b><i class="y"></i><i class="y"></i><i class="y"></i></div><div class="rw"><i class="rd"></i><i class="y"></i><i class="y"></i><b>2</b><i class="y"></i><i class="y"></i><i class="y"></i></div><div class="rw"><i class="y"></i><i class="y"></i><i class="y"></i><b>3</b><i class="y"></i><i class="y"></i><i class="y"></i></div><div class="rw"><i class="y"></i><i class="y"></i><i class="y"></i><b>4</b><i class="y"></i><i class="y"></i><i class="y"></i></div><div class="cb">Clase económica</div><div class="rw"><i class="x"></i><i class="rd x"></i><i class="x"></i><b>5</b><i class="rd x"></i><i class="x"></i><i class="x"></i></div><div class="rw"><i class="rd"></i><i class=""></i><i class="rd"></i><b>6</b><i class=""></i><i class="rd"></i><i class="rd"></i></div><div class="rw"><i class=""></i><i class=""></i><i class="rd"></i><b>7</b><i class="y"></i><i class=""></i><i class=""></i></div><div class="rw"><i class=""></i><i class=""></i><i class=""></i><b>8</b><i class="rd"></i><i class=""></i><i class="y"></i></div><div class="rw"><i class="rd"></i><i class="rd"></i><i class=""></i><b>9</b><i class=""></i><i class="rd"></i><i class=""></i></div><div class="rw"><i class=""></i><i class=""></i><i class=""></i><b>10</b><i class="rd"></i><i class="rd"></i><i class="rd"></i></div><div class="rw"><i class=""></i><i class=""></i><i class=""></i><b>11</b><i class=""></i><i class=""></i><i class="y"></i></div><div class="rw"><i class=""></i><i class=""></i><i class="y"></i><b>12</b><i class=""></i><i class=""></i><i class=""></i></div><div class="sd">Salida de emergencia</div><div class="rw"><i class="x"></i><i class="y x"></i><i class="x"></i><b>13</b><i class="rd x"></i><i class="x"></i><i class="x"></i></div><div class="rw"><i class="rd"></i><i class=""></i><i class="rd"></i><b>14</b><i class=""></i><i class=""></i><i class=""></i></div><div class="rw"><i class="bl"></i><i class="bl"></i><i class=""></i><b>15</b><i class=""></i><i class=""></i><i class=""></i></div><div class="rw"><i class=""></i><i class=""></i><i class=""></i><b>16</b><i class=""></i><i class=""></i><i class=""></i></div><div class="rw"><i class="rd"></i><i class=""></i><i class=""></i><b>17</b><i class=""></i><i class=""></i><i class="y"></i></div><div class="rw"><i class=""></i><i class=""></i><i class="rd"></i><b>18</b><i class=""></i><i class="rd"></i><i class="rd"></i></div><div class="rw"><i class="rd"></i><i class=""></i><i class="rd"></i><b>19</b><i class="y"></i><i class=""></i><i class=""></i></div><div class="rw"><i class="rd"></i><i class=""></i><i class=""></i><b>20</b><i class=""></i><i class=""></i><i class=""></i></div><div class="rw"><i class="y"></i><i class=""></i><i class=""></i><b>21</b><i class=""></i><i class=""></i><i class="rd"></i></div><div class="rw"><i class="rd"></i><i class="y"></i><i class="y"></i><b>22</b><i class=""></i><i class=""></i><i class="y"></i></div><div class="rw"><i class="rd"></i><i class=""></i><i class=""></i><b>23</b><i class=""></i><i class=""></i><i class=""></i></div><div class="rw"><i class=""></i><i class=""></i><i class=""></i><b>24</b><i class="rd"></i><i class=""></i><i class=""></i></div><div class="rw"><i class=""></i><i class=""></i><i class=""></i><b>25</b><i class=""></i><i class="rd"></i><i class=""></i></div><div class="cb" style="background:#999">Cola del avión</div></div></div></div>
+<p style="text-align:center"><a class="btn">Confirmar silla</a><a class="btn o">Cambiar silla</a></p></div></div></section>
+
+<section class="s" id="pasabordo"><div class="f"><div class="u">🔒 plataforma.com/pasabordo</div><h2 class="hd">Pasabordo</h2><div class="p">
+<div class="c" style="max-width:520px;margin:auto"><b>LOGO · PASABORDO</b><div class="g"><div>Pasajero: Nombre Apellido<br>Vuelo: 0001<br>Origen: Ciudad A<br>Destino: Ciudad B<br>Salida: dd/mm/aaaa 00:00<br>Silla: 00A · Clase: Económica</div><div class="ph">Código QR</div></div></div>
+<p style="text-align:center"><a class="btn">Descargar PDF</a><a class="btn o">Enviar por correo</a></p></div></div></section>
+
+<section class="s" id="avuelos"><div class="f"><div class="u">🔒 plataforma.com/admin/vuelos</div><h2 class="hd">Administración de vuelos</h2><div class="p">
+<a class="btn" href="#aprogramar">+ Programar vuelo</a><label>Estado<select><option>Todos</option><option>Programado</option><option>Realizado</option><option>Cancelado</option></select></label>
+<table><tr><th>Código</th><th>Ruta</th><th>Salida</th><th>Estado</th><th>Cupos</th><th>Acciones</th></tr><tr><td>0001</td><td>Ciudad A → B</td><td>dd/mm 00:00</td><td>Programado</td><td>000/150</td><td><a class="btn o">Editar</a><a class="btn o">Promoción</a><a class="btn r">Cancelar</a></td></tr><tr><td>0002</td><td>Ciudad C → D</td><td>dd/mm 00:00</td><td>Realizado</td><td>—</td><td></td></tr></table>
+<div class="md"><b>¿Cancelar vuelo 0001?</b><p>Hay tiquetes vendidos. Alternativa para cada pasajero:</p><label class="i"><input type="radio" name="d">Reintegro a billetera</label><label class="i"><input type="radio" name="d">Reubicar en otro vuelo</label><a class="btn r">Confirmar</a><a class="btn o">Volver</a></div></div></div></section>
+
+<section class="s" id="aprogramar"><div class="f"><div class="u">🔒 plataforma.com/admin/vuelos/nuevo</div><h2 class="hd">Programar vuelo</h2><div class="p">
+<div class="g"><label>Tipo<select><option>Nacional</option><option>Internacional</option></select></label><label>Origen<select><option>Ciudad A</option></select></label><label>Destino<select><option>Ciudad B</option></select></label><label>Costo por persona<input></label><label>Fecha de salida<input type="date"></label><label>Hora de salida<input type="time"></label></div>
+<div class="c"><b>Calculado por el sistema</b><div class="g3"><label>Código<input disabled></label><label>Tiempo de vuelo<input disabled></label><label>Llegada (hora destino)<input disabled></label><label>Capacidad<input disabled></label><label>Sillas primera clase<input disabled></label><label>Sillas económica<input disabled></label></div></div>
+<a class="btn">Programar</a><a class="btn o">Cancelar</a></div></div></section>
+
+<section class="s" id="aeditar"><div class="f"><div class="u">🔒 plataforma.com/admin/vuelos/0001</div><h2 class="hd">Editar vuelo 0001</h2><div class="p">
+<div class="g3"><label>Origen<input disabled></label><label>Destino<input disabled></label><label>Tipo<input disabled></label><label>Fecha de salida<input type="date"></label><label>Hora de salida<input type="time"></label><label>Costo por persona<input></label></div>
+<p class="n">La llegada se recalcula al guardar.</p><a class="btn">Guardar</a><a class="btn o">Volver</a></div></div></section>
+
+<section class="s" id="apromo"><div class="f"><div class="u">🔒 plataforma.com/admin/promociones</div><h2 class="hd">Promociones</h2><div class="p">
+<div class="g3"><label>Vuelo<select><option>0001</option></select></label><label>Valor promocional<input></label><label>Vigencia hasta<input type="date"></label></div><p class="n">Se aplica solo a los cupos disponibles.</p><a class="btn">Crear promoción</a>
+<table><tr><th>Vuelo</th><th>Valor</th><th>Vigencia</th><th>Cupos</th></tr><tr><td>0001</td><td>$000.000</td><td>dd/mm/aaaa</td><td>000</td></tr></table></div></div></section>
+
+<section class="s" id="root"><div class="f"><div class="u">🔒 plataforma.com/root</div><h2 class="hd">Administradores · Usuario root</h2><div class="p">
+<div class="g"><div><b>Crear administrador</b><label>DNI<input></label><label>Nombres<input></label><label>Apellidos<input></label><label>Correo<input></label><label>Contraseña<input type="password"></label><a class="btn">Crear</a></div>
+<div><b>Cambiar mi contraseña</b><label>Actual<input type="password"></label><label>Nueva<input type="password"></label><label>Confirmar<input type="password"></label><a class="btn">Guardar</a></div></div>
+<table><tr><th>Administrador</th><th>Correo</th></tr><tr><td>Nombre Apellido</td><td>admin@ejemplo.com</td></tr></table></div></div></section>
+
+<section class="s" id="noticias"><div class="f"><div class="u">🔒 plataforma.com/noticias</div><h2 class="hd">Noticias y promociones</h2><div class="p">
+<label class="i"><input type="checkbox">Suscribirme a noticias y promociones</label>
+<div class="c"><b>Nuevo vuelo</b> · dd/mm/aaaa<br>Ciudad A → Ciudad B · dd/mm 00:00 · $000.000</div><div class="c"><b>Promoción</b> · dd/mm/aaaa<br>Vuelo 0001 a valor promocional $000.000</div><div class="c"><b>Promoción</b> · dd/mm/aaaa<br>Vuelo 0004 a valor promocional $000.000</div></div></div></section>
+
+<section class="s" id="mensajes"><div class="f"><div class="u">🔒 plataforma.com/mensajes</div><h2 class="hd">Mensajería con administradores</h2><div class="p"><div class="g" style="grid-template-columns:1fr 3fr">
+<div class="c">Conversación 1<hr>Conversación 2<hr><a class="btn">Nueva</a></div><div><div class="bb">Hola, ¿en qué podemos ayudarle?</div><div class="bb me">Consulta sobre el vuelo 0001</div><label><input placeholder="Escriba un mensaje…"></label><a class="btn">Enviar</a></div></div></div></div></section>
+
+<section class="s" id="billetera"><div class="f"><div class="u">🔒 plataforma.com/billetera</div><h2 class="hd">Mi billetera</h2><div class="p">
+<div class="c tot" style="text-align:center;font-size:22px">Saldo: $000.000</div>
+<div class="g"><div class="c"><b>Depositar</b><label>Desde<select><option>Tarjeta •••• 0000</option></select></label><label>Valor<input></label><a class="btn">Depositar</a></div><div class="c"><b>Retirar</b><label>Hacia<select><option>Cuenta •••• 0000</option></select></label><label>Valor<input></label><label>Código de segundo factor<input></label><a class="btn">Retirar</a></div></div>
+<h4>Movimientos</h4><table><tr><th>Fecha</th><th>Tipo</th><th>Medio</th><th>Operación</th><th>Valor</th><th>Saldo</th></tr><tr><td>dd/mm</td><td>Depósito</td><td>•••• 0000</td><td>—</td><td>$000</td><td>$000</td></tr><tr><td>dd/mm</td><td>Compra</td><td>Billetera</td><td>ABC123</td><td>-$000</td><td>$000</td></tr><tr><td>dd/mm</td><td>Reembolso</td><td>Billetera</td><td>ABC123</td><td>$000</td><td>$000</td></tr></table></div></div></section>
+
+<section class="s" id="medios"><div class="f"><div class="u">🔒 plataforma.com/billetera/medios</div><h2 class="hd">Tarjetas y cuentas bancarias</h2><div class="p">
+<table><tr><th>Tipo</th><th>Número</th><th>Titular</th><th></th></tr><tr><td>Tarjeta crédito</td><td>•••• 0000</td><td>Nombre Apellido</td><td><a class="btn r">Eliminar</a></td></tr><tr><td>Cuenta bancaria</td><td>•••• 0000</td><td>Nombre Apellido</td><td><a class="btn r">Eliminar</a></td></tr></table>
+<h4>Agregar medio</h4><div class="g"><label>Tipo<select><option>Tarjeta crédito</option><option>Tarjeta débito</option><option>Cuenta bancaria</option></select></label><label>Número<input></label><label>Titular<input></label><label>Vencimiento<input></label></div><a class="btn">Agregar</a></div></div></section>
+
+<section class="s" id="chatbot"><div class="f"><div class="u">🔒 plataforma.com/inicio (chatbot abierto)</div><h2 class="hd">Asistente virtual</h2><div class="p">
+<div class="bb">Hola 👋 Puedo ayudarle a buscar y comprar tiquetes. ¿Qué desea hacer?</div><a class="btn o">Buscar vuelo</a><a class="btn o">Cómo comprar</a><div class="bb me">Quiero ir de Ciudad A a Ciudad B</div><div class="bb">Vaya a la vista de búsqueda: <a href="#buscar">Buscar vuelos</a></div>
+<label><input placeholder="Escriba su mensaje…"></label><a class="btn">Enviar</a></div></div></section>
+
+<section class="s" id="recom"><div class="f"><div class="u">🔒 plataforma.com/recomendaciones</div><h2 class="hd">Recomendaciones para usted</h2><div class="p">
+<div class="g3"><div class="c"><div class="ph">Imagen</div>Ciudad A → Ciudad B<br>dd/mm · 00:00<br><b>$000.000</b><br><a class="btn">Ver detalle</a></div><div class="c"><div class="ph">Imagen</div>Ciudad A → Ciudad C<br>dd/mm · 00:00<br><b>$000.000</b><br><a class="btn">Ver detalle</a></div><div class="c"><div class="ph">Imagen</div>Ciudad B → Ciudad D<br>dd/mm · 00:00<br><b>$000.000</b><br><a class="btn">Ver detalle</a></div></div></div></div></section>
+
+</main></body></html>
