@@ -2,8 +2,8 @@
 
 **Proyecto:** Sistema de Gestión de Compra y Reserva de Tiquetes Aéreos en Línea  
 **Asignatura:** Laboratorio de Software — Universidad Tecnológica de Pereira  
-**Versión:** 1.0.0  
-**Fecha:** 2026-10-14  
+**Versión:** 1.0.1
+**Fecha:** 2026-10-16
 **Ubicación propuesta:** `docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md`  
 **Destinatarios:** backend, frontend, integración/despliegue y herramientas de IA del equipo.  
 **Estado:** complemento consolidado para revisión e incorporación al repositorio mediante el flujo de trabajo del equipo. No acredita aprobación del profesor ni implementación del código.
@@ -107,6 +107,7 @@ La revisión parte de los adjuntos compartidos. La captura `image.png` únicamen
 | DEC-12 | R/T | Monolito modular Django/DRF/PostgreSQL, contrato de API común y entorno reproducible. |
 | DEC-13 | R | Notificaciones persistentes con reintentos; correo y PDF no revierten una compra confirmada. |
 | DEC-14 | R/T | Un PR por HU, trazabilidad, revisión por otra persona y pruebas de reglas reales. |
+| DEC-15 | C/R | P-02: root inicia sesión con ID y contraseña, sin correo ni datos personales obligatorios; clientes y administradores usan correo único sin distinguir mayúsculas. El rol de negocio no concede privilegios de Django. |
 
 ## 4. Identificadores y códigos
 
@@ -387,7 +388,7 @@ Una reserva conserva su historia al convertirse en compra; una cancelación cons
 - Documento de usuario no único: RN-19 permite varias cuentas con el mismo documento.
 - Roles de negocio: `ROOT`, `ADMINISTRADOR`, `CLIENTE`; visitante es la condición no autenticada, no una cuenta creada en la base de datos.
 - Separar el rol `ROOT` de `is_superuser` e `is_staff` de Django. Ninguno de estos indicadores puede hacer que root compre o que cualquier administrador cree otros administradores.
-- Resolver el acceso inicial de root conforme a P-02: el enunciado solo exige ID y contraseña y todavía falta armonizarlo con el login por correo.
+- P-02 quedó resuelta el 16 de octubre de 2026: root inicia con ID y contraseña, puede omitir correo y datos personales, y no obtiene automáticamente `is_staff` ni `is_superuser` por su rol; los privilegios técnicos se administran por separado. Clientes y administradores acceden con correo obligatorio y único sin distinguir mayúsculas; sus datos personales se exigen según los requisitos de su historia.
 - Crear usuario y billetera conjuntamente. En registro público, el servidor fija el rol `CLIENTE` e impide que el cuerpo HTTP eleve privilegios.
 
 | Operación | Autorización de negocio |
@@ -497,7 +498,7 @@ OpenAPI es el contrato compartido de lo implementado; debe reflejar esta especif
 
 - Versionar dependencias, migraciones, configuración de contenedores, instrucciones y datos de referencia reproducibles.
 - Mantener `.env.example` sin secretos; separar configuración por entorno y no publicar credenciales de root.
-- Crear root mediante un procedimiento idempotente con credenciales externas al código; resolver primero P-02.
+- Crear root mediante un procedimiento idempotente con credenciales externas al código y sin contraseñas predeterminadas. La elección de un comando interactivo es una decisión técnica de BASE-01, no una nueva restricción del negocio.
 - Usar PostgreSQL tanto en integración local como en CI para los comportamientos dependientes del motor.
 - Disponer de persistencia y backups; ejecutar migraciones de manera coordinada al desplegar.
 - El proceso de vencimiento debe ejecutarse automáticamente; puede iniciarse con comandos Django y un programador de tareas bajo responsabilidad de integración. No necesita introducir una cola distribuida solo por existir una tarea periódica.
@@ -577,17 +578,20 @@ Los objetivos de rendimiento de S2 se presentan como iniciales y pendientes de c
 
 ## 14. Decisiones pendientes: registro único
 
-Estos puntos se identificaron al consolidar las aclaraciones. No son permiso para inventar una respuesta individual. La propuesta ayuda a resolverlos, pero **no equivale a una decisión ya aprobada**. Bloquear únicamente el comportamiento afectado, no el proyecto completo.
+Los siguientes puntos permanecen abiertos; no son permiso para inventar una respuesta individual. La propuesta ayuda a resolverlos, pero **no equivale a una decisión ya aprobada**. Bloquear únicamente el comportamiento afectado, no el proyecto completo.
 
 | ID | Punto por cerrar | Propuesta o criterio de resolución | Área afectada |
 |---|---|---|---|
 | **P-01** | Evento que marca `REALIZADO`, tratamiento de retrasos, check-ins/pasabordos al reprogramar y flujo de reubicación. | Separar hora prevista de confirmación de operación; considerar confirmación administrativa o evento explícito. Definir conservación o invalidación de check-in y documentos, selección/aceptación de vuelo sustituto y tratamiento de diferencias de tarifa, sin cobros silenciosos. Actualizar RF-ADM-12/13/RNF-DIS-02 y HU-002/003. | Vuelos, tareas automáticas, reubicación y check-in. |
-| **P-02** | Root exige solo ID y contraseña, pero el login general usa correo y hay operaciones que exigen correo verificado. | Elegir un acceso inicial coherente sin inventar un correo personal obligatorio para root. Documentar qué campos son obligatorios por rol y qué operaciones financieras estarán habilitadas. | Usuario, autenticación, HU-009. |
 | **P-03** | Check-in rápido por documento/localizador frente a privacidad y autorización. | Mantener acceso sin cuenta, pero proponer un código de un solo uso enviado al correo registrado antes de mostrar datos o confirmar cambios. No revelar destinatarios completos ni permitir acceso a información financiera. Acordar el flujo exacto. | API pública, check-in y frontend. |
 | **P-04** | Promociones, `cupos_afectados`, reservas previas y tarifa por clase. | Definir si cupos es cuota consumible o instantánea; elegibilidad de reservas ya retenidas; tratamiento de superposición; y cómo se ingresan precios de ambas clases. Propuesta de simplicidad: una promoción activa por vuelo/clase. No inventar recargos de primera clase. | Vuelos, promociones, cotización, reserva/compra. |
 | **P-05** | Parámetros no especificados: límites monetarios, intentos/bloqueo, TTL de recuperación, frecuencia de reenvío, segundo factor e imagen. | Fijar valores en una configuración común y reflejarlos en pruebas. Elegir correo OTP o TOTP para retiros y definir uso único, vencimiento y vinculación a la operación. | Seguridad, billetera, perfil. |
 | **P-06** | Ida y regreso internacional frente a rutas autorizadas solo Colombia → exterior. | Aclarar si se autorizan rutas inversas del mismo conjunto o si esa modalidad queda limitada. Hasta resolverlo, no ampliar el catálogo silenciosamente. | Rutas, búsqueda y compra internacional. |
 | **P-07** | Rama/PR para tareas técnicas o documentación transversal sin HU propia. | Registrar una convención explícita en S8, manteniendo revisión y squash. No crear historias ficticias. | Integración y todo el equipo. |
+
+**P-02 — Base del modelo resuelta (16 de octubre de 2026; DEC-15):** se aprobó que root use su ID para iniciar sesión y no requiera correo ni datos personales; clientes y administradores usan un correo obligatorio, único sin distinguir mayúsculas. `ROOT` es un rol de negocio independiente de `is_staff` e `is_superuser`. Esta decisión no define permisos financieros ni cambia los flujos de las HU.
+
+**Acuerdo:** autorización expresa del usuario responsable del encargo el 2026-10-16; incorporación local, sin PR ni aprobación académica atribuida. Afecta RF-USU-01/05/06/07/08, HU-007/008/009 y usuario. **Validación de la base:** root puede omitir correo y perfil; los demás roles requieren correo único sin distinguir mayúsculas; el nombre de perfil se conserva separado del acceso. La revisión y las pruebas se registran en [BASE-01_VERIFICACION.md](BASE-01_VERIFICACION.md). Quedan para sus HU los flujos públicos, la recuperación de root sin correo y los permisos financieros; no se aprobó una excepción a la verificación de correo.
 
 Para cerrar un pendiente, registrar respuesta, responsable del acuerdo, fecha, referencias afectadas y criterio de aceptación. Sustituir su estado por una decisión vigente y actualizar las pruebas relacionadas.
 
@@ -613,7 +617,7 @@ Para cerrar un pendiente, registrar respuesta, responsable del acuerdo, fecha, r
 | Dobles descuentos al comprar una reserva | Conversión de retenido a vendido | HU-012/013, inventario y pruebas. |
 | Unicidad de silla/viajero bloquea historia cancelada | Restricciones sobre ocupaciones activas | S4, modelos y migraciones. |
 | Check-in rápido contradice autenticación general | Excepción funcional y P-03 | RF-CHK-01, RNF-SEG-01/12, HU-016/CU-16. |
-| Root con ID/contraseña frente a correo obligatorio | P-02 | RF-USU-01/07/08, HU-008/009, usuario. |
+| Root con ID/contraseña frente a correo obligatorio | DEC-15 | RF-USU-01/07/08, HU-008/009, usuario. |
 | Ida/vuelta internacional no cubierta por rutas inversas | P-06 | RF-ADM-05, RF-BSQ-12, RF-COM-08. |
 | Autorización de root confundida con superusuario | DEC-10: rol explícito | Permisos y pruebas por rol. |
 | Ejemplo HU-12 denominado búsqueda | HU-005 es búsqueda; HU-012 es reserva | S8 y ejemplos de ramas/commits. |
@@ -714,6 +718,7 @@ Cada encargo debe indicar HU, alcance, decisiones aplicables, dependencias, crit
 
 | Versión | Fecha | Cambio |
 |---|---|---|
+| 1.0.1 | 2026-10-16 | Registra la autorización del usuario sobre la base de P-02/DEC-15, su alcance y evidencia; aclara que separar roles de privilegios técnicos no equivale a prohibirlos. No resuelve permisos financieros ni otras HU. |
 | 1.0.0 | 2026-10-14 | Consolidación inicial de correcciones y aclaraciones de la conversación; convenciones comunes, matriz de trazabilidad, escenarios de aceptación y pendientes explícitos. |
 
 ## 19. Referencias técnicas de apoyo

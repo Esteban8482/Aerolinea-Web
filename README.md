@@ -6,7 +6,7 @@ Proyecto académico de **Laboratorio de Software**, del programa de **Ingenierí
 
 La aplicación busca gestionar el ciclo comercial del tiquete aéreo: programación de vuelos, consulta de disponibilidad, reserva, compra, administración de pagos internos y emisión del pasabordo. El caso de estudio corresponde a una aerolínea con operación nacional y expansión hacia rutas internacionales delimitadas.
 
-> **Estado al 14 de octubre de 2026:** documentación de referencia preparada e inicio de la configuración técnica **BASE-01**, en la rama `configuracion_entorno`. Las funcionalidades descritas representan el alcance previsto; su presencia en este README no significa que estén implementadas, probadas o desplegadas.
+> **Estado al 16 de octubre de 2026:** base técnica Django/PostgreSQL implementada y revisada localmente en la rama existente `BASE-01`, autorizada expresamente para esta tarea. Consulta [evidencias y límites](docs/BASE-01_VERIFICACION.md) y [ejecución del backend](backend/README.md). Las HU descritas siguen representando alcance previsto, no funcionalidades ya terminadas ni desplegadas.
 
 ## Contenido
 
@@ -178,7 +178,7 @@ La tabla describe la base acordada y las herramientas propuestas para concretarl
 | Base en despliegue | PostgreSQL persistente; RDS como alternativa | La opción definitiva corresponde a integración. |
 | Correo y documentos | SMTP; ReportLab como herramienta propuesta | Notificaciones y pasabordos PDF. |
 
-Para BASE-01 se han propuesto las series **Python 3.13, Django 5.2 LTS y PostgreSQL 17**. Las versiones exactas y su compatibilidad deben verificarse y fijarse durante la configuración; no representan todavía un entorno instalado y probado.
+BASE-01 se verificó con **Python 3.13.16, Django 5.2.18 (LTS) y PostgreSQL 17.11**. Las dependencias Python están fijadas con hashes en `backend/requirements/`; la guía del backend registra las demás versiones y las diferencias entre desarrollo, pruebas y producción.
 
 Las dependencias Python pertenecen a `backend/`; las del frontend se gestionan mediante `package.json` y su archivo de bloqueo. El equipo debe instalar las versiones fijadas, sin resolver una combinación distinta en cada máquina.
 
@@ -216,7 +216,7 @@ Se permiten commits de tipo `feat`, `fix`, `docs`, `test` y `chore`. No se reali
 
 La numeración de las HU procede de su documento: **HU-005 corresponde a búsqueda y HU-012 a reserva**. Los ejemplos de comandos no redefinen esos identificadores.
 
-**BASE-01** es el identificador de la tarea de preparación técnica inicial; no es una HU ficticia ni el nombre de una rama. Esta tarea se desarrolla en la rama **`configuracion_entorno`**. La convención general para integrar tareas técnicas sin HU debe formalizarse en `REGLASCOMMITS.md`, conservando revisión y trazabilidad.
+**BASE-01** identifica la tarea de preparación técnica inicial; no es una HU ficticia. El encargo original indicaba `configuracion_entorno`, pero el 16 de octubre de 2026 el usuario autorizó continuar en la rama existente **`BASE-01`**. Esta excepción no define una convención general ni cierra P-07. No se crearon ramas, commits ni PR durante la revisión.
 
 ### Uso de herramientas de IA
 
@@ -263,11 +263,13 @@ Este README no resuelve nuevos conflictos ni sustituye los criterios de aceptaci
 | `README.md` | Contexto general y orientación de entrada. |
 | `REGLASCOMMITS.md` | Reglas de ramas, commits y PR. |
 
-BASE-01 debe incorporar o completar `AGENTS.md`, `compose.yaml`, `.env.example`, Dockerfile del backend, dependencias fijadas, configuración de pruebas y CI. Esta lista describe la entrega prevista; no garantiza que esos archivos ya existan en la rama consultada.
+La base incluye `AGENTS.md`, Compose de desarrollo y su opción para WSL, `.env.example`, Dockerfile con stages separados, usuario personalizado y billetera mínima, dependencias fijadas, pruebas, contrato API, CI y plantilla de PR reconocida por GitHub. [La revisión](docs/BASE-01_VERIFICACION.md) distingue lo implementado de lo validado.
 
 ## Preparación y ejecución
 
-La guía de instalación ejecutable se completará al validar BASE-01. Mientras tanto, no se presentan comandos de migración o arranque como si la configuración estuviera terminada.
+BASE-01 incorpora la configuración inicial Django/PostgreSQL, Compose, dependencias, CI y
+contrato OpenAPI. La configuración y los comandos se documentan en [backend/README.md](backend/README.md).
+Compose y las verificaciones locales se ejecutaron; GitHub Actions todavía no se ha ejecutado en GitHub.
 
 Para obtener una copia nueva del repositorio:
 
@@ -282,14 +284,15 @@ Quien ya tenga el clon debe trabajar dentro de esa raíz y conservar su rama y e
 La preparación debe seguir este orden:
 
 1. Leer la documentación y comprobar la rama, los cambios locales y las versiones fijadas.
-2. Configurar las variables a partir de `.env.example`, cuando esté disponible, sin versionar secretos.
-3. Preparar el entorno Python y los servicios Docker conforme a la configuración compartida.
-4. Definir el usuario personalizado y cerrar las decisiones que condicionen sus campos antes de migrar autenticación.
-5. Crear el esquema mediante migraciones versionadas y comprobar PostgreSQL.
-6. Ejecutar las comprobaciones y pruebas documentadas.
-7. Iniciar los servicios con los comandos validados que se incorporen al README del componente.
+2. Conservar el `.env` local existente; para un clon nuevo, generar valores con la guía del backend. `.env.example` contiene secretos vacíos y no sirve directamente para arrancar.
+3. Iniciar PostgreSQL y Django con `docker compose up --build -d --wait`.
+4. Aplicar migraciones con `docker compose exec backend python manage.py migrate --noinput`.
+5. Crear root solo cuando se necesite, interactivamente: `docker compose exec backend python manage.py create_root --root-id root`.
+6. Abrir `http://localhost:8000/api/docs/` y ejecutar las comprobaciones de [backend/README.md](backend/README.md).
 
-Los comandos deben indicar si se ejecutan en WSL o dentro del contenedor. Los entornos de desarrollo, pruebas y producción mantienen configuración separada; no se utiliza una base productiva para ejecutar pruebas.
+Los comandos de Compose se ejecutan desde la raíz del repositorio en WSL/Linux con Docker
+Compose y su integración disponibles. Los entornos de desarrollo, pruebas y producción
+mantienen configuración separada; no se utiliza una base productiva para ejecutar pruebas.
 
 ## Calidad y seguridad
 
@@ -319,7 +322,6 @@ El registro detallado y vigente se mantiene en el complemento. Al preparar esta 
 | ID | Tema por resolver |
 |---|---|
 | P-01 | Transición a vuelo realizado; retrasos, reprogramaciones, reubicación y efectos sobre check-in y pasabordos. |
-| P-02 | Identificación y autenticación de root, campos por rol y coherencia con el acceso por correo. |
 | P-03 | Verificación del viajero para check-in rápido sin cuenta. |
 | P-04 | Cupos de promociones, superposición, reservas anteriores y entrada de tarifas por clase. |
 | P-05 | Parámetros compartidos de seguridad, límites financieros, segundo factor e imágenes. |
@@ -328,9 +330,14 @@ El registro detallado y vigente se mantiene en el complemento. Al preparar esta 
 
 Un pendiente bloquea el comportamiento afectado, no todo el desarrollo. Su cierre debe registrar decisión, responsable del acuerdo, fecha, artefactos afectados y validación. Las propuestas de resolución no se consideran aprobaciones implícitas.
 
+**P-02 quedó resuelta el 16 de octubre de 2026** para la base del usuario: root accede por ID,
+con correo opcional y sin datos personales obligatorios; clientes y administradores acceden
+por correo único sin distinguir mayúsculas. La cuenta root de negocio no implica privilegios
+de Django. La decisión no adelanta permisos financieros ni sustituye las reglas de cada HU.
+
 ## Evolución del proyecto
 
-La siguiente entrega es **BASE-01**: configuración reproducible, conexión con PostgreSQL, definición inicial del usuario, dependencias fijadas, documentación API, pruebas base y automatización de comprobaciones.
+**BASE-01** deja la configuración técnica preparada y verificada localmente. Su [reporte](docs/BASE-01_VERIFICACION.md) conserva evidencia, cambios respecto de la primera implementación y verificaciones externas pendientes. No acredita un despliegue ni el cumplimiento de las HU.
 
 Después, el desarrollo avanza por paquetes de HU con dependencias explícitas. Autenticación y permisos habilitan las operaciones protegidas; vuelos e inventario soportan búsqueda y ventas; billetera participa en compras y reembolsos; check-in consume tiquetes confirmados.
 

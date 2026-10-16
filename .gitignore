@@ -151,8 +151,11 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
 .venv
+.venv-*/
 env/
 venv/
 ENV/
@@ -207,6 +210,11 @@ tempCodeRunnerFile.py
 
 # Ruff stuff:
 .ruff_cache/
+
+# Django generated artifacts
+backend/staticfiles/
+backend/media/
+backend/schema.generated.yaml
 
 # PyPI configuration file
 .pypirc

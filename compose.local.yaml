@@ -1,0 +1,5 @@
+# Solo para ejecutar Django en WSL: no usar en despliegue.
+services:
+  db:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
