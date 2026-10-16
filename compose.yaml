@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:17.11
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aerolinea}
+      POSTGRES_USER: ${POSTGRES_USER:-aerolinea}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configura POSTGRES_PASSWORD en .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      target: development
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Configura DJANGO_SECRET_KEY en .env}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aerolinea}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-aerolinea}
+      TEST_DATABASE_URL: postgresql://${POSTGRES_USER:-aerolinea}:${POSTGRES_PASSWORD}@db:5432/test_aerolinea
+      PYTEST_ADDOPTS: -o cache_dir=/tmp/pytest-cache
+      COVERAGE_FILE: /tmp/aerolinea-coverage
+      RUFF_CACHE_DIR: /tmp/ruff-cache
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  postgres_data:
