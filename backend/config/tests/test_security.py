@@ -135,6 +135,10 @@ call_command("check", deploy=True, fail_level="ERROR")
 client = Client(HTTP_HOST="api.example.invalid")
 assert client.get("/api/docs/", secure=True).status_code == 404
 assert client.get("/admin/", secure=True).status_code == 404
+assert client.get("/api/v1/auth/registration-policy/", secure=True).status_code == 503
+assert client.get("/api/v1/auth/registration-policy/test-document/", secure=True).status_code == 404
+response = client.post("/api/v1/auth/register/", {}, content_type="application/json", secure=True)
+assert response.status_code == 503
 assert settings.SESSION_COOKIE_SECURE and settings.CSRF_COOKIE_SECURE
 assert settings.SECURE_PROXY_SSL_HEADER is None
 """,

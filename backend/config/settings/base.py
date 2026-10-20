@@ -81,6 +81,17 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+REGISTRATION_PRODUCTION = True
+REGISTRATION_POLICY_REFERENCE = env("REGISTRATION_POLICY_REFERENCE", default="")
+REGISTRATION_POLICY_VERSION = env("REGISTRATION_POLICY_VERSION", default="")
+REGISTRATION_POLICY_URL = env("REGISTRATION_POLICY_URL", default="")
+REGISTRATION_POLICY_APPROVED = env.bool("REGISTRATION_POLICY_APPROVED", default=False)
+REGISTRATION_POLICY_IS_TEST = env.bool("REGISTRATION_POLICY_IS_TEST", default=True)
+PASSWORD_CORPUS_DIR = env("PASSWORD_CORPUS_DIR", default="")
+PRIVATE_MEDIA_ROOT = env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private-media"))
+REGISTRATION_TRUSTED_PROXIES = env.list("REGISTRATION_TRUSTED_PROXIES", default=[])
+EMAIL_VERIFICATION_FRONTEND_URL = env("EMAIL_VERIFICATION_FRONTEND_URL", default="")
+
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
@@ -115,6 +126,7 @@ SPECTACULAR_SETTINGS = {
     "SWAGGER_UI_DIST": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.9",
     "SWAGGER_UI_FAVICON_HREF": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.9/favicon-32x32.png",
     "ENUM_NAME_OVERRIDES": {"HealthStatusEnum": ["ok", "unavailable"]},
+    "COMPONENT_SPLIT_REQUEST": True,
 }
 
 CSRF_FAILURE_VIEW = "config.exceptions.csrf_failure"

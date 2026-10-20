@@ -2,6 +2,7 @@ from .base import *  # noqa: F403
 from .environment import database
 
 DEBUG = False
+REGISTRATION_PRODUCTION = False
 SECRET_KEY = "test-only-key-with-no-access-to-any-real-environment"
 ALLOWED_HOSTS = ["testserver", "localhost", "127.0.0.1"]
 DATABASES = {"default": database(env, "TEST_DATABASE_URL")}

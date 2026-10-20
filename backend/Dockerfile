@@ -6,6 +6,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 RUN addgroup --system app && adduser --system --ingroup app app
+RUN mkdir -p /var/lib/aerolinea/private-media /var/lib/aerolinea/passwords \
+    && chown -R app:app /var/lib/aerolinea \
+    && chmod 700 /var/lib/aerolinea/private-media /var/lib/aerolinea/passwords
+ENV PRIVATE_MEDIA_ROOT=/var/lib/aerolinea/private-media \
+    PASSWORD_CORPUS_DIR=/var/lib/aerolinea/passwords/current
 
 FROM base AS development
 COPY requirements/development.txt /tmp/requirements.txt

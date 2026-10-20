@@ -8,6 +8,11 @@ La aplicación busca gestionar el ciclo comercial del tiquete aéreo: programaci
 
 > **Estado al 16 de octubre de 2026:** base técnica Django/PostgreSQL implementada y revisada localmente en la rama existente `BASE-01`, autorizada expresamente para esta tarea. Consulta [evidencias y límites](docs/BASE-01_VERIFICACION.md) y [ejecución del backend](backend/README.md). Las HU descritas siguen representando alcance previsto, no funcionalidades ya terminadas ni desplegadas.
 
+Actualización local del **20 de octubre de 2026**, rama `HU-007`: núcleo backend de registro,
+verificación y correo persistente implementado y probado. El alta pública está deshabilitada
+en producción mientras falte una política aprobada. Reenvío, límites, imagen y corpus local ya están implementados. Consulta [alcance y evidencia de HU-007](docs/backend/HU-007.md);
+frontend, integración y la historia completa siguen pendientes.
+
 ## Contenido
 
 - [Contexto y objetivos](#contexto-y-objetivos)
@@ -324,7 +329,7 @@ El registro detallado y vigente se mantiene en el complemento. Al preparar esta 
 | P-01 | Transición a vuelo realizado; retrasos, reprogramaciones, reubicación y efectos sobre check-in y pasabordos. |
 | P-03 | Verificación del viajero para check-in rápido sin cuenta. |
 | P-04 | Cupos de promociones, superposición, reservas anteriores y entrada de tarifas por clase. |
-| P-05 | Parámetros compartidos de seguridad, límites financieros, segundo factor e imágenes. |
+| P-05 (parcial) | Siguen pendientes otros parámetros de seguridad, finanzas e imágenes. DEC-16/17 resuelven registro/reenvío e imagen de HU-007 y corpus local; no cierran P-05 globalmente. |
 | P-06 | Rutas internacionales de regreso frente a la restricción de origen y destino. |
 | P-07 | Convención general de ramas y PR para tareas técnicas sin HU. |
 

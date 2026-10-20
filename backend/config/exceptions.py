@@ -20,6 +20,11 @@ def api_exception_handler(exc, context):
     code = getattr(exc, "default_code", "request_error")
     if isinstance(exc, PermissionDenied) and str(exc.detail).startswith("CSRF Failed"):
         code = "csrf_failed"
+    if (
+        isinstance(exc, PermissionDenied)
+        and getattr(exc.detail, "code", None) == "email_not_verified"
+    ):
+        code = "email_not_verified"
     if isinstance(exc, ValidationError):
         message, details = "Revisa los datos enviados.", response.data
     else:
@@ -30,6 +35,23 @@ def api_exception_handler(exc, context):
             "not_found": "Recurso no encontrado.",
             "method_not_allowed": "Método no permitido.",
             "parse_error": "El cuerpo de la solicitud no es válido.",
+            "registration_unavailable": "El registro aún no está habilitado. Intenta más tarde.",
+            "email_already_registered": (
+                "El correo ya está registrado. Recupera el acceso cuando esté disponible."
+            ),
+            "verification_invalid": "El enlace de verificación no es válido.",
+            "verification_expired": (
+                "El enlace venció. Solicita un nuevo envío cuando esté disponible."
+            ),
+            "verification_used": (
+                "El enlace ya fue utilizado; no se modificó la verificación de la cuenta."
+            ),
+            "email_not_verified": (
+                "Debes verificar tu correo electrónico para realizar esta operación."
+            ),
+            "throttled": (
+                "Se alcanzó el límite de solicitudes. Espera el tiempo indicado y reintenta."
+            ),
         }
         message, details = messages.get(code, "No se pudo procesar la solicitud."), {}
     response.data = {"code": code, "message": message, "details": details}

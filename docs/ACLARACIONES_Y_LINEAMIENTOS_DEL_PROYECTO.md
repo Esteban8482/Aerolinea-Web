@@ -2,8 +2,8 @@
 
 **Proyecto:** Sistema de Gestión de Compra y Reserva de Tiquetes Aéreos en Línea  
 **Asignatura:** Laboratorio de Software — Universidad Tecnológica de Pereira  
-**Versión:** 1.0.1
-**Fecha:** 2026-10-16
+**Versión:** 1.0.2
+**Fecha:** 2026-10-20
 **Ubicación propuesta:** `docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md`  
 **Destinatarios:** backend, frontend, integración/despliegue y herramientas de IA del equipo.  
 **Estado:** complemento consolidado para revisión e incorporación al repositorio mediante el flujo de trabajo del equipo. No acredita aprobación del profesor ni implementación del código.
@@ -108,6 +108,8 @@ La revisión parte de los adjuntos compartidos. La captura `image.png` únicamen
 | DEC-13 | R | Notificaciones persistentes con reintentos; correo y PDF no revierten una compra confirmada. |
 | DEC-14 | R/T | Un PR por HU, trazabilidad, revisión por otra persona y pruebas de reglas reales. |
 | DEC-15 | C/R | P-02: root inicia sesión con ID y contraseña, sin correo ni datos personales obligatorios; clientes y administradores usan correo único sin distinguir mayúsculas. El rol de negocio no concede privilegios de Django. |
+| DEC-16 | C | Resolución parcial de P-05 para HU-007: registro máximo 10 por origen/hora; reenvío cada 60 s, máximo 5 por cuenta/hora y 20 por origen/hora, con persistencia PostgreSQL. |
+| DEC-17 | C | HU-007: imagen opcional JPEG/PNG/WebP hasta 2 MiB y 4096×4096, validada/recodificada y privada; comprobación de contraseñas mediante corpus local de hashes SHA-1 de Pwned Passwords. |
 
 ## 4. Identificadores y códigos
 
@@ -427,7 +429,48 @@ La ERS incluye TLS 1.2 o superior, HSTS, cifrado en reposo, control de acceso, p
 
 Para cifrado en reposo, describir qué cubre la infraestructura (discos, base y backups) y qué campos requieren tratamiento adicional. Un campo llamado `numero_token` o una contraseña hasheada no demuestra cifrado de toda la información personal.
 
+### 9.4. Acuerdos de HU-007 del 20 de octubre de 2026 — DEC-16/17
+
+**Acuerdo:** autorización expresa del usuario responsable del encargo el 2026-10-20,
+incorporación local en `HU-007`, sin atribuir PR, aprobación académica o autorización de
+otras historias. Actualiza parcialmente P-05; no lo cierra globalmente.
+
+- **DEC-16:** máximo 10 solicitudes de registro por origen/hora; reenvío de verificación
+  con espera de 60 segundos, máximo 5 por cuenta/hora y 20 por origen/hora. Los controles
+  se comparten entre procesos mediante PostgreSQL. Detalle técnico: ventana móvil de
+  3600 segundos; se cuentan solicitudes con CSRF válido (incluso si los datos son inválidos)
+  por origen. El límite por correo se aplica después de validar su formato, también a
+  correos inexistentes/verificados para aplicar cuotas también a esos casos. No se promete
+  indistinguibilidad temporal: la notificación inicial inicia la espera de 60 s, pero no
+  consume uno de los cinco reenvíos. Al rechazar, devolver 429 y `Retry-After`. Las
+  reservas de cuota persisten aunque luego falle la operación; no son límites en memoria.
+- **DEC-17, imagen de registro:** JPEG/PNG/WebP hasta 2 MiB y 4096×4096 píxeles, comprobada
+  y recodificada, en almacenamiento local privado fuera de Git. El backend guarda PNG
+  con nombre aleatorio y sin metadatos del original; usa el primer fotograma si el archivo
+  es animado. Este acuerdo se limita a la imagen opcional de HU-007 y no cierra los demás
+  contratos de imágenes/perfil ni autoriza edición general del perfil.
+- **DEC-17, contraseñas:** corpus local de hashes SHA-1 de Pwned Passwords, sin enviar
+  contraseñas a terceros. SHA-1 solo compara pertenencia al corpus; el almacenamiento de
+  contraseñas de cuentas continúa con Argon2id. Falta/corrupción del corpus produce
+  indisponibilidad del registro, sin omitir la comprobación. El corpus sintético de pruebas
+  se identifica como tal y no se acepta en producción. Integración debe aprovisionar y
+  actualizar el corpus real, con procedencia/versionado y comprobación de integridad.
+- **Política de datos:** no existe un documento aprobado; se conserva como pendiente
+  documental de HU-007. Implementar aceptación explícita, referencia, versión y fecha
+  vinculadas a la cuenta. El servidor determina y valida la versión vigente; el cliente
+  devuelve los valores presentados para detectar formularios obsoletos. Desarrollo/pruebas
+  usan un documento expresamente sintético. En producción el registro permanece
+  deshabilitado si faltan referencia/versión aprobadas o se configura un documento de
+  prueba. No se ha redactado ni aprobado una política legal.
+
+**Impacto y validación:** CU-07, RF-USU-05/18/19, RNF-SEG-05/09/13; usuario, consentimiento,
+registro/reenvío, almacenamiento privado, configuración, OpenAPI y pruebas. La evidencia
+de implementación y la matriz vigente se mantienen en [backend/HU-007.md](backend/HU-007.md).
+P-05 permanece abierto para intentos/bloqueo de autenticación y otros controles sensibles,
+otros contratos de imágenes, segundo factor, recuperación y operaciones financieras.
+
 ## 10. Fechas, rutas y reglas comunes de cálculo
+
 
 - Guardar instantes con zona horaria y operar internamente en UTC.
 - Mantener una zona horaria IANA por ciudad; convertir la salida ingresada en hora local del origen y mostrar la llegada en hora local del destino.
@@ -585,7 +628,7 @@ Los siguientes puntos permanecen abiertos; no son permiso para inventar una resp
 | **P-01** | Evento que marca `REALIZADO`, tratamiento de retrasos, check-ins/pasabordos al reprogramar y flujo de reubicación. | Separar hora prevista de confirmación de operación; considerar confirmación administrativa o evento explícito. Definir conservación o invalidación de check-in y documentos, selección/aceptación de vuelo sustituto y tratamiento de diferencias de tarifa, sin cobros silenciosos. Actualizar RF-ADM-12/13/RNF-DIS-02 y HU-002/003. | Vuelos, tareas automáticas, reubicación y check-in. |
 | **P-03** | Check-in rápido por documento/localizador frente a privacidad y autorización. | Mantener acceso sin cuenta, pero proponer un código de un solo uso enviado al correo registrado antes de mostrar datos o confirmar cambios. No revelar destinatarios completos ni permitir acceso a información financiera. Acordar el flujo exacto. | API pública, check-in y frontend. |
 | **P-04** | Promociones, `cupos_afectados`, reservas previas y tarifa por clase. | Definir si cupos es cuota consumible o instantánea; elegibilidad de reservas ya retenidas; tratamiento de superposición; y cómo se ingresan precios de ambas clases. Propuesta de simplicidad: una promoción activa por vuelo/clase. No inventar recargos de primera clase. | Vuelos, promociones, cotización, reserva/compra. |
-| **P-05** | Parámetros no especificados: límites monetarios, intentos/bloqueo, TTL de recuperación, frecuencia de reenvío, segundo factor e imagen. | Fijar valores en una configuración común y reflejarlos en pruebas. Elegir correo OTP o TOTP para retiros y definir uso único, vencimiento y vinculación a la operación. | Seguridad, billetera, perfil. |
+| **P-05 (parcial)** | Siguen abiertos límites monetarios, intentos/bloqueo de autenticación, TTL de recuperación, segundo factor y otros contratos de imágenes. | DEC-16 resuelve únicamente tasas de registro/reenvío de HU-007. DEC-17 aprueba imagen de registro y corpus local para esa HU. No extenderlos automáticamente a las demás operaciones. | Seguridad, billetera, perfil. |
 | **P-06** | Ida y regreso internacional frente a rutas autorizadas solo Colombia → exterior. | Aclarar si se autorizan rutas inversas del mismo conjunto o si esa modalidad queda limitada. Hasta resolverlo, no ampliar el catálogo silenciosamente. | Rutas, búsqueda y compra internacional. |
 | **P-07** | Rama/PR para tareas técnicas o documentación transversal sin HU propia. | Registrar una convención explícita en S8, manteniendo revisión y squash. No crear historias ficticias. | Integración y todo el equipo. |
 
@@ -718,6 +761,7 @@ Cada encargo debe indicar HU, alcance, decisiones aplicables, dependencias, crit
 
 | Versión | Fecha | Cambio |
 |---|---|---|
+| 1.0.2 | 2026-10-20 | Registra DEC-16/17 autorizadas para HU-007, resolución parcial de P-05 y pendiente documental de política, sin aprobación legal ni cierre global de seguridad. |
 | 1.0.1 | 2026-10-16 | Registra la autorización del usuario sobre la base de P-02/DEC-15, su alcance y evidencia; aclara que separar roles de privilegios técnicos no equivale a prohibirlos. No resuelve permisos financieros ni otras HU. |
 | 1.0.0 | 2026-10-14 | Consolidación inicial de correcciones y aclaraciones de la conversación; convenciones comunes, matriz de trazabilidad, escenarios de aceptación y pendientes explícitos. |
 

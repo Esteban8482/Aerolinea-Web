@@ -3,7 +3,9 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.db.models.functions import Lower, Trim
+from django.utils import timezone
 
+from .images import PrivateProfileStorage
 from .managers import UserManager
 
 
@@ -26,6 +28,7 @@ class User(AbstractUser):
     billing_address = models.CharField(max_length=200, blank=True)
     gender = models.CharField(max_length=20, blank=True)
     profile_image_url = models.URLField(max_length=255, blank=True)
+    profile_image = models.FileField(storage=PrivateProfileStorage(), blank=True, max_length=255)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -100,3 +103,63 @@ class User(AbstractUser):
     def save(self, *args, **kwargs):
         self._normalize_identifiers()
         return super().save(*args, **kwargs)
+
+
+class RegistrationConsent(models.Model):
+    user = models.OneToOneField(User, on_delete=models.PROTECT, related_name="registration_consent")
+    policy_reference = models.CharField(max_length=200)
+    # Consentimientos previos sin versión no reciben una versión ficticia en migración.
+    policy_version = models.CharField(max_length=100, null=True)
+    policy_url = models.URLField(max_length=500)
+    accepted_at = models.DateTimeField(default=timezone.now)
+
+
+class EmailVerification(models.Model):
+    """Intención persistente de envío y consumo; nunca almacena el token firmado."""
+
+    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="email_verifications")
+    recipient = models.EmailField()
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    superseded_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    lease_until = models.DateTimeField(null=True, blank=True)
+    lease_id = models.UUIDField(null=True, blank=True)
+    last_error = models.CharField(max_length=30, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(expires_at__gt=models.F("created_at")),
+                name="users_verification_positive_lifetime",
+            ),
+            models.CheckConstraint(
+                condition=Q(expires_at__lte=models.F("created_at") + timezone.timedelta(hours=24)),
+                name="users_verification_max_24h",
+            ),
+        ]
+
+
+class RegistrationEvent(models.Model):
+    class Kind(models.TextChoices):
+        REGISTERED = "registered", "Cuenta registrada"
+        VERIFIED = "verified", "Correo verificado"
+        MAIL_SENT = "mail_sent", "Correo aceptado por el backend de correo"
+        MAIL_FAILED = "mail_failed", "Fallo de correo"
+        RESENT = "resent", "Nuevo enlace solicitado"
+
+    user = models.ForeignKey(User, on_delete=models.PROTECT)
+    verification = models.ForeignKey(EmailVerification, on_delete=models.PROTECT)
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    created_at = models.DateTimeField(default=timezone.now)
+
+
+class RegistrationRateBucket(models.Model):
+    """Ventana móvil compartida; la clave no contiene correo ni IP en claro."""
+
+    key = models.CharField(max_length=64, unique=True)
+    timestamps = models.JSONField(default=list)
+    last_accepted_at = models.DateTimeField(null=True, blank=True)

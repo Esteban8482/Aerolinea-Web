@@ -3,7 +3,14 @@
 Base técnica del monolito Django/DRF con PostgreSQL. El estado y la evidencia de BASE-01
 están en [la revisión técnica](../docs/BASE-01_VERIFICACION.md). Las reglas de negocio
 siguen en [el complemento](../docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md).
-No hay endpoints de registro, login, recuperación, ventas ni operaciones de billetera.
+HU-007 incorpora un núcleo de registro y verificación con correo persistente y pruebas.
+El registro en desarrollo admite una política identificada como prueba y requiere configurar
+un corpus local. En producción queda deshabilitado sin política aprobada y corpus real. Consulta
+[contrato, estado y guía de HU-007](../docs/backend/HU-007.md).
+El usuario confirmó sus verificaciones en Docker/PostgreSQL 17.11; la atribución está en
+esa guía. El corpus real se prepara con el [procedimiento de aprovisionamiento](../docs/backend/HU-007_CORPUS_PWNED_PASSWORDS.md),
+con estimación de espacio previa y sin incluir datos en Git.
+No hay login, recuperación, ventas ni operaciones de billetera.
 
 ## Versiones y requisitos
 
@@ -102,6 +109,7 @@ docker compose stop
 | `DJANGO_TRUST_PROXY` | `false` por defecto; habilitar solo detrás de un proxy que reemplace las cabeceras recibidas. |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | SMTP obligatorio en producción. |
 | `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, `DEFAULT_FROM_EMAIL` | SMTP: exactamente uno de TLS/SSL; remitente explícito. |
+| `EMAIL_VERIFICATION_FRONTEND_URL` | HU-007: pantalla de verificación, sin query ni fragmento; HTTPS fuera de DEBUG. Vacía mientras no se configure; necesaria para procesar correo. |
 | `WEB_CONCURRENCY` | Procesos Gunicorn; 2 por defecto, ajustar con mediciones al desplegar. |
 
 Desarrollo lee `.env` de la raíz, sin sustituir variables ya exportadas; fuerza correo de
@@ -181,7 +189,7 @@ existentes; una actualización deliberada debe revisar el diff y volver a verifi
 
 - `config/settings/`: configuración común y diferencias explícitas por entorno.
 - `config/`: rutas, salud, contrato de errores y logging de infraestructura.
-- `apps/users/`: usuario, backend de credenciales, bootstrap técnico y pruebas.
+- `apps/users/`: usuario, credenciales, bootstrap y backend HU-007 con pruebas; ver su guía.
 - `apps/wallets/`: persistencia mínima de billetera, sin operaciones financieras.
 - `requirements/`, `scripts/`, `Dockerfile`: entorno y resolución reproducible.
 
@@ -201,14 +209,14 @@ El modelo conserva los nombres de campos existentes en inglés. Correspondencia 
 | Tipo y número documental (DNI) | `document_type`, `document_number`; número textual, no único |
 | Nacimiento | `birth_date`, `birth_place` |
 | Facturación/género | `billing_address`, `gender` |
-| Referencia opcional a imagen | `profile_image_url`; no existe carga ni servicio de archivos |
+| Imagen opcional de registro | `profile_image`, archivo privado validado y recodificado por HU-007; `profile_image_url` queda como campo anterior no admitido en registro HTTP |
 | Creación/verificación | `date_joined`, `is_email_verified` |
 
 Clientes: `full_clean()` exige los datos de RF-USU-05. Administradores: correo obligatorio
 con perfil completado posteriormente según RF-USU-06. Root: ID y contraseña, con correo y
-perfil opcionales. No se inventaron catálogos de género/documentos ni reglas de imágenes.
-Los managers son primitivas de persistencia, no servicios de registro: los futuros flujos
-públicos deben validar entradas, fijar el rol y crear cuenta+billetera atómicamente. Django
+perfil opcionales. No se inventaron catálogos de género/documentos. DEC-17 establece las
+reglas de imagen de HU-007. Los managers son primitivas de persistencia; el registro público
+usa servicios para validar entradas, fijar rol y crear cuenta+billetera atómicamente. Django
 no llama automáticamente `full_clean()` al hacer un `save()` directo.
 
 La billetera tiene usuario único, saldo `Decimal(14,2)` inicialmente cero y restricción

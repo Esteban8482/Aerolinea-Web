@@ -11,5 +11,7 @@ htmlcov
 coverage.xml
 staticfiles
 media
+private-media
+private-passwords
 schema.generated.yaml
 tests-artifacts
