@@ -17,6 +17,10 @@ HU-008 añade el backend de login/logout, inactividad, bloqueo y recuperación d
 Consulta [contratos, decisiones y evidencia](docs/backend/HU-008.md); la integración visual
 y operativa se distingue de las verificaciones backend.
 
+HU-009 incorpora creación y listado mínimo de administradores solo por ROOT, cambio de su
+propia contraseña, auditoría y avisos persistentes. Consulta [contratos y evidencia de
+HU-009](docs/backend/HU-009.md); frontend e integración operativa siguen pendientes.
+
 ## Contenido
 
 - [Contexto y objetivos](#contexto-y-objetivos)
@@ -333,7 +337,7 @@ El registro detallado y vigente se mantiene en el complemento. Al preparar esta 
 | P-01 | Transición a vuelo realizado; retrasos, reprogramaciones, reubicación y efectos sobre check-in y pasabordos. |
 | P-03 | Verificación del viajero para check-in rápido sin cuenta. |
 | P-04 | Cupos de promociones, superposición, reservas anteriores y entrada de tarifas por clase. |
-| P-05 (parcial) | Siguen pendientes otros parámetros de seguridad, finanzas e imágenes. DEC-16/17 resuelven registro/reenvío, imagen y consulta por rango de HU-007; DEC-18/19/20 concretan login, recuperación e inactividad de HU-008. No cierran P-05 globalmente. |
+| P-05 (parcial) | Siguen pendientes otros parámetros de seguridad, finanzas e imágenes. DEC-16/17 resuelven registro/reenvío, imagen y consulta por rango de HU-007; DEC-18/19/20 concretan login, recuperación e inactividad de HU-008; DEC-21/22 fijan límites de alta de administradores y cambio propio de contraseña ROOT en HU-009. No cierran P-05 globalmente. |
 | P-06 | Rutas internacionales de regreso frente a la restricción de origen y destino. |
 | P-07 | Convención general de ramas y PR para tareas técnicas sin HU. |
 

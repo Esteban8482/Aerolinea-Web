@@ -2,7 +2,7 @@
 
 **Proyecto:** Sistema de Gestión de Compra y Reserva de Tiquetes Aéreos en Línea  
 **Asignatura:** Laboratorio de Software — Universidad Tecnológica de Pereira  
-**Versión:** 1.0.4
+**Versión:** 1.0.5
 **Fecha:** 2026-10-20
 **Ubicación propuesta:** `docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md`  
 **Destinatarios:** backend, frontend, integración/despliegue y herramientas de IA del equipo.  
@@ -113,6 +113,8 @@ La revisión parte de los adjuntos compartidos. La captura `image.png` únicamen
 | DEC-18 | C | HU-008: 5 fallos/15 min bloquean 15 min, máximo 30 solicitudes/origen/15 min, mismos controles para ROOT e identificadores inexistentes (§9.6). |
 | DEC-19 | C | HU-008: recuperación de 30 min, nuevo enlace sustituye anteriores, 3/correo/h y 20/origen/h con espera 60 s; cambio invalida sesiones en su siguiente petición (§9.6). |
 | DEC-20 | C | HU-008: inactividad de 30 min renovada únicamente mediante POST explícito de actividad, como máximo una vez/minuto; polling no renueva (§9.6). |
+| DEC-21 | C | HU-009: alta de administradores máximo 10 solicitudes por ROOT/hora y 20/origen/hora, tras sesión, CSRF y permiso ROOT; ventana móvil y PostgreSQL (§9.7). |
+| DEC-22 | C | HU-009: cambio propio de clave ROOT con contraseña actual/nueva/confirmación, bloqueo separado del login y revocación de todas sus sesiones (§9.7). |
 
 ## 4. Identificadores y códigos
 
@@ -543,6 +545,37 @@ implementación, contratos y evidencia. P-05 sigue abierto para finanzas, segund
 otros controles de seguridad e imágenes. Sin aprobación académica atribuida ni cambio
 de reglas generales Git.
 
+### 9.7. HU-009 — DEC-21/22, resolución parcial de P-05
+
+**Acuerdo:** 2026-10-20, aprobación expresa del usuario responsable de HU-009: «Aprobar
+propuesta» para límites de alta y cambio de contraseña, e «Invalidar todas las sesiones».
+Solo se resuelven estos parámetros; P-05 sigue abierto para los demás controles sensibles,
+imágenes, segundo factor y operaciones financieras.
+
+- **DEC-21:** creación de administradores, máximo 10 solicitudes por ROOT/hora y 20 por
+  origen/hora, con ventanas móviles de 3600 s y contadores HMAC compartidos en PostgreSQL.
+  Contar solo después de validar sesión, CSRF y permiso ROOT, incluso si los datos son
+  inválidos. Rechazo 429 `throttled` con `Retry-After`. La cuota reservada persiste ante
+  un fallo posterior. Denegaciones por rol/CSRF no consumen la cuota de ROOT.
+- **DEC-22:** ROOT modifica únicamente su propia contraseña aportando la actual, nueva y
+  confirmación. Cinco fallos de contraseña actual dentro de 15 minutos bloquean los
+  cambios durante 15 minutos; máximo 30 solicitudes por origen/15 minutos. Contadores
+  separados del login de HU-008. Las solicitudes bloqueadas no prolongan el bloqueo;
+  éxito o vencimiento reinician fallos. La ventana de fallos es móvil y las cuotas de origen
+  incluyen entradas inválidas tras superar sesión, CSRF y permiso ROOT.
+- Tras un cambio correcto se invalidan todas las sesiones de ROOT, incluida la actual,
+  mediante el hash de autenticación de Django, efectivo en su siguiente petición; no se
+  inicia sesión automáticamente. Una petición ya autenticada y en curso no se deshace.
+  Un fallo de validación, persistencia o del proveedor conserva contraseña y sesiones.
+- Se mantiene la política de contraseñas y API por rango de DEC-11/17: comprobación externa
+  fuera de transacciones/bloqueos; TLS, padding, presupuesto total 3 s y fallo cerrado
+  503 `password_check_unavailable`. Revalidar estado y credenciales antes del cambio atómico.
+
+**Trazabilidad:** HU-009/CU-09, RF-USU-02/03/04/06/07/13/14/15, RN-01/02/03/19 y
+RNF-SEG-04/05/08/09/10; complementa DEC-03/10/11/13/15. Contratos, implementación y
+evidencia en [backend/HU-009.md](backend/HU-009.md). No constituye aprobación académica
+ni autorización para otras historias o procedimientos alternativos de recuperación.
+
 ## 10. Fechas, rutas y reglas comunes de cálculo
 
 
@@ -702,7 +735,7 @@ Los siguientes puntos permanecen abiertos; no son permiso para inventar una resp
 | **P-01** | Evento que marca `REALIZADO`, tratamiento de retrasos, check-ins/pasabordos al reprogramar y flujo de reubicación. | Separar hora prevista de confirmación de operación; considerar confirmación administrativa o evento explícito. Definir conservación o invalidación de check-in y documentos, selección/aceptación de vuelo sustituto y tratamiento de diferencias de tarifa, sin cobros silenciosos. Actualizar RF-ADM-12/13/RNF-DIS-02 y HU-002/003. | Vuelos, tareas automáticas, reubicación y check-in. |
 | **P-03** | Check-in rápido por documento/localizador frente a privacidad y autorización. | Mantener acceso sin cuenta, pero proponer un código de un solo uso enviado al correo registrado antes de mostrar datos o confirmar cambios. No revelar destinatarios completos ni permitir acceso a información financiera. Acordar el flujo exacto. | API pública, check-in y frontend. |
 | **P-04** | Promociones, `cupos_afectados`, reservas previas y tarifa por clase. | Definir si cupos es cuota consumible o instantánea; elegibilidad de reservas ya retenidas; tratamiento de superposición; y cómo se ingresan precios de ambas clases. Propuesta de simplicidad: una promoción activa por vuelo/clase. No inventar recargos de primera clase. | Vuelos, promociones, cotización, reserva/compra. |
-| **P-05 (parcial)** | Siguen abiertos límites monetarios, segundo factor, otros controles de seguridad y contratos de imágenes. | DEC-16 resuelve únicamente tasas de registro/reenvío de HU-007. DEC-17 aprueba imagen y consulta API por rango para HU-007 (§9.5). DEC-18/19/20 resuelven login, recuperación y actividad de HU-008 (§9.6). No extenderlos a otras operaciones. | Seguridad, billetera, perfil. |
+| **P-05 (parcial)** | Siguen abiertos límites monetarios, segundo factor, otros controles de seguridad y contratos de imágenes. | DEC-16 resuelve únicamente tasas de registro/reenvío de HU-007. DEC-17 aprueba imagen y consulta API por rango para HU-007 (§9.5). DEC-18/19/20 resuelven HU-008 (§9.6); DEC-21/22 resuelven límites de alta y cambio propio de contraseña de HU-009 (§9.7). No extenderlos a otras operaciones. | Seguridad, billetera, perfil. |
 | **P-06** | Ida y regreso internacional frente a rutas autorizadas solo Colombia → exterior. | Aclarar si se autorizan rutas inversas del mismo conjunto o si esa modalidad queda limitada. Hasta resolverlo, no ampliar el catálogo silenciosamente. | Rutas, búsqueda y compra internacional. |
 | **P-07** | Rama/PR para tareas técnicas o documentación transversal sin HU propia. | Registrar una convención explícita en S8, manteniendo revisión y squash. No crear historias ficticias. | Integración y todo el equipo. |
 
@@ -835,6 +868,7 @@ Cada encargo debe indicar HU, alcance, decisiones aplicables, dependencias, crit
 
 | Versión | Fecha | Cambio |
 |---|---|---|
+| 1.0.5 | 2026-10-20 | Registra DEC-21/22 aprobadas para altas de administradores y cambio propio de contraseña ROOT, límites independientes y revocación de sesiones; conserva P-05 parcial. |
 | 1.0.4 | 2026-10-20 | Registra DEC-18/19/20 aprobadas para login, recuperación e inactividad de HU-008; P-05 continúa abierto para los demás controles. |
 | 1.0.3 | 2026-10-20 | Sustituye exclusivamente el corpus local de DEC-17 por API oficial por rango, con presupuesto 3 s, fallo cerrado y limpieza sin borrar datos; conserva trazabilidad y política pendiente. |
 | 1.0.2 | 2026-10-20 | Registra DEC-16/17 autorizadas para HU-007, resolución parcial de P-05 y pendiente documental de política, sin aprobación legal ni cierre global de seguridad. |

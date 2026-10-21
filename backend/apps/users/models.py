@@ -229,3 +229,45 @@ class AuthenticationEvent(models.Model):
     subject_key = models.CharField(max_length=64, blank=True)
     origin_key = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
+
+
+class AdministratorNotification(models.Model):
+    """Aviso de alta, sin contraseña inicial ni token; entrega posterior al commit."""
+
+    user = models.OneToOneField(User, on_delete=models.PROTECT)
+    recipient = models.EmailField()
+    created_at = models.DateTimeField(default=timezone.now)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    lease_until = models.DateTimeField(null=True, blank=True)
+    lease_id = models.UUIDField(null=True, blank=True)
+    last_error = models.CharField(max_length=30, blank=True)
+
+
+class AdministrationEvent(models.Model):
+    class Kind(models.TextChoices):
+        CREATED = "administrator_created", "Administrador creado"
+        DENIED = "access_denied", "Acceso denegado"
+        PASSWORD_CHANGED = "root_password_changed", "Contraseña de ROOT cambiada"
+        PASSWORD_FAILED = "root_password_failed", "Contraseña actual incorrecta"
+        PASSWORD_BLOCKED = "root_password_blocked", "Cambio de contraseña bloqueado"
+        MAIL_SENT = "mail_sent", "Aviso aceptado por correo"
+        MAIL_FAILED = "mail_failed", "Fallo del aviso de alta"
+
+    class Action(models.TextChoices):
+        CREATE = "create_administrator", "Crear administrador"
+        LIST = "list_administrators", "Consultar administradores"
+        PASSWORD = "change_root_password", "Cambiar contraseña propia de ROOT"
+        MAIL = "notify_administrator", "Procesar aviso de alta"
+
+    actor = models.ForeignKey(
+        User, null=True, on_delete=models.PROTECT, related_name="administration_actions"
+    )
+    target = models.ForeignKey(
+        User, null=True, on_delete=models.PROTECT, related_name="administration_events"
+    )
+    kind = models.CharField(max_length=30, choices=Kind.choices)
+    action = models.CharField(max_length=30, choices=Action.choices)
+    origin_key = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)

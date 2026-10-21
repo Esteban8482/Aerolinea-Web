@@ -61,3 +61,15 @@ class UsedRecovery(APIException):
     status_code = 409
     default_code = "recovery_used"
     default_detail = "El enlace de recuperación ya fue utilizado."
+
+
+class CurrentPasswordInvalid(APIException):
+    status_code = 401
+    default_code = "current_password_invalid"
+    default_detail = "La contraseña actual no es correcta."
+
+
+class CredentialsChanged(APIException):
+    status_code = 409
+    default_code = "credentials_changed"
+    default_detail = "Las credenciales cambiaron durante la operación. Inicia sesión de nuevo."

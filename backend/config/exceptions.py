@@ -29,6 +29,10 @@ def api_exception_handler(exc, context):
         message, details = "Revisa los datos enviados.", response.data
     else:
         messages = {
+            "current_password_invalid": "La contraseña actual no es correcta.",
+            "credentials_changed": (
+                "Las credenciales cambiaron durante la operación. Inicia sesión de nuevo."
+            ),
             "invalid_credentials": "No se pudo iniciar sesión con las credenciales enviadas.",
             "recovery_invalid": "El enlace de recuperación no es válido. Solicita uno nuevo.",
             "recovery_expired": "El enlace de recuperación venció. Solicita uno nuevo.",

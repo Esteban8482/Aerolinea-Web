@@ -14,6 +14,16 @@ La evidencia histórica del usuario y la nueva ejecución del agente se atribuye
 HU-008 incorpora login/logout, actividad explícita, bloqueo y recuperación; consulta
 [contratos y operación de HU-008](../docs/backend/HU-008.md). Ventas y operaciones de billetera
 siguen fuera de estas entregas.
+HU-009 añade altas/listado de administradores y cambio propio de contraseña ROOT;
+[guía HU-009](../docs/backend/HU-009.md) documenta permisos, límites, migración y avisos.
+El procesador adicional se ejecuta después de migrar:
+
+```bash
+docker compose exec -T backend python manage.py process_administrator_notifications --batch-size 100
+```
+
+Programarlo junto a los procesadores existentes corresponde a integración. No requiere
+variables ni dependencias nuevas y no envía contraseñas por correo.
 
 ## Versiones y requisitos
 
@@ -114,7 +124,7 @@ docker compose stop
 | `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, `DEFAULT_FROM_EMAIL` | SMTP: exactamente uno de TLS/SSL; remitente explícito. |
 | `EMAIL_VERIFICATION_FRONTEND_URL` | HU-007: pantalla de verificación, sin query ni fragmento; HTTPS fuera de DEBUG. Vacía mientras no se configure; necesaria para procesar correo. |
 | `PASSWORD_RECOVERY_FRONTEND_URL` | HU-008: pantalla de restablecimiento, sin query/fragmento; HTTPS fuera de DEBUG. Necesaria para procesar correo de recuperación. |
-| `REGISTRATION_TRUSTED_PROXIES` | Peers autorizados para X-Real-IP, compartidos por los controles de origen de HU-007/HU-008; vacía por defecto. |
+| `REGISTRATION_TRUSTED_PROXIES` | Peers autorizados para X-Real-IP, compartidos por los controles de origen de HU-007/HU-008/HU-009; vacía por defecto. |
 | `WEB_CONCURRENCY` | Procesos Gunicorn; 2 por defecto, ajustar con mediciones al desplegar. |
 
 Desarrollo lee `.env` de la raíz, sin sustituir variables ya exportadas; fuerza correo de
