@@ -1,5 +1,5 @@
-# Instrucciones para agentes de desarrollo
 
+# Instrucciones para agentes de desarrollo
 Estas instrucciones aplican al repositorio Aerolínea Web. El encargo del usuario define la tarea y las acciones autorizadas. Este archivo establece las reglas comunes de trabajo; no autoriza por sí solo implementar todo el proyecto.
 
 ## 1. Contexto y fuentes
