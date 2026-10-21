@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from rest_framework.test import APIClient
 
-from apps.users.models import User
+from apps.users.models import AccountSession, User
 from config.logging import SafeEventFormatter
 
 
@@ -21,6 +21,7 @@ def test_session_authentication_rejects_missing_csrf_and_foreign_origins(setting
     assert response.json()["code"] == "not_authenticated"
     user = User.objects.create_user(email="security@example.com", role="ADMINISTRADOR")
     client.force_login(user)
+    AccountSession.objects.create(session_id=client.session.session_key, user=user)
     response = client.post("/_test/protected/", {}, format="json")
     assert response.status_code == 403
     assert response.json()["code"] == "csrf_failed"

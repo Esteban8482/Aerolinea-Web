@@ -37,3 +37,27 @@ class UsedVerification(APIException):
     status_code = 409
     default_code = "verification_used"
     default_detail = "El enlace ya fue utilizado."
+
+
+class InvalidCredentials(APIException):
+    status_code = 401
+    default_code = "invalid_credentials"
+    default_detail = "No se pudo iniciar sesión con las credenciales enviadas."
+
+
+class InvalidRecovery(APIException):
+    status_code = 400
+    default_code = "recovery_invalid"
+    default_detail = "El enlace de recuperación no es válido. Solicita uno nuevo."
+
+
+class ExpiredRecovery(APIException):
+    status_code = 410
+    default_code = "recovery_expired"
+    default_detail = "El enlace de recuperación venció. Solicita uno nuevo."
+
+
+class UsedRecovery(APIException):
+    status_code = 409
+    default_code = "recovery_used"
+    default_detail = "El enlace de recuperación ya fue utilizado."

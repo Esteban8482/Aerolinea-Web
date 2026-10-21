@@ -11,7 +11,9 @@ y [comprobación de contraseñas](../docs/backend/HU-007_COMPROBACION_CONTRASENA
 La consulta tiene tres segundos de espera total y falla con 503 `password_check_unavailable`;
 no necesita API key, corpus, importador, volúmenes adicionales ni dependencias nuevas.
 La evidencia histórica del usuario y la nueva ejecución del agente se atribuyen en la guía.
-No hay login, recuperación, ventas ni operaciones de billetera.
+HU-008 incorpora login/logout, actividad explícita, bloqueo y recuperación; consulta
+[contratos y operación de HU-008](../docs/backend/HU-008.md). Ventas y operaciones de billetera
+siguen fuera de estas entregas.
 
 ## Versiones y requisitos
 
@@ -111,6 +113,8 @@ docker compose stop
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | SMTP obligatorio en producción. |
 | `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, `DEFAULT_FROM_EMAIL` | SMTP: exactamente uno de TLS/SSL; remitente explícito. |
 | `EMAIL_VERIFICATION_FRONTEND_URL` | HU-007: pantalla de verificación, sin query ni fragmento; HTTPS fuera de DEBUG. Vacía mientras no se configure; necesaria para procesar correo. |
+| `PASSWORD_RECOVERY_FRONTEND_URL` | HU-008: pantalla de restablecimiento, sin query/fragmento; HTTPS fuera de DEBUG. Necesaria para procesar correo de recuperación. |
+| `REGISTRATION_TRUSTED_PROXIES` | Peers autorizados para X-Real-IP, compartidos por los controles de origen de HU-007/HU-008; vacía por defecto. |
 | `WEB_CONCURRENCY` | Procesos Gunicorn; 2 por defecto, ajustar con mediciones al desplegar. |
 
 Desarrollo lee `.env` de la raíz, sin sustituir variables ya exportadas; fuerza correo de
@@ -250,12 +254,13 @@ Convenciones compartidas:
   Autenticación DRF exclusivamente por sesión; permisos `IsAuthenticated` por defecto.
   Los permisos por rol y propiedad deben añadirse con cada HU, incluidos los usuarios
   con privilegios técnicos. El rol ROOT no concede automáticamente `is_staff`/`is_superuser`.
-- CSRF obligatorio para operaciones autenticadas y para los POST públicos de HU-007.
+- CSRF obligatorio para operaciones autenticadas y para los POST públicos de HU-007/HU-008.
   Obtener `csrf_token` de `GET /api/v1/auth/csrf/`, enviar `X-CSRFToken` y cookie `csrftoken`.
   DRF por sí solo no protege visitantes; las vistas públicas usan `csrf_protect`. Login
-  pertenece a HU-008 y deberá protegerse también sin sesión.
-- El tiempo base de cookie es 1800 s. **No equivale al cierre tras 30 minutos de inactividad**;
-  la renovación por actividad, logout y revocación se completarán y probarán en HU-008.
+  de HU-008 también exige CSRF sin sesión y rota el token tras autenticar.
+- HU-008 verifica los 1800 s de inactividad mediante estado compartido en PostgreSQL.
+  Solo POST `/api/v1/auth/session/activity/` tras interacción real renueva el plazo; GET y
+  polling no renuevan. Logout revoca en servidor. Ver contrato y límites en la guía de HU-008.
 - Dinero en JSON como cadena decimal y moneda explícita; la moneda común aún debe acordarse
   antes de los endpoints financieros. No usar float. Fechas ISO 8601 con zona; UTC interno
   y zona IANA para la presentación local de futuros vuelos.

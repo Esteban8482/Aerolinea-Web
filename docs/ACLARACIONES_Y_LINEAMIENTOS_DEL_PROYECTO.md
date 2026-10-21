@@ -2,7 +2,7 @@
 
 **Proyecto:** Sistema de Gestión de Compra y Reserva de Tiquetes Aéreos en Línea  
 **Asignatura:** Laboratorio de Software — Universidad Tecnológica de Pereira  
-**Versión:** 1.0.3
+**Versión:** 1.0.4
 **Fecha:** 2026-10-20
 **Ubicación propuesta:** `docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md`  
 **Destinatarios:** backend, frontend, integración/despliegue y herramientas de IA del equipo.  
@@ -110,6 +110,9 @@ La revisión parte de los adjuntos compartidos. La captura `image.png` únicamen
 | DEC-15 | C/R | P-02: root inicia sesión con ID y contraseña, sin correo ni datos personales obligatorios; clientes y administradores usan correo único sin distinguir mayúsculas. El rol de negocio no concede privilegios de Django. |
 | DEC-16 | C | Resolución parcial de P-05 para HU-007: registro máximo 10 por origen/hora; reenvío cada 60 s, máximo 5 por cuenta/hora y 20 por origen/hora, con persistencia PostgreSQL. |
 | DEC-17 | C | HU-007: imagen opcional JPEG/PNG/WebP hasta 2 MiB y 4096×4096, validada/recodificada y privada; comprobación mediante API oficial por rango de Pwned Passwords (sustituye el corpus local; §9.5). |
+| DEC-18 | C | HU-008: 5 fallos/15 min bloquean 15 min, máximo 30 solicitudes/origen/15 min, mismos controles para ROOT e identificadores inexistentes (§9.6). |
+| DEC-19 | C | HU-008: recuperación de 30 min, nuevo enlace sustituye anteriores, 3/correo/h y 20/origen/h con espera 60 s; cambio invalida sesiones en su siguiente petición (§9.6). |
+| DEC-20 | C | HU-008: inactividad de 30 min renovada únicamente mediante POST explícito de actividad, como máximo una vez/minuto; polling no renueva (§9.6). |
 
 ## 4. Identificadores y códigos
 
@@ -413,12 +416,12 @@ Para frontend y API bajo el mismo dominio, la recomendación consolidada es `Ses
 Las sesiones persistidas permiten compartir el estado entre instancias: el requisito de no depender de sesión en memoria local no obliga a usar JWT. No mezclar sesiones y JWT en módulos diferentes sin una decisión común. En desarrollo, coordinar proxy de Vite u orígenes permitidos y el envío de cookies/CSRF.
 
 - Implementar y probar cierre tras 30 minutos de inactividad; una duración absoluta de token no equivale por sí sola a ese comportamiento.
-- Revocar sesión al cerrar sesión. Definir qué actividad prolonga la sesión; se propone actividad autenticada del usuario y excluir sondeos automáticos de fondo.
+- Revocar sesión al cerrar sesión. La actividad vigente de HU-008 se concreta en DEC-20 (§9.6): renovación explícita, excluyendo sondeos automáticos de fondo.
 - Configurar Argon2id mediante los mecanismos de Django; no implementar hashing propio ni almacenar contraseñas reversibles.
 - Aplicar la política de la ERS: mínimo 12 caracteres, control de contraseñas comprometidas y ausencia de expiración periódica obligatoria. Esa cifra se cita como requisito del proyecto; no demuestra por sí sola conformidad con una edición vigente de NIST.
 - Verificación de correo de un solo uso, con vigencia máxima de 24 horas. Una cuenta sin verificar puede iniciar sesión, pero no reservar, comprar ni operar su billetera.
 - Recuperación de contraseña mediante enlace de un solo uso y vigencia limitada.
-- Limitar intentos por cuenta y origen y aplicar bloqueo temporal; concretar parámetros comunes en P-05.
+- Limitar intentos por cuenta y origen y aplicar bloqueo temporal; DEC-18/19 (§9.6) concretan los parámetros de HU-008 y P-05 mantiene los demás controles pendientes.
 - Exigir segundo factor en retiros; la alternativa escogida se fija en P-05.
 - Validar tamaño y formato de imágenes de perfil; no aceptar ejecutables ni exponer rutas internas.
 - Mantener secretos fuera del repositorio y datos personales/credenciales fuera de logs y mensajes de error.
@@ -466,8 +469,9 @@ otras historias. Actualiza parcialmente P-05; no lo cierra globalmente.
 **Impacto y validación:** CU-07, RF-USU-05/18/19, RNF-SEG-05/09/13; usuario, consentimiento,
 registro/reenvío, almacenamiento privado, configuración, OpenAPI y pruebas. La evidencia
 de implementación y la matriz vigente se mantienen en [backend/HU-007.md](backend/HU-007.md).
-P-05 permanece abierto para intentos/bloqueo de autenticación y otros controles sensibles,
-otros contratos de imágenes, segundo factor, recuperación y operaciones financieras.
+Los pendientes de intentos/bloqueo y recuperación de este acuerdo histórico se concretan
+posteriormente en §9.6 para HU-008. P-05 mantiene abiertos otros controles sensibles,
+contratos de imágenes, segundo factor y operaciones financieras.
 
 ### 9.5. Sustitución parcial de DEC-17 — contraseñas de HU-007
 
@@ -498,6 +502,46 @@ OpenAPI y guías de HU-007. Sin dependencias nuevas ni cambios de esquema. Prueb
 simulan exclusivamente HTTP; la comprobación real autorizada usa datos sintéticos.
 Consultar [la guía de comprobación](backend/HU-007_COMPROBACION_CONTRASENAS.md) y
 [la evidencia de HU-007](backend/HU-007.md). No acredita aprobación académica ni despliegue.
+
+### 9.6. HU-008 — DEC-18/19/20, resolución parcial de P-05
+
+**Acuerdo:** 2026-10-20, respuestas expresas del usuario responsable del encargo HU-008
+«Aprobar propuesta» (login y recuperación) y «Aprobar actividad explícita». Los valores
+siguientes son decisiones vigentes limitadas a esta historia. No cierran P-05 globalmente.
+
+- **DEC-18 — Login:** cinco fallos consecutivos dentro de 15 minutos bloquean el
+  identificador durante 15 minutos. Máximo 30 solicitudes por origen cada 15 minutos;
+  incluye entradas inválidas con CSRF válido. Aplica igual a ROOT y a identificadores
+  inexistentes, con HMAC y PostgreSQL. Éxito o fin del bloqueo reinician fallos. Durante el
+  bloqueo no se prolonga ni se incrementan los fallos; solo se consume cuota de origen.
+  El quinto fallo y las peticiones bloqueadas responden 429 `throttled` y `Retry-After`.
+  Fallos ordinarios: 401 `invalid_credentials`, sin distinguir causa. Las reservas de cuota
+  persisten aunque falle la operación posterior; la ventana de observación es móvil.
+- **DEC-19 — Recuperación:** enlace de 30 minutos; uno nuevo sustituye los anteriores.
+  Espera mínima 60 s, máximo 3 solicitudes por correo/hora y 20 por origen/hora, con ventana
+  móvil de 3600 s. Respuesta genérica y cuotas también para correos desconocidos/inactivos.
+  Solo cuentas activas con correo y contraseña utilizable reciben enlace; no se consume
+  durante GET. ROOT usa su correo asociado si existe; sin correo no hay envío ni un
+  procedimiento alternativo inventado. Restablecer no inicia sesión ni verifica correo;
+  todas las sesiones previas, incluida la del solicitante, dejan de autenticar en su
+  siguiente petición por el hash de autenticación de Django. No conservar ninguna con
+  `update_session_auth_hash`. La comprobación de Pwned Passwords conserva DEC-17 §9.5;
+  si falla, contraseña y token permanecen intactos. Red fuera de bloqueos; revalidación
+  atómica posterior de token, cuenta y contraseña vigente.
+- **DEC-20 — Inactividad:** login inicia los 30 minutos. Solo el POST autenticado
+  `/api/v1/auth/session/activity/` renueva el plazo; frontend lo envía tras interacción
+  real y como máximo una vez/minuto. El servidor también exige ese intervalo desde login
+  o última renovación. GET de sesión, polling, salud, CSRF y otras solicitudes no renuevan.
+  El instante se conserva en PostgreSQL junto a la sesión Django; en el límite exacto
+  vence y no puede revivirse mediante actividad. La consulta de estado devuelve visitante.
+  El backend verifica la petición, no puede acreditar por sí solo una interacción humana;
+  frontend debe evitar emitir actividad automática durante una sesión abandonada.
+
+**Trazabilidad:** HU-008/CU-08, RF-USU-02/08/09/17, RNF-SEG-04/05/08/09/10,
+DEC-11/13/15/17 y CA-21/26. La guía [backend/HU-008.md](backend/HU-008.md) registra
+implementación, contratos y evidencia. P-05 sigue abierto para finanzas, segundo factor,
+otros controles de seguridad e imágenes. Sin aprobación académica atribuida ni cambio
+de reglas generales Git.
 
 ## 10. Fechas, rutas y reglas comunes de cálculo
 
@@ -658,7 +702,7 @@ Los siguientes puntos permanecen abiertos; no son permiso para inventar una resp
 | **P-01** | Evento que marca `REALIZADO`, tratamiento de retrasos, check-ins/pasabordos al reprogramar y flujo de reubicación. | Separar hora prevista de confirmación de operación; considerar confirmación administrativa o evento explícito. Definir conservación o invalidación de check-in y documentos, selección/aceptación de vuelo sustituto y tratamiento de diferencias de tarifa, sin cobros silenciosos. Actualizar RF-ADM-12/13/RNF-DIS-02 y HU-002/003. | Vuelos, tareas automáticas, reubicación y check-in. |
 | **P-03** | Check-in rápido por documento/localizador frente a privacidad y autorización. | Mantener acceso sin cuenta, pero proponer un código de un solo uso enviado al correo registrado antes de mostrar datos o confirmar cambios. No revelar destinatarios completos ni permitir acceso a información financiera. Acordar el flujo exacto. | API pública, check-in y frontend. |
 | **P-04** | Promociones, `cupos_afectados`, reservas previas y tarifa por clase. | Definir si cupos es cuota consumible o instantánea; elegibilidad de reservas ya retenidas; tratamiento de superposición; y cómo se ingresan precios de ambas clases. Propuesta de simplicidad: una promoción activa por vuelo/clase. No inventar recargos de primera clase. | Vuelos, promociones, cotización, reserva/compra. |
-| **P-05 (parcial)** | Siguen abiertos límites monetarios, intentos/bloqueo de autenticación, TTL de recuperación, segundo factor y otros contratos de imágenes. | DEC-16 resuelve únicamente tasas de registro/reenvío de HU-007. DEC-17 aprueba imagen de registro y consulta API por rango para esa HU (§9.5). No extenderlos automáticamente a las demás operaciones. | Seguridad, billetera, perfil. |
+| **P-05 (parcial)** | Siguen abiertos límites monetarios, segundo factor, otros controles de seguridad y contratos de imágenes. | DEC-16 resuelve únicamente tasas de registro/reenvío de HU-007. DEC-17 aprueba imagen y consulta API por rango para HU-007 (§9.5). DEC-18/19/20 resuelven login, recuperación y actividad de HU-008 (§9.6). No extenderlos a otras operaciones. | Seguridad, billetera, perfil. |
 | **P-06** | Ida y regreso internacional frente a rutas autorizadas solo Colombia → exterior. | Aclarar si se autorizan rutas inversas del mismo conjunto o si esa modalidad queda limitada. Hasta resolverlo, no ampliar el catálogo silenciosamente. | Rutas, búsqueda y compra internacional. |
 | **P-07** | Rama/PR para tareas técnicas o documentación transversal sin HU propia. | Registrar una convención explícita en S8, manteniendo revisión y squash. No crear historias ficticias. | Integración y todo el equipo. |
 
@@ -791,6 +835,7 @@ Cada encargo debe indicar HU, alcance, decisiones aplicables, dependencias, crit
 
 | Versión | Fecha | Cambio |
 |---|---|---|
+| 1.0.4 | 2026-10-20 | Registra DEC-18/19/20 aprobadas para login, recuperación e inactividad de HU-008; P-05 continúa abierto para los demás controles. |
 | 1.0.3 | 2026-10-20 | Sustituye exclusivamente el corpus local de DEC-17 por API oficial por rango, con presupuesto 3 s, fallo cerrado y limpieza sin borrar datos; conserva trazabilidad y política pendiente. |
 | 1.0.2 | 2026-10-20 | Registra DEC-16/17 autorizadas para HU-007, resolución parcial de P-05 y pendiente documental de política, sin aprobación legal ni cierre global de seguridad. |
 | 1.0.1 | 2026-10-16 | Registra la autorización del usuario sobre la base de P-02/DEC-15, su alcance y evidencia; aclara que separar roles de privilegios técnicos no equivale a prohibirlos. No resuelve permisos financieros ni otras HU. |

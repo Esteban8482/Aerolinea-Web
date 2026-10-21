@@ -13,11 +13,7 @@ from .models import EmailVerification, RegistrationEvent, User
 from .services import verification_token
 
 
-def process_verification_emails(*, batch_size=100):
-    """Outbox con arrendamiento recuperable; SMTP siempre fuera de la transacción."""
-    if transaction.get_connection().in_atomic_block:
-        raise RuntimeError("Procesa el correo después del commit, fuera de una transacción.")
-    target = settings.EMAIL_VERIFICATION_FRONTEND_URL
+def validate_frontend_url(target, *, setting_name="EMAIL_VERIFICATION_FRONTEND_URL"):
     parts = urlsplit(target)
     if (
         parts.scheme not in {"http", "https"}
@@ -29,8 +25,16 @@ def process_verification_emails(*, batch_size=100):
         or (not settings.DEBUG and parts.scheme != "https")
     ):
         raise ImproperlyConfigured(
-            "Configura EMAIL_VERIFICATION_FRONTEND_URL sin query ni fragmento."
+            f"Configura {setting_name} sin query ni fragmento, HTTPS fuera de DEBUG."
         )
+
+
+def process_verification_emails(*, batch_size=100):
+    """Outbox con arrendamiento recuperable; SMTP siempre fuera de la transacción."""
+    if transaction.get_connection().in_atomic_block:
+        raise RuntimeError("Procesa el correo después del commit, fuera de una transacción.")
+    target = settings.EMAIL_VERIFICATION_FRONTEND_URL
+    validate_frontend_url(target)
     sent = failed = 0
     for _ in range(batch_size):
         now = timezone.now()

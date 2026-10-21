@@ -3,6 +3,14 @@ from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import AllowAny
 
+from apps.users.auth_views import (
+    LoginView,
+    LogoutView,
+    RecoveryRequestView,
+    ResetPasswordView,
+    SessionActivityView,
+    SessionView,
+)
 from apps.users.views import (
     ConfirmEmailView,
     CsrfView,
@@ -14,6 +22,12 @@ from apps.users.views import (
 from config.views import HealthCheckView
 
 urlpatterns = [
+    path("api/v1/auth/login/", LoginView.as_view(), name="auth-login"),
+    path("api/v1/auth/logout/", LogoutView.as_view(), name="auth-logout"),
+    path("api/v1/auth/session/", SessionView.as_view(), name="auth-session"),
+    path("api/v1/auth/session/activity/", SessionActivityView.as_view(), name="auth-activity"),
+    path("api/v1/auth/password-recovery/", RecoveryRequestView.as_view(), name="auth-recovery"),
+    path("api/v1/auth/password-reset/", ResetPasswordView.as_view(), name="auth-password-reset"),
     path("api/health/", HealthCheckView.as_view(), name="api-health"),
     path("api/v1/auth/csrf/", CsrfView.as_view(), name="auth-csrf"),
     path("api/v1/auth/register/", RegisterView.as_view(), name="auth-register"),

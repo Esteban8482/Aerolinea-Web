@@ -13,6 +13,10 @@ verificación y correo persistente implementado y probado. El alta pública est�
 en producción mientras falte una política aprobada. Reenvío, límites, imagen y comprobación por rango de Pwned Passwords ya están implementados. Consulta [alcance y evidencia de HU-007](docs/backend/HU-007.md);
 frontend, integración y la historia completa siguen pendientes.
 
+HU-008 añade el backend de login/logout, inactividad, bloqueo y recuperación de acceso.
+Consulta [contratos, decisiones y evidencia](docs/backend/HU-008.md); la integración visual
+y operativa se distingue de las verificaciones backend.
+
 ## Contenido
 
 - [Contexto y objetivos](#contexto-y-objetivos)
@@ -329,7 +333,7 @@ El registro detallado y vigente se mantiene en el complemento. Al preparar esta 
 | P-01 | Transición a vuelo realizado; retrasos, reprogramaciones, reubicación y efectos sobre check-in y pasabordos. |
 | P-03 | Verificación del viajero para check-in rápido sin cuenta. |
 | P-04 | Cupos de promociones, superposición, reservas anteriores y entrada de tarifas por clase. |
-| P-05 (parcial) | Siguen pendientes otros parámetros de seguridad, finanzas e imágenes. DEC-16/17 resuelven registro/reenvío e imagen de HU-007 y consulta por rango de Pwned Passwords; no cierran P-05 globalmente. |
+| P-05 (parcial) | Siguen pendientes otros parámetros de seguridad, finanzas e imágenes. DEC-16/17 resuelven registro/reenvío, imagen y consulta por rango de HU-007; DEC-18/19/20 concretan login, recuperación e inactividad de HU-008. No cierran P-05 globalmente. |
 | P-06 | Rutas internacionales de regreso frente a la restricción de origen y destino. |
 | P-07 | Convención general de ramas y PR para tareas técnicas sin HU. |
 

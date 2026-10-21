@@ -163,3 +163,69 @@ class RegistrationRateBucket(models.Model):
     key = models.CharField(max_length=64, unique=True)
     timestamps = models.JSONField(default=list)
     last_accepted_at = models.DateTimeField(null=True, blank=True)
+
+
+class LoginGuard(models.Model):
+    """Estado por identificador HMAC, incluso cuando la cuenta no existe."""
+
+    key = models.CharField(max_length=64, unique=True)
+    failures = models.JSONField(default=list)
+    blocked_until = models.DateTimeField(null=True, blank=True)
+
+
+class AccountSession(models.Model):
+    """Actividad compartida de una sesión Django; no representa otro token."""
+
+    session = models.OneToOneField("sessions.Session", primary_key=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    last_activity_at = models.DateTimeField(default=timezone.now)
+
+
+class PasswordRecovery(models.Model):
+    user = models.ForeignKey(User, on_delete=models.PROTECT)
+    recipient = models.EmailField()
+    password_fingerprint = models.CharField(max_length=64)
+    created_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    superseded_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    lease_until = models.DateTimeField(null=True, blank=True)
+    lease_id = models.UUIDField(null=True, blank=True)
+    last_error = models.CharField(max_length=30, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(expires_at__gt=models.F("created_at")),
+                name="users_recovery_positive_lifetime",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    expires_at__lte=models.F("created_at") + timezone.timedelta(minutes=30)
+                ),
+                name="users_recovery_max_30m",
+            ),
+        ]
+
+
+class AuthenticationEvent(models.Model):
+    class Kind(models.TextChoices):
+        LOGIN = "login", "Inicio de sesión"
+        LOGIN_FAILED = "login_failed", "Autenticación fallida"
+        LOGIN_BLOCKED = "login_blocked", "Identificador bloqueado"
+        LOGOUT = "logout", "Cierre de sesión"
+        SESSION_EXPIRED = "session_expired", "Sesión vencida por inactividad"
+        RECOVERY_REQUESTED = "recovery_requested", "Recuperación solicitada"
+        PASSWORD_RESET = "password_reset", "Contraseña restablecida"
+        MAIL_SENT = "mail_sent", "Correo aceptado"
+        MAIL_FAILED = "mail_failed", "Fallo de correo"
+
+    user = models.ForeignKey(User, on_delete=models.PROTECT, null=True)
+    recovery = models.ForeignKey(PasswordRecovery, on_delete=models.PROTECT, null=True)
+    kind = models.CharField(max_length=25, choices=Kind.choices)
+    subject_key = models.CharField(max_length=64, blank=True)
+    origin_key = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)

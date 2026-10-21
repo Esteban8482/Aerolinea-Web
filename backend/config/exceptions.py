@@ -29,6 +29,11 @@ def api_exception_handler(exc, context):
         message, details = "Revisa los datos enviados.", response.data
     else:
         messages = {
+            "invalid_credentials": "No se pudo iniciar sesión con las credenciales enviadas.",
+            "recovery_invalid": "El enlace de recuperación no es válido. Solicita uno nuevo.",
+            "recovery_expired": "El enlace de recuperación venció. Solicita uno nuevo.",
+            "recovery_used": "El enlace de recuperación ya fue utilizado.",
+            "session_invalidated": "La sesión dejó de estar disponible. Inicia sesión de nuevo.",
             "not_authenticated": "Se requiere una sesión autenticada.",
             "permission_denied": "No tienes permiso para esta operación.",
             "csrf_failed": "No se pudo verificar la protección CSRF.",

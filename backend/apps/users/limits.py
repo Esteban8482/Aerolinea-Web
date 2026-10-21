@@ -30,17 +30,17 @@ def bucket_key(scope, subject):
     return salted_hmac("HU007.rate." + scope, subject, algorithm="sha256").hexdigest()
 
 
-def consume_limit(*, scope, subject, maximum, interval=0):
+def consume_limit(*, scope, subject, maximum, interval=0, window_seconds=WINDOW_SECONDS):
     key = bucket_key(scope, subject)
     # get_or_create usa unicidad para el primer reclamo simultáneo.
     RegistrationRateBucket.objects.get_or_create(key=key)
     with transaction.atomic():
         bucket = RegistrationRateBucket.objects.select_for_update().get(key=key)
         now = timezone.now()
-        timestamps = [t for t in bucket.timestamps if t > now.timestamp() - WINDOW_SECONDS]
+        timestamps = [t for t in bucket.timestamps if t > now.timestamp() - window_seconds]
         wait = 0
         if len(timestamps) >= maximum:
-            wait = timestamps[0] + WINDOW_SECONDS - now.timestamp()
+            wait = timestamps[0] + window_seconds - now.timestamp()
         if interval and bucket.last_accepted_at:
             wait = max(wait, interval - (now - bucket.last_accepted_at).total_seconds())
         if wait > 0:

@@ -20,10 +20,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
+    "apps.users.session_middleware.ApiSessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.users.session_middleware.IdleSessionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -94,7 +95,7 @@ EMAIL_VERIFICATION_FRONTEND_URL = env("EMAIL_VERIFICATION_FRONTEND_URL", default
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
-# Duración base; el cierre por INACTIVIDAD requiere el flujo de HU-008.
+# HU-008 comprueba actividad compartida; no renueva por polling ni en cada petición.
 SESSION_COOKIE_AGE = 1800
 CSRF_COOKIE_SAMESITE = "Lax"
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -143,3 +144,5 @@ LOGGING = {
 
 # API oficial fija; presupuesto total sin reintentos, incluido DNS.
 PWNED_PASSWORDS_TIMEOUT_SECONDS = 3
+
+PASSWORD_RECOVERY_FRONTEND_URL = env("PASSWORD_RECOVERY_FRONTEND_URL", default="")

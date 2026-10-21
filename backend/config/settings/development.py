@@ -25,3 +25,5 @@ CSRF_COOKIE_SECURE = False
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "no-reply@example.invalid"
 API_DOCUMENTATION_ENABLED = True
+
+PASSWORD_RECOVERY_FRONTEND_URL = env("PASSWORD_RECOVERY_FRONTEND_URL", default="")
