@@ -1,11 +1,14 @@
 # Backend de Aerolínea Web
 
+Punto de entrada para el equipo: [entrega de iteración 1](../docs/backend/ITERACION-01.md),
+con flujos conjuntos, tareas periódicas, revisión y pendientes.
+
 Base técnica del monolito Django/DRF con PostgreSQL. El estado y la evidencia de BASE-01
 están en [la revisión técnica](../docs/BASE-01_VERIFICACION.md). Las reglas de negocio
 siguen en [el complemento](../docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md).
 HU-007 incorpora un núcleo de registro y verificación con correo persistente y pruebas.
 El registro en desarrollo admite una política identificada como prueba y requiere salida
-HTTPS a la API oficial de Pwned Passwords. Producción queda deshabilitada sin política
+HTTPS a la API oficial de Pwned Passwords. El registro público en producción queda deshabilitado sin política
 real aprobada. Consulta [contrato, estado y evidencia de HU-007](../docs/backend/HU-007.md)
 y [comprobación de contraseñas](../docs/backend/HU-007_COMPROBACION_CONTRASENAS.md).
 La consulta tiene tres segundos de espera total y falla con 503 `password_check_unavailable`;
@@ -124,6 +127,9 @@ docker compose stop
 | `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, `DEFAULT_FROM_EMAIL` | SMTP: exactamente uno de TLS/SSL; remitente explícito. |
 | `EMAIL_VERIFICATION_FRONTEND_URL` | HU-007: pantalla de verificación, sin query ni fragmento; HTTPS fuera de DEBUG. Vacía mientras no se configure; necesaria para procesar correo. |
 | `PASSWORD_RECOVERY_FRONTEND_URL` | HU-008: pantalla de restablecimiento, sin query/fragmento; HTTPS fuera de DEBUG. Necesaria para procesar correo de recuperación. |
+| `REGISTRATION_POLICY_REFERENCE`, `REGISTRATION_POLICY_VERSION`, `REGISTRATION_POLICY_URL` | Política vigente validada por el servidor; documento de prueba en desarrollo. |
+| `REGISTRATION_POLICY_APPROVED`, `REGISTRATION_POLICY_IS_TEST` | Producción exige aprobación real y documento no sintético; pendiente documental. |
+| `PRIVATE_MEDIA_ROOT` | Almacenamiento privado de imágenes; Compose monta su volumen, sin URL pública. |
 | `REGISTRATION_TRUSTED_PROXIES` | Peers autorizados para X-Real-IP, compartidos por los controles de origen de HU-007/HU-008/HU-009; vacía por defecto. |
 | `WEB_CONCURRENCY` | Procesos Gunicorn; 2 por defecto, ajustar con mediciones al desplegar. |
 
@@ -204,7 +210,7 @@ existentes; una actualización deliberada debe revisar el diff y volver a verifi
 
 - `config/settings/`: configuración común y diferencias explícitas por entorno.
 - `config/`: rutas, salud, contrato de errores y logging de infraestructura.
-- `apps/users/`: usuario, credenciales, bootstrap y backend HU-007 con pruebas; ver su guía.
+- `apps/users/`: usuario, bootstrap y backend HU-007/008/009 con pruebas; ver sus guías.
 - `apps/wallets/`: persistencia mínima de billetera, sin operaciones financieras.
 - `requirements/`, `scripts/`, `Dockerfile`: entorno y resolución reproducible.
 

@@ -1,3 +1,5 @@
+from asgiref.sync import sync_to_async
+from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -37,6 +39,29 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.role}:{self.pk}"
+
+    def check_password(self, raw_password):
+        # Django puede actualizar un hash antiguo al autenticar. No sobrescribir una
+        # contraseña restablecida entre la lectura de esta instancia y esa actualización.
+        previous = self.password
+        unchanged = True
+
+        def upgrade(raw):
+            nonlocal unchanged
+            self.set_password(raw)
+            self._password = None
+            unchanged = bool(
+                type(self)
+                .objects.using(self._state.db)
+                .filter(pk=self.pk, password=previous)
+                .update(password=self.password)
+            )
+
+        valid = check_password(raw_password, previous, setter=upgrade)
+        return valid and unchanged
+
+    async def acheck_password(self, raw_password):
+        return await sync_to_async(self.check_password, thread_sensitive=True)(raw_password)
 
     class Meta:
         constraints = [

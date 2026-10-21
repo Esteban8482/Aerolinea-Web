@@ -37,7 +37,9 @@ def image_upload(format="PNG", size=(10, 12), metadata=False):
 
 
 @pytest.mark.django_db
-def test_server_publishes_current_test_policy_and_records_its_version(data, csrf_client):
+def test_server_publishes_current_test_policy_and_records_its_version(
+    data, csrf_client, monkeypatch
+):
     response = csrf_client.get("/api/v1/auth/registration-policy/")
     assert response.status_code == 200
     assert response.json() == {
@@ -48,11 +50,14 @@ def test_server_publishes_current_test_policy_and_records_its_version(data, csrf
     }
     assert csrf_client.get("/api/v1/auth/registration-policy/test-document/").status_code == 200
     before = timezone.now()
+    # El reloj de pared del host puede corregirse durante el hashing. La fecha
+    # persistida debe ser la del servidor; comprobarla con un reloj controlado.
+    monkeypatch.setattr(timezone, "now", lambda: before)
     register_customer(data=data)
     consent = User.objects.get().registration_consent
     assert consent.policy_reference == response.json()["reference"]
     assert consent.policy_version == response.json()["version"]
-    assert before <= consent.accepted_at <= timezone.now()
+    assert consent.accepted_at == before
 
 
 @pytest.mark.django_db

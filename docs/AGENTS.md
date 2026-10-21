@@ -13,6 +13,16 @@ Antes de planificar o modificar código:
 3. Consulta en `docs/` el enunciado, la ERS, la HU, el caso de uso y los modelos relevantes para la tarea.
 4. Inspecciona el código, las migraciones, las dependencias, las pruebas y el contrato API existentes.
 
+Para usuarios, empieza por [la entrega de iteración 1](backend/ITERACION-01.md) y
+[su revisión de diseño y pendientes](backend/ITERACION-01_REVISION.md); sigue los enlaces
+HU-007/008/009 y OpenAPI. Reutiliza `apps/users` (servicios, sesiones/CSRF, permisos,
+validador de contraseñas, límites y procesadores); `Wallet` solo tiene persistencia mínima.
+Perfil completo, vuelos y finanzas no tienen API en esta entrega. No conviertas métodos
+del diagrama pendientes en endpoints aprobados. Conserva las decisiones versionadas sobre
+roles, credenciales, cuotas, revocación y formato de errores; justifica y prueba sus cambios.
+Selecciona verificaciones según el riesgo y distingue resultados nuevos de evidencia histórica;
+el README backend contiene los comandos Docker con settings de pruebas explícitos.
+
 El complemento resuelve únicamente las contradicciones que identifica expresamente. Para el resto del alcance se conservan los requisitos originales. El README resume el proyecto; una pantalla, un diagrama o el código actual no sustituyen por sí solos una regla documentada.
 
 No asumas acceso a conversaciones anteriores. Si falta una fuente o no puedes interpretar un documento o diagrama, identifica la información faltante sin inventar su contenido. Si las fuentes se contradicen en un punto no resuelto, registra el conflicto antes de implementar una interpretación.

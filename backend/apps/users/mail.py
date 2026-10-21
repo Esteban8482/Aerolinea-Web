@@ -6,7 +6,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from .models import EmailVerification, RegistrationEvent, User
@@ -51,6 +51,7 @@ def process_verification_emails(*, batch_size=100):
                     user__is_email_verified=False,
                     user__is_active=True,
                     user__role=User.Role.CLIENTE,
+                    recipient=F("user__email"),
                 )
                 .filter(Q(lease_until__isnull=True) | Q(lease_until__lte=now))
                 .order_by("pk")

@@ -6,20 +6,16 @@ Proyecto académico de **Laboratorio de Software**, del programa de **Ingenierí
 
 La aplicación busca gestionar el ciclo comercial del tiquete aéreo: programación de vuelos, consulta de disponibilidad, reserva, compra, administración de pagos internos y emisión del pasabordo. El caso de estudio corresponde a una aerolínea con operación nacional y expansión hacia rutas internacionales delimitadas.
 
-> **Estado al 16 de octubre de 2026:** base técnica Django/PostgreSQL implementada y revisada localmente en la rama existente `BASE-01`, autorizada expresamente para esta tarea. Consulta [evidencias y límites](docs/BASE-01_VERIFICACION.md) y [ejecución del backend](backend/README.md). Las HU descritas siguen representando alcance previsto, no funcionalidades ya terminadas ni desplegadas.
+**Estado al 21 de octubre de 2026:** la iteración 1 reúne el backend de HU-007
+(registro/verificación), HU-008 (sesiones/recuperación) y HU-009 (administradores y contraseña
+propia de ROOT). La [guía de entrega](docs/backend/ITERACION-01.md) es el punto de entrada
+para frontend e integración; el [informe conjunto](docs/backend/ITERACION-01_REVISION.md)
+registra correcciones, pruebas y diferencias respecto del diseño.
 
-Actualización local del **20 de octubre de 2026**, rama `HU-007`: núcleo backend de registro,
-verificación y correo persistente implementado y probado. El alta pública está deshabilitada
-en producción mientras falte una política aprobada. Reenvío, límites, imagen y comprobación por rango de Pwned Passwords ya están implementados. Consulta [alcance y evidencia de HU-007](docs/backend/HU-007.md);
-frontend, integración y la historia completa siguen pendientes.
-
-HU-008 añade el backend de login/logout, inactividad, bloqueo y recuperación de acceso.
-Consulta [contratos, decisiones y evidencia](docs/backend/HU-008.md); la integración visual
-y operativa se distingue de las verificaciones backend.
-
-HU-009 incorpora creación y listado mínimo de administradores solo por ROOT, cambio de su
-propia contraseña, auditoría y avisos persistentes. Consulta [contratos y evidencia de
-HU-009](docs/backend/HU-009.md); frontend e integración operativa siguen pendientes.
+El registro productivo permanece deshabilitado sin política de datos aprobada. Frontend,
+correo real e integración operativa siguen pendientes. El alcance funcional descrito más
+abajo incluye historias futuras. La evidencia histórica de infraestructura se conserva en
+[BASE-01](docs/BASE-01_VERIFICACION.md).
 
 ## Contenido
 
@@ -249,7 +245,7 @@ El README ofrece una vista general. La especificación detallada se consulta en 
 | Documento de referencia | Propósito |
 |---|---|
 | `Proyecto_Lab_Soft_2026-02.pdf` | Enunciado y alcance original solicitado. |
-| `ERS(1).pdf` | Requisitos funcionales y no funcionales, restricciones y reglas. |
+| `ERS.pdf` (origen: `ERS(1).pdf`) | Requisitos funcionales y no funcionales, restricciones y reglas. |
 | `Diagramas de Clases.pdf` | Modelo de dominio y responsabilidades. |
 | `er.pdf` | Modelo de datos de referencia. |
 | `Historias_Usuario_Sistema_Tiquetes_Aereos.pdf` | Historias y criterios de aceptación. |
@@ -259,7 +255,7 @@ El README ofrece una vista general. La especificación detallada se consulta en 
 | `ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md` | Correcciones, decisiones comunes, trazabilidad y pendientes. |
 | `REGLASCOMMITS.md`, en la raíz | Convenciones de colaboración mediante Git. |
 
-Los nombres anteriores identifican los documentos de origen. Su ubicación interna debe mantenerse coherente con la organización de `docs/`.
+Los nombres anteriores identifican los documentos de origen. El enunciado y el programa académico no están incluidos en este clon; no atribuirles revisión local. `docs/HU.md` no contiene requisitos; utilizar el PDF de historias.
 
 Las decisiones resueltas del [complemento](docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md) prevalecen sobre los fragmentos originales que corrigen expresamente. Para los demás puntos, siguen vigentes el enunciado y los requisitos aplicables. Las ampliaciones frente al enunciado conservan su identificación y la validación académica que corresponda.
 
@@ -282,7 +278,7 @@ La base incluye `AGENTS.md`, Compose de desarrollo y su opción para WSL, `.env.
 
 BASE-01 incorpora la configuración inicial Django/PostgreSQL, Compose, dependencias, CI y
 contrato OpenAPI. La configuración y los comandos se documentan en [backend/README.md](backend/README.md).
-Compose y las verificaciones locales se ejecutaron; GitHub Actions todavía no se ha ejecutado en GitHub.
+Compose y las verificaciones locales se ejecutaron; no se ha observado una ejecución de GitHub Actions en esta revisión.
 
 Para obtener una copia nueva del repositorio:
 
