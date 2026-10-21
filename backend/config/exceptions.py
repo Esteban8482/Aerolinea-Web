@@ -64,6 +64,26 @@ def api_exception_handler(exc, context):
             "throttled": (
                 "Se alcanzó el límite de solicitudes. Espera el tiempo indicado y reintenta."
             ),
+            "flight_not_found": "Vuelo no encontrado.",
+            "flight_not_editable": "Solo los vuelos en estado programado admiten modificación.",
+            "flight_not_cancellable": (
+                "Solo los vuelos en estado programado pueden ser cancelados."
+            ),
+            "departure_in_past": (
+                "La fecha y hora de salida deben ser posteriores al momento actual."
+            ),
+            "unauthorized_route": "Ruta no autorizada para este tipo de vuelo.",
+            "same_origin_destination": "El origen y el destino deben ser diferentes.",
+            "flight_code_exhausted": (
+                "Se ha agotado el rango de códigos de vuelo disponibles (máximo 9999)."
+            ),
+            "cancellation_reason_required": (
+                "Debes indicar el motivo de la cancelación del vuelo."
+            ),
+            "invalid_flight_cost": "El costo por persona debe ser un valor positivo.",
+            "refund_failed": (
+                "Falla técnica durante el abono a las billeteras de los pasajeros afectados."
+            ),
         }
         message, details = messages.get(code, "No se pudo procesar la solicitud."), {}
     response.data = {"code": code, "message": message, "details": details}

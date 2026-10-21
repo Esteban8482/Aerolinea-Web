@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "apps.users",
     "apps.wallets",
+    "apps.flights",
 ]
 
 MIDDLEWARE = [
@@ -146,3 +147,4 @@ LOGGING = {
 PWNED_PASSWORDS_TIMEOUT_SECONDS = 3
 
 PASSWORD_RECOVERY_FRONTEND_URL = env("PASSWORD_RECOVERY_FRONTEND_URL", default="")
+AIRLINE_CODE_PREFIX = env("AIRLINE_CODE_PREFIX", default="XX")

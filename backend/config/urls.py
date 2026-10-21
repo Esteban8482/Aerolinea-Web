@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.urls import path
+from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import AllowAny
 
@@ -24,6 +24,7 @@ from config.views import HealthCheckView
 
 urlpatterns = [
     path("api/v1/users/administrators/", AdministratorsView.as_view(), name="administrators"),
+    path("api/v1/flights/", include("apps.flights.urls")),
     path("api/v1/users/root/password/", RootPasswordView.as_view(), name="root-password"),
     path("api/v1/auth/login/", LoginView.as_view(), name="auth-login"),
     path("api/v1/auth/logout/", LogoutView.as_view(), name="auth-logout"),
