@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import {
   ArrowUpRight,
   Bell,
@@ -10,6 +10,8 @@ import {
   FileText,
   Filter,
   LayoutDashboard,
+  LockKeyhole,
+  Mail,
   Menu,
   Plane,
   Plus,
@@ -28,6 +30,8 @@ type Activity = {
   status: 'Completado' | 'Pendiente'
   icon: 'ticket' | 'file'
 }
+
+type AuthMode = 'login' | 'register' | 'recover' | 'verify'
 
 const activities: Activity[] = [
   { date: '16 OCT 2026', title: 'Perfil actualizado', detail: 'Datos personales y preferencias', status: 'Completado', icon: 'file' },
@@ -48,6 +52,8 @@ function App() {
   const [query, setQuery] = useState('')
   const [showOnlyPending, setShowOnlyPending] = useState(false)
   const [toast, setToast] = useState('')
+  const [screen, setScreen] = useState<'dashboard' | 'auth'>('dashboard')
+  const [authMode, setAuthMode] = useState<AuthMode>('login')
 
   const filteredActivities = useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim()
@@ -62,6 +68,10 @@ function App() {
     window.setTimeout(() => setToast(''), 3200)
   }
 
+  if (screen === 'auth') {
+    return <AuthScreen mode={authMode} onModeChange={setAuthMode} onBack={() => setScreen('dashboard')} />
+  }
+
   return (
     <div className="app-shell">
       <aside className={`sidebar ${isSidebarOpen ? 'sidebar--open' : ''}`}>
@@ -74,8 +84,8 @@ function App() {
         <nav className="main-nav" aria-label="Navegación principal">
           {navItems.map(({ label, icon: Icon }) => (
             <button
-              className={`nav-item ${activeNav === label ? 'nav-item--active' : ''}`}
               key={label}
+              className={`nav-item ${activeNav === label ? 'nav-item--active' : ''}`}
               onClick={() => { setActiveNav(label); setIsSidebarOpen(false) }}
             >
               <Icon size={18} />
@@ -95,11 +105,11 @@ function App() {
             <span>Estamos para acompañarte.</span>
             <button onClick={() => showToast('Un asesor se pondrá en contacto contigo.')}>Contactar <ArrowUpRight size={14} /></button>
           </div>
-          <div className="user-mini">
+          <button className="user-mini user-mini--button" onClick={() => { setAuthMode('login'); setScreen('auth') }}>
             <div className="avatar avatar--small">MR</div>
             <div><strong>Mariana Ríos</strong><span>Cliente</span></div>
             <ChevronRight size={16} className="muted-icon" />
-          </div>
+          </button>
         </div>
       </aside>
 
@@ -212,6 +222,55 @@ function App() {
 
       {toast && <div className="toast" role="status"><Check size={16} />{toast}</div>}
     </div>
+  )
+}
+
+type AuthScreenProps = {
+  mode: AuthMode
+  onModeChange: (mode: AuthMode) => void
+  onBack: () => void
+}
+
+function AuthScreen({ mode, onModeChange, onBack }: AuthScreenProps) {
+  const isLogin = mode === 'login'
+  const isRegister = mode === 'register'
+  const isRecover = mode === 'recover'
+  const isVerify = mode === 'verify'
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (isVerify) {
+      onBack()
+      return
+    }
+    onModeChange('verify')
+  }
+
+  return (
+    <main className="auth-shell">
+      <section className="auth-brand-panel">
+        <button className="auth-back-link" onClick={onBack}><ChevronRight size={15} className="auth-back-icon" /> Volver al resumen</button>
+        <div className="auth-brand-lockup"><div className="brand-mark"><Plane size={20} strokeWidth={2.5} /></div><strong>alas<span className="brand-dot">.</span></strong></div>
+        <div className="auth-brand-copy"><p className="eyebrow eyebrow--light"><Sparkles size={14} /> VIAJAR EMPIEZA AQUÍ</p><h1>Un espacio pensado para <em>volar tranquilo.</em></h1><p>Guarda tus datos, recibe novedades y ten cada detalle de tu viaje a la mano.</p></div>
+        <div className="auth-route-art" aria-hidden="true"><span className="route-badge route-badge--origin">PEI</span><div className="auth-route-line" /><Plane size={64} /><span className="route-badge route-badge--destination">MAD</span></div>
+      </section>
+
+      <section className="auth-form-panel">
+        <div className="auth-form-card">
+          {!isVerify && <div className="auth-tabs"><button className={isLogin ? 'auth-tab auth-tab--active' : 'auth-tab'} onClick={() => onModeChange('login')}>Ingresar</button><button className={isRegister ? 'auth-tab auth-tab--active' : 'auth-tab'} onClick={() => onModeChange('register')}>Crear cuenta</button></div>}
+          <div className="auth-heading"><div className="auth-heading-icon">{isRecover ? <Mail size={19} /> : isVerify ? <Check size={19} /> : <LockKeyhole size={19} />}</div><p className="eyebrow">CUENTA ALAS</p><h2>{isLogin ? 'Qué bueno verte.' : isRegister ? 'Empieza tu viaje.' : isRecover ? 'Recupera tu acceso.' : 'Revisa tu correo.'}</h2><p>{isLogin ? 'Ingresa tus datos para continuar.' : isRegister ? 'Crea tu cuenta de cliente en pocos pasos.' : isRecover ? 'Te enviaremos un enlace para crear una nueva contraseña.' : 'Enviamos un código de verificación a tu correo.'}</p></div>
+          {isVerify ? <form className="auth-form" onSubmit={handleSubmit}><label>Código de verificación<input autoFocus inputMode="numeric" placeholder="000 000" required /></label><button className="primary-button auth-submit" type="submit">Verificar correo <Check size={16} /></button><button className="auth-text-link" type="button">Reenviar código</button></form> : <form className="auth-form" onSubmit={handleSubmit}>
+            {isRegister && <div className="auth-form-row"><label>Nombres<input placeholder="Mariana" required /></label><label>Apellidos<input placeholder="Ríos" required /></label></div>}
+            <label>{isRecover ? 'Correo electrónico registrado' : 'Correo electrónico'}<input type="email" placeholder="tu@correo.com" required /></label>
+            {!isRecover && <label>Contraseña<input type="password" placeholder="Mínimo 12 caracteres" minLength={12} required /></label>}
+            {isRegister && <label className="auth-check"><input type="checkbox" required /><span>Acepto la política de tratamiento de datos.</span></label>}
+            <button className="primary-button auth-submit" type="submit">{isLogin ? 'Iniciar sesión' : isRegister ? 'Crear mi cuenta' : 'Enviar enlace'} <ArrowUpRight size={16} /></button>
+          </form>}
+          <div className="auth-footer">{isLogin && <button className="auth-text-link" onClick={() => onModeChange('recover')}>¿Olvidaste tu contraseña?</button>}{isRecover && <button className="auth-text-link" onClick={() => onModeChange('login')}>Volver a iniciar sesión</button>}{isVerify && <button className="auth-text-link" onClick={() => onModeChange('login')}>Usar otro correo</button>}</div>
+        </div>
+        <p className="auth-legal">Al continuar aceptas nuestros términos de uso y política de privacidad.</p>
+      </section>
+    </main>
   )
 }
 
