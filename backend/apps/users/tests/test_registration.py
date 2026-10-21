@@ -38,19 +38,7 @@ PASSWORD = "prueba-larga-con-varias-palabras-2026"
 
 
 @pytest.fixture
-def registration_settings(settings, tmp_path):
-    import hashlib
-
-    from apps.users.password_corpus import prepare_corpus
-
-    source = tmp_path / "source.txt"
-    hashes = sorted(
-        hashlib.sha1(p.encode(), usedforsecurity=False).hexdigest().upper()
-        for p in ["synthetic-compromised-password-2026", "another-breached-test-value"]
-    )
-    source.write_text("\n".join(h + ":1" for h in hashes) + "\n")
-    prepare_corpus(source, tmp_path / "corpus", label="synthetic-test", synthetic=True)
-    settings.PASSWORD_CORPUS_DIR = str(tmp_path / "corpus")
+def registration_settings(settings, tmp_path, provider):
     settings.PRIVATE_MEDIA_ROOT = tmp_path / "private-media"
     settings.REGISTRATION_PRODUCTION = False
     settings.REGISTRATION_POLICY_IS_TEST = True
@@ -481,7 +469,7 @@ def test_api_contract_of_prepared_registration_has_no_secrets_or_automatic_login
     csrf_client,
     settings,
 ):
-    # Referencia/corpus sintéticos; no atribuye una aprobación legal al documento de prueba.
+    # Documento sintético y HTTP simulado; no se atribuye aprobación legal.
     response = csrf_client.post("/api/v1/auth/register/", data, format="json")
     assert response.status_code == 201
     assert response.json() == {"status": "unverified", "delivery": "pending"}

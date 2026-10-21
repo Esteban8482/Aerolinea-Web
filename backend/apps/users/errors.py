@@ -7,6 +7,12 @@ class RegistrationUnavailable(APIException):
     default_detail = "El registro no está disponible con la configuración actual."
 
 
+class PasswordCheckUnavailable(APIException):
+    status_code = 503
+    default_code = "password_check_unavailable"
+    default_detail = "No se pudo comprobar la contraseña. Intenta de nuevo más tarde."
+
+
 class EmailAlreadyRegistered(APIException):
     status_code = 409
     default_code = "email_already_registered"

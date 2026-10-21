@@ -28,7 +28,6 @@ services:
       REGISTRATION_POLICY_REFERENCE: ${REGISTRATION_POLICY_REFERENCE:-DOCUMENTO-DE-PRUEBA}
       REGISTRATION_POLICY_VERSION: ${REGISTRATION_POLICY_VERSION:-test-v1}
       REGISTRATION_POLICY_URL: ${REGISTRATION_POLICY_URL:-http://localhost:8000/api/v1/auth/registration-policy/test-document/}
-      PASSWORD_CORPUS_DIR: ${PASSWORD_CORPUS_DIR:-/var/lib/aerolinea/passwords/current}
       REGISTRATION_TRUSTED_PROXIES: ${REGISTRATION_TRUSTED_PROXIES:-}
       DATABASE_URL: postgresql://${POSTGRES_USER:-aerolinea}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-aerolinea}
       TEST_DATABASE_URL: postgresql://${POSTGRES_USER:-aerolinea}:${POSTGRES_PASSWORD}@db:5432/test_aerolinea
@@ -40,7 +39,6 @@ services:
     volumes:
       - ./backend:/app
       - private_media:/var/lib/aerolinea/private-media
-      - password_corpus:/var/lib/aerolinea/passwords
     depends_on:
       db:
         condition: service_healthy
@@ -54,4 +52,3 @@ services:
 volumes:
   postgres_data:
   private_media:
-  password_corpus:

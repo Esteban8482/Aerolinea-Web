@@ -1,9 +1,0 @@
-# Overlay optativo después de importar el corpus con compose.yaml (escritura).
-# Usar en conjunto con compose.yaml; no cambia PostgreSQL ni activa producción.
-services:
-  backend:
-    volumes:
-      - type: volume
-        source: password_corpus
-        target: /var/lib/aerolinea/passwords
-        read_only: true

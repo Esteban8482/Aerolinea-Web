@@ -87,7 +87,6 @@ REGISTRATION_POLICY_VERSION = env("REGISTRATION_POLICY_VERSION", default="")
 REGISTRATION_POLICY_URL = env("REGISTRATION_POLICY_URL", default="")
 REGISTRATION_POLICY_APPROVED = env.bool("REGISTRATION_POLICY_APPROVED", default=False)
 REGISTRATION_POLICY_IS_TEST = env.bool("REGISTRATION_POLICY_IS_TEST", default=True)
-PASSWORD_CORPUS_DIR = env("PASSWORD_CORPUS_DIR", default="")
 PRIVATE_MEDIA_ROOT = env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private-media"))
 REGISTRATION_TRUSTED_PROXIES = env.list("REGISTRATION_TRUSTED_PROXIES", default=[])
 EMAIL_VERIFICATION_FRONTEND_URL = env("EMAIL_VERIFICATION_FRONTEND_URL", default="")
@@ -141,3 +140,6 @@ LOGGING = {
         "django.server": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
+
+# API oficial fija; presupuesto total sin reintentos, incluido DNS.
+PWNED_PASSWORDS_TIMEOUT_SECONDS = 3

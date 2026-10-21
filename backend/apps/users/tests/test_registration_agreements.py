@@ -5,9 +5,7 @@ from threading import Barrier
 from unittest.mock import patch
 
 import pytest
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.core.management import call_command
 from django.db import IntegrityError
 from django.utils import timezone
 from PIL import Image, PngImagePlugin
@@ -18,11 +16,6 @@ from apps.users.errors import InvalidVerification
 from apps.users.limits import consume_limit, request_origin
 from apps.users.mail import process_verification_emails
 from apps.users.models import EmailVerification, RegistrationEvent, RegistrationRateBucket, User
-from apps.users.password_corpus import (
-    is_compromised,
-    prepare_corpus,
-    validate_registration_password,
-)
 from apps.users.services import confirm_email, register_customer, verification_token
 from apps.users.tests.test_registration import csrf_client as csrf_client
 from apps.users.tests.test_registration import data as data
@@ -95,108 +88,6 @@ def test_production_requires_approved_non_test_policy(
     assert csrf_client.post("/api/v1/auth/register/", data, format="json").status_code == 503
     assert csrf_client.get("/api/v1/auth/registration-policy/test-document/").status_code == 404
     assert not User.objects.exists()
-
-
-def test_offline_corpus_detects_members_and_allows_a_different_password(registration_settings):
-    assert is_compromised("synthetic-compromised-password-2026")
-    assert is_compromised("another-breached-test-value")
-    assert not is_compromised("test-password-not-in-corpus-2026")
-    with pytest.raises(DjangoValidationError) as exc:
-        validate_registration_password("synthetic-compromised-password-2026")
-    assert exc.value.code == "password_compromised"
-
-
-@pytest.mark.django_db
-def test_registration_applies_compromised_password_check(data, csrf_client):
-    data["password"] = "synthetic-compromised-password-2026"
-    response = csrf_client.post("/api/v1/auth/register/", data, format="json")
-    assert response.status_code == 400 and "password" in response.json()["details"]
-    assert data["password"] not in response.content.decode()
-    assert not User.objects.exists()
-
-
-@pytest.mark.django_db
-@pytest.mark.parametrize(
-    "failure",
-    ["unset", "missing", "corrupt", "bad_manifest", "wrong_size", "production_test_corpus"],
-)
-def test_unavailable_or_test_corpus_cannot_silently_disable_validation(
-    data,
-    csrf_client,
-    settings,
-    failure,
-):
-    from pathlib import Path
-
-    root = Path(settings.PASSWORD_CORPUS_DIR)
-    if failure == "unset":
-        settings.PASSWORD_CORPUS_DIR = ""
-    elif failure == "missing":
-        settings.PASSWORD_CORPUS_DIR = str(root / "missing")
-    elif failure == "corrupt":
-        path = root / "sha1.bin"
-        path.write_bytes(b"x" * path.stat().st_size)
-    elif failure == "wrong_size":
-        (root / "sha1.bin").write_bytes(b"bad")
-    elif failure == "bad_manifest":
-        (root / "manifest.json").write_text("{}")
-    else:
-        settings.REGISTRATION_PRODUCTION = True
-        settings.REGISTRATION_POLICY_APPROVED = True
-        settings.REGISTRATION_POLICY_IS_TEST = False
-    response = csrf_client.post("/api/v1/auth/register/", data, format="json")
-    assert response.status_code == 503
-    assert not User.objects.exists()
-
-
-@pytest.mark.parametrize(
-    "source_text",
-    [
-        "",
-        "not-a-hash:2",
-        "0" * 40 + ":0",
-        "x" * 40 + ":2",
-        "1" * 40 + ":2\n" + "0" * 40 + ":2",
-        "1" * 40 + ":2\n" + "1" * 40 + ":2",
-    ],
-)
-def test_corpus_import_rejects_bad_unsorted_or_duplicate_data(tmp_path, source_text):
-    source = tmp_path / "source.txt"
-    source.write_text(source_text)
-    destination = tmp_path / "invalid-corpus"
-    with pytest.raises(ValueError):
-        prepare_corpus(source, destination, label="test", synthetic=True)
-    assert not destination.exists()
-
-
-def test_corpus_import_never_overwrites_existing_artifacts(tmp_path):
-    destination = tmp_path / "existing"
-    destination.mkdir()
-    sentinel = destination / "keep"
-    sentinel.write_text("existing-data")
-    with pytest.raises(FileExistsError):
-        prepare_corpus(tmp_path / "does-not-matter", destination, label="test")
-    assert sentinel.read_text() == "existing-data"
-
-
-def test_corpus_preparation_command_builds_a_usable_test_artifact(tmp_path, settings, capsys):
-    import hashlib
-
-    source = tmp_path / "hashes.txt"
-    password = "command-synthetic-compromised-value"
-    source.write_text(hashlib.sha1(password.encode(), usedforsecurity=False).hexdigest() + ":2\n")
-    destination = tmp_path / "command-corpus"
-    call_command(
-        "prepare_password_corpus",
-        source=str(source),
-        destination=str(destination),
-        label="synthetic-command-test",
-        synthetic=True,
-    )
-    settings.REGISTRATION_PRODUCTION = False
-    settings.PASSWORD_CORPUS_DIR = str(destination)
-    assert is_compromised(password)
-    assert "Corpus preparado: 1" in capsys.readouterr().out
 
 
 @pytest.mark.django_db

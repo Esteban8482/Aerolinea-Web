@@ -4,12 +4,13 @@ Base técnica del monolito Django/DRF con PostgreSQL. El estado y la evidencia d
 están en [la revisión técnica](../docs/BASE-01_VERIFICACION.md). Las reglas de negocio
 siguen en [el complemento](../docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md).
 HU-007 incorpora un núcleo de registro y verificación con correo persistente y pruebas.
-El registro en desarrollo admite una política identificada como prueba y requiere configurar
-un corpus local. En producción queda deshabilitado sin política aprobada y corpus real. Consulta
-[contrato, estado y guía de HU-007](../docs/backend/HU-007.md).
-El usuario confirmó sus verificaciones en Docker/PostgreSQL 17.11; la atribución está en
-esa guía. El corpus real se prepara con el [procedimiento de aprovisionamiento](../docs/backend/HU-007_CORPUS_PWNED_PASSWORDS.md),
-con estimación de espacio previa y sin incluir datos en Git.
+El registro en desarrollo admite una política identificada como prueba y requiere salida
+HTTPS a la API oficial de Pwned Passwords. Producción queda deshabilitada sin política
+real aprobada. Consulta [contrato, estado y evidencia de HU-007](../docs/backend/HU-007.md)
+y [comprobación de contraseñas](../docs/backend/HU-007_COMPROBACION_CONTRASENAS.md).
+La consulta tiene tres segundos de espera total y falla con 503 `password_check_unavailable`;
+no necesita API key, corpus, importador, volúmenes adicionales ni dependencias nuevas.
+La evidencia histórica del usuario y la nueva ejecución del agente se atribuyen en la guía.
 No hay login, recuperación, ventas ni operaciones de billetera.
 
 ## Versiones y requisitos
@@ -237,7 +238,7 @@ plan y respaldo. No se borraron tablas anteriores de Django Admin ni registros d
 |---|---|
 | `/api/health/` | Pública, ejecuta `SELECT 1` en PostgreSQL. |
 | `/api/schema/`, `/api/docs/` | Públicas solo en desarrollo/pruebas; deshabilitadas en producción. |
-| `/api/v1/` | Prefijo reservado para las HU; no contiene CRUD ni flujos ficticios. |
+| `/api/v1/auth/` | HU-007: CSRF, política vigente, registro, confirmación y reenvío; [contrato y comandos](../docs/backend/HU-007.md). |
 
 Salud devuelve `status`, `application` y `database`: HTTP 200 con los tres valores `ok`;
 HTTP 503 con `application: ok` y los otros dos `unavailable` si falla la consulta. No
@@ -249,9 +250,10 @@ Convenciones compartidas:
   Autenticación DRF exclusivamente por sesión; permisos `IsAuthenticated` por defecto.
   Los permisos por rol y propiedad deben añadirse con cada HU, incluidos los usuarios
   con privilegios técnicos. El rol ROOT no concede automáticamente `is_staff`/`is_superuser`.
-- CSRF obligatorio para operaciones autenticadas; enviar `X-CSRFToken` y cookies. El futuro
-  login debe protegerse también para usuarios anónimos mediante CSRF de Django; DRF por
-  sí solo no lo hace para una solicitud anónima. No hay aún endpoint de login/CSRF de negocio.
+- CSRF obligatorio para operaciones autenticadas y para los POST públicos de HU-007.
+  Obtener `csrf_token` de `GET /api/v1/auth/csrf/`, enviar `X-CSRFToken` y cookie `csrftoken`.
+  DRF por sí solo no protege visitantes; las vistas públicas usan `csrf_protect`. Login
+  pertenece a HU-008 y deberá protegerse también sin sesión.
 - El tiempo base de cookie es 1800 s. **No equivale al cierre tras 30 minutos de inactividad**;
   la renovación por actividad, logout y revocación se completarán y probarán en HU-008.
 - Dinero en JSON como cadena decimal y moneda explícita; la moneda común aún debe acordarse

@@ -66,8 +66,11 @@ class RegisterView(APIView):
         "máximo 10 solicitudes por origen en una hora móvil. "
         "Obtén política vigente con GET /api/v1/auth/registration-policy/. "
         "JSON sin imagen o multipart/form-data con image opcional JPEG/PNG/WebP, "
-        "hasta 2 MiB y 4096×4096. Producción requiere política aprobada y corpus real; "
-        "si falta configuración se devuelve 503. Límite excedido: 429 con Retry-After.",
+        "hasta 2 MiB y 4096×4096. Producción requiere política aprobada. "
+        "Configuración ausente: 503 registration_unavailable. Comprobación HTTPS por rango "
+        "Pwned Passwords (3 s, sin reintentos): fallo 503 password_check_unavailable; "
+        "reintentar más tarde. Contraseña comprometida: 400 invalid. "
+        "Límite excedido: 429 con Retry-After.",
     )
     def post(self, request):
         current_registration_policy()

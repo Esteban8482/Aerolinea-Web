@@ -13,7 +13,6 @@ REGISTRATION_POLICY_URL = env(
 # Desarrollo no presenta una política de prueba como aprobación legal.
 REGISTRATION_POLICY_APPROVED = False
 REGISTRATION_POLICY_IS_TEST = True
-PASSWORD_CORPUS_DIR = env("PASSWORD_CORPUS_DIR", default="")
 PRIVATE_MEDIA_ROOT = env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private-media"))
 REGISTRATION_TRUSTED_PROXIES = env.list("REGISTRATION_TRUSTED_PROXIES", default=[])
 SECRET_KEY = required(env, "DJANGO_SECRET_KEY")

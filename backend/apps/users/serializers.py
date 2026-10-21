@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from .images import sanitize_profile_image
 from .models import User
-from .password_corpus import validate_registration_password
+from .password_check import validate_registration_password
 from .policy import current_registration_policy
 
 

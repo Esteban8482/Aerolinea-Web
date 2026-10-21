@@ -36,6 +36,9 @@ def api_exception_handler(exc, context):
             "method_not_allowed": "Método no permitido.",
             "parse_error": "El cuerpo de la solicitud no es válido.",
             "registration_unavailable": "El registro aún no está habilitado. Intenta más tarde.",
+            "password_check_unavailable": (
+                "No se pudo comprobar la contraseña. Intenta de nuevo más tarde."
+            ),
             "email_already_registered": (
                 "El correo ya está registrado. Recupera el acceso cuando esté disponible."
             ),
