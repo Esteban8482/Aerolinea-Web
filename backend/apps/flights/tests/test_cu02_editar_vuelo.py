@@ -132,3 +132,82 @@ def test_editar_vuelo_denegado_para_no_administrador(vuelo_programado, regular_c
     # Anónimo
     res_anon = anon_client.patch(url, data, format="json")
     assert res_anon.status_code in (401, 403)
+
+
+
+@pytest.mark.django_db
+def test_editar_vuelo_en_estado_realizado_rechazado(vuelo_programado, admin_client):
+    vuelo_programado.estado = EstadoVuelo.REALIZADO
+    vuelo_programado.save()
+
+    data = {"costo_persona_economica": "180000.00"}
+    url = f"/api/v1/flights/{vuelo_programado.pk}/"
+    response = admin_client.patch(url, data, format="json")
+    assert response.status_code == 400
+    assert response.json()["code"] == "flight_not_editable"
+
+
+@pytest.mark.django_db
+def test_editar_vuelo_inexistente_retorna_404(catalogo, admin_client):
+    url = "/api/v1/flights/999999/"
+    data = {"costo_persona_economica": "180000.00"}
+    response = admin_client.patch(url, data, format="json")
+    assert response.status_code == 404
+    assert response.json()["code"] == "flight_not_found"
+
+
+@pytest.mark.django_db
+def test_editar_vuelo_costos_invalidos_rechazados(vuelo_programado, admin_client):
+    url = f"/api/v1/flights/{vuelo_programado.pk}/"
+
+    # Costo económica <= 0
+    res_cero = admin_client.patch(url, {"costo_persona_economica": "0.00"}, format="json")
+    assert res_cero.status_code == 400
+    assert res_cero.json()["code"] == "invalid_flight_cost"
+
+    # Costo primera <= 0
+    res_neg = admin_client.patch(url, {"costo_persona_primera": "-100.00"}, format="json")
+    assert res_neg.status_code == 400
+    assert res_neg.json()["code"] == "invalid_flight_cost"
+
+
+@pytest.mark.django_db
+def test_editar_vuelo_inmutabilidad_de_tipo_y_destino(vuelo_programado, admin_client):
+    tipo_original = vuelo_programado.tipo_vuelo
+    destino_original = vuelo_programado.ruta.destino_id
+
+    data = {
+        "tipo_vuelo": "INTERNACIONAL",
+        "destino_id": 9999,
+        "costo_persona_economica": "190000.00",
+    }
+    url = f"/api/v1/flights/{vuelo_programado.pk}/"
+    response = admin_client.patch(url, data, format="json")
+    assert response.status_code == 200
+
+    vuelo_programado.refresh_from_db()
+    assert vuelo_programado.tipo_vuelo == tipo_original
+    assert vuelo_programado.ruta.destino_id == destino_original
+    assert vuelo_programado.costo_persona_economica == Decimal("190000.00")
+
+
+@pytest.mark.django_db
+def test_editar_vuelo_modificar_solo_hora_o_solo_fecha(vuelo_programado, admin_client):
+    url = f"/api/v1/flights/{vuelo_programado.pk}/"
+
+    # Modificar solo hora
+    res_hora = admin_client.patch(url, {"hora_salida": "18:00:00"}, format="json")
+    assert res_hora.status_code == 200
+    resp_hora = res_hora.json()
+    assert resp_hora["hora_salida"] == "18:00:00"
+    assert resp_hora["fecha_salida"] == str(vuelo_programado.fecha_salida)
+    # 18:00 + 55 min = 18:55
+    assert resp_hora["hora_llegada"] == "18:55:00"
+
+    # Modificar solo fecha
+    nueva_fecha = date.today() + timedelta(days=6)
+    res_fecha = admin_client.patch(url, {"fecha_salida": str(nueva_fecha)}, format="json")
+    assert res_fecha.status_code == 200
+    resp_fecha = res_fecha.json()
+    assert resp_fecha["fecha_salida"] == str(nueva_fecha)
+    assert resp_fecha["hora_salida"] == "18:00:00"

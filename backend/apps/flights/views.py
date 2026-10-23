@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from apps.users.limits import request_origin
 from apps.users.permissions import IsAdministrator
 
+from .errors import FlightNotFound
 from .models import Ciudad, Ruta, Vuelo
 from .serializers import (
     CancelarVueloSerializer,
@@ -92,11 +93,14 @@ class FlightDetailView(APIView):
 
     @extend_schema(responses={200: VueloDetalleSerializer})
     def get(self, request, pk):
-        vuelo = (
-            Vuelo.objects.select_related("ruta__origen", "ruta__destino", "creado_por")
-            .prefetch_related("sillas", "noticias")
-            .get(pk=pk)
-        )
+        try:
+            vuelo = (
+                Vuelo.objects.select_related("ruta__origen", "ruta__destino", "creado_por")
+                .prefetch_related("sillas", "noticias")
+                .get(pk=pk)
+            )
+        except Vuelo.DoesNotExist:
+            raise FlightNotFound() from None
         return Response(VueloDetalleSerializer(vuelo).data)
 
     @extend_schema(request=EditarVueloSerializer, responses={200: VueloDetalleSerializer})

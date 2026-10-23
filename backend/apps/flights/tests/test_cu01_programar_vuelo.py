@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from apps.flights.models import BitacoraVuelo, Ciudad, NoticiaVuelo, Silla, Vuelo
+from apps.flights.models import BitacoraVuelo, Ciudad, NoticiaVuelo, Ruta, Silla, Vuelo
 
 
 @pytest.mark.django_db
@@ -223,3 +223,93 @@ def test_consultar_catalogos_y_listar_vuelos(catalogo, admin_client, anon_client
     detalle = res_detalle.json()
     assert detalle["id"] == vuelo_id
     assert detalle["capacidad_total"] == 150
+
+
+
+@pytest.mark.django_db
+def test_programar_vuelo_campos_obligatorios_faltantes(catalogo, admin_client):
+    response = admin_client.post("/api/v1/flights/", {}, format="json")
+    assert response.status_code == 400
+    resp = response.json()
+    assert "details" in resp
+    for campo in ["origen_id", "destino_id", "fecha_salida", "hora_salida", "costo_persona_economica"]:
+        assert campo in resp["details"]
+
+
+@pytest.mark.django_db
+def test_programar_vuelo_formato_fecha_hora_invalido(catalogo, admin_client):
+    origen = Ciudad.objects.get(nombre="Bogotá")
+    destino = Ciudad.objects.get(nombre="Pereira")
+
+    data = {
+        "origen_id": origen.pk,
+        "destino_id": destino.pk,
+        "fecha_salida": "fecha-invalida",
+        "hora_salida": "hora-invalida",
+        "costo_persona_economica": "150000.00",
+    }
+    response = admin_client.post("/api/v1/flights/", data, format="json")
+    assert response.status_code == 400
+    resp = response.json()
+    assert "fecha_salida" in resp["details"]
+    assert "hora_salida" in resp["details"]
+
+
+@pytest.mark.django_db
+def test_programar_vuelo_costo_primera_clase_personalizado_valido(catalogo, admin_client):
+    origen = Ciudad.objects.get(nombre="Bogotá")
+    destino = Ciudad.objects.get(nombre="Pereira")
+    fecha_salida = date.today() + timedelta(days=4)
+
+    data = {
+        "origen_id": origen.pk,
+        "destino_id": destino.pk,
+        "fecha_salida": str(fecha_salida),
+        "hora_salida": "11:00:00",
+        "costo_persona_economica": "160000.00",
+        "costo_persona_primera": "310000.00",
+    }
+    response = admin_client.post("/api/v1/flights/", data, format="json")
+    assert response.status_code == 201
+    resp = response.json()
+    assert resp["costo_persona_primera"] == "310000.00"
+    vuelo = Vuelo.objects.get(pk=resp["id"])
+    assert str(vuelo.costo_persona_primera) == "310000.00"
+
+
+@pytest.mark.django_db
+def test_programar_vuelo_costo_primera_clase_invalido_rechazado(catalogo, admin_client):
+    origen = Ciudad.objects.get(nombre="Bogotá")
+    destino = Ciudad.objects.get(nombre="Pereira")
+
+    data = {
+        "origen_id": origen.pk,
+        "destino_id": destino.pk,
+        "fecha_salida": str(date.today() + timedelta(days=4)),
+        "hora_salida": "11:00:00",
+        "costo_persona_economica": "160000.00",
+        "costo_persona_primera": "-500.00",
+    }
+    response = admin_client.post("/api/v1/flights/", data, format="json")
+    assert response.status_code == 400
+    assert response.json()["code"] == "invalid_flight_cost"
+
+
+@pytest.mark.django_db
+def test_programar_vuelo_ciudad_o_ruta_inactiva_rechazada(catalogo, admin_client):
+    origen = Ciudad.objects.get(nombre="Bogotá")
+    destino = Ciudad.objects.get(nombre="Pereira")
+    ruta = Ruta.objects.get(origen=origen, destino=destino)
+    ruta.activa = False
+    ruta.save()
+
+    data = {
+        "origen_id": origen.pk,
+        "destino_id": destino.pk,
+        "fecha_salida": str(date.today() + timedelta(days=3)),
+        "hora_salida": "10:00:00",
+        "costo_persona_economica": "150000.00",
+    }
+    response = admin_client.post("/api/v1/flights/", data, format="json")
+    assert response.status_code == 400
+    assert response.json()["code"] == "unauthorized_route"
