@@ -39,8 +39,12 @@ export default function ResetPasswordPage() {
       setError('Ingrese la nueva contraseña.')
       return
     }
-    if (password.length < 12) {
-      setError('La contraseña debe tener al menos 12 caracteres.')
+    if (password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    if (!/\d/.test(password)) {
+      setError('La contraseña debe contener al menos un número.')
       return
     }
     if (password !== confirm) {
@@ -128,7 +132,7 @@ export default function ResetPasswordPage() {
       <div className="form-container">
         <h1 className="form-title">Nueva contraseña</h1>
         <p className="form-subtitle">
-          Ingrese su nueva contraseña. Debe tener al menos 12 caracteres.
+          Ingrese su nueva contraseña. Debe tener al menos 8 caracteres e incluir al menos un número.
         </p>
 
         {error && (
@@ -162,7 +166,7 @@ export default function ResetPasswordPage() {
                 {showPassword ? 'Ocultar' : 'Ver'}
               </button>
             </div>
-            <span className="form-hint">Mínimo 12 caracteres.</span>
+            <span className="form-hint">Mínimo 8 caracteres e incluir al menos un número.</span>
           </div>
 
           <div className="form-group mb-2">
@@ -195,4 +199,3 @@ export default function ResetPasswordPage() {
     </div>
   )
 }
-

@@ -653,3 +653,183 @@ a:focus-visible {
 .mb-1 { margin-bottom: 0.5rem; }
 .mb-2 { margin-bottom: 1rem; }
 .mb-3 { margin-bottom: 1.5rem; }
+
+
+/* ------------------------------------------------------------
+   12. Profile Page & Date Input Components
+   ------------------------------------------------------------ */
+
+/* Header additions */
+.user-role-tag {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Date input with integrated calendar toggle */
+.date-input-group {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.date-input-group .form-input {
+  flex: 1;
+}
+
+.date-picker-btn {
+  background: var(--color-primary-light);
+  border: 2px solid var(--color-border);
+  border-left: none;
+  color: var(--color-primary);
+  font-size: 1.25rem;
+  padding: 0 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s;
+}
+
+.date-picker-btn:hover,
+.date-picker-btn:focus-visible {
+  background: #e2e8f0;
+}
+
+.date-native-hidden {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+
+/* Profile container & layout */
+.profile-container {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  padding: 2.5rem;
+  margin-top: 1rem;
+}
+
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.profile-title {
+  font-size: 2rem;
+  color: var(--color-primary);
+  margin: 0 0 0.5rem 0;
+  font-weight: 700;
+}
+
+.profile-role {
+  font-size: 1.1rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.profile-badge-zone {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: 2px solid;
+}
+
+.badge--success {
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.badge--warning {
+  background: #fffaf0;
+  border-color: #dd6b20;
+  color: #c05621;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+
+@media (max-width: 768px) {
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profile-card {
+  border: 2px solid var(--color-border);
+  background: #fafbfc;
+  padding: 1.75rem;
+}
+
+.profile-card__title {
+  font-size: 1.3rem;
+  color: var(--color-primary);
+  margin: 0 0 1.25rem 0;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.profile-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.profile-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.profile-item__label {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profile-item__value {
+  font-size: 1.15rem;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.profile-item__value--highlight {
+  color: #2b6cb0;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 1rem;
+  border-top: 2px solid var(--color-border);
+  padding-top: 1.5rem;
+}

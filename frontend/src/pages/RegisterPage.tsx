@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError, toFormData } from '../api'
 
@@ -27,9 +27,14 @@ export default function RegisterPage() {
     username: '',
     password: '',
   })
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [birthDateDisplay, setBirthDateDisplay] = useState('')
+  const nativeDatePickerRef = useRef<HTMLInputElement>(null)
+
   const [image, setImage] = useState<File | null>(null)
   const [accepts, setAccepts] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [globalError, setGlobalError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -51,10 +56,94 @@ export default function RegisterPage() {
       })
   }, [])
 
-  /* -------- helpers -------- */
+  /* -------- helpers de fecha de nacimiento -------- */
+  function parseDisplayDateToIso(display: string): string | null {
+    const trimmed = display.trim()
+    const parts = trimmed.split('/')
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10)
+      const month = parseInt(parts[1], 10)
+      const year = parseInt(parts[2], 10)
+      const currentYear = new Date().getFullYear()
+
+      if (
+        day >= 1 &&
+        day <= 31 &&
+        month >= 1 &&
+        month <= 12 &&
+        year >= 1900 &&
+        year <= currentYear
+      ) {
+        const d = new Date(year, month - 1, day)
+        if (
+          d.getFullYear() === year &&
+          d.getMonth() === month - 1 &&
+          d.getDate() === day
+        ) {
+          if (d < new Date()) {
+            const mm = String(month).padStart(2, '0')
+            const dd = String(day).padStart(2, '0')
+            return `${year}-${mm}-${dd}`
+          }
+        }
+      }
+    }
+    // Formato alternativo YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const d = new Date(trimmed)
+      if (!isNaN(d.getTime()) && d < new Date()) {
+        return trimmed
+      }
+    }
+    return null
+  }
+
+  function formatIsoToDisplay(iso: string): string {
+    const parts = iso.split('-')
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`
+    }
+    return iso
+  }
+
+  function handleBirthDateTyping(rawValue: string) {
+    const digits = rawValue.replace(/\D/g, '')
+    let formatted = digits
+    if (digits.length > 2 && digits.length <= 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`
+    } else if (digits.length > 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`
+    }
+
+    setBirthDateDisplay(formatted)
+    const iso = parseDisplayDateToIso(formatted)
+    update('birth_date', iso || '')
+  }
+
+  function handleNativeDatePickerChange(isoValue: string) {
+    if (!isoValue) return
+    const display = formatIsoToDisplay(isoValue)
+    setBirthDateDisplay(display)
+    update('birth_date', isoValue)
+  }
+
+  function openNativeDatePicker() {
+    if (nativeDatePickerRef.current) {
+      if ('showPicker' in HTMLInputElement.prototype) {
+        try {
+          nativeDatePickerRef.current.showPicker()
+        } catch {
+          nativeDatePickerRef.current.focus()
+        }
+      } else {
+        nativeDatePickerRef.current.focus()
+      }
+    }
+  }
+
+  /* -------- helpers de formulario -------- */
   const update = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
-    // Limpiar error del campo al editar
     setFieldErrors((prev) => {
       const next = { ...prev }
       delete next[key]
@@ -62,7 +151,7 @@ export default function RegisterPage() {
     })
   }
 
-  /** Validación básica antes de enviar al backend. */
+  /** Validación antes de enviar al backend. */
   function validate(): boolean {
     const errors: FieldErrors = {}
 
@@ -72,12 +161,19 @@ export default function RegisterPage() {
       errors.first_name = ['Este campo es obligatorio.']
     if (!form.last_name.trim())
       errors.last_name = ['Este campo es obligatorio.']
-    if (!form.birth_date) errors.birth_date = ['Este campo es obligatorio.']
-    else {
-      const d = new Date(form.birth_date)
-      if (isNaN(d.getTime()) || d >= new Date())
-        errors.birth_date = ['Ingrese una fecha de nacimiento válida.']
+
+    // Validación de fecha de nacimiento
+    if (!birthDateDisplay.trim()) {
+      errors.birth_date = ['Este campo es obligatorio.']
+    } else {
+      const parsedIso = parseDisplayDateToIso(birthDateDisplay)
+      if (!parsedIso) {
+        errors.birth_date = [
+          'Fecha inválida. Escriba en formato Día/Mes/Año (ejemplo: 15/06/1980) o selecciónela con el calendario.',
+        ]
+      }
     }
+
     if (!form.birth_place.trim())
       errors.birth_place = ['Este campo es obligatorio.']
     if (!form.billing_address.trim())
@@ -88,9 +184,23 @@ export default function RegisterPage() {
       errors.email = ['Ingrese un correo electrónico válido.']
     if (!form.username.trim())
       errors.username = ['Este campo es obligatorio.']
-    if (!form.password) errors.password = ['Este campo es obligatorio.']
-    else if (form.password.length < 12)
-      errors.password = ['La contraseña debe tener al menos 12 caracteres.']
+
+    // Validación de contraseña (mínimo 8 caracteres y al menos un número)
+    if (!form.password) {
+      errors.password = ['Este campo es obligatorio.']
+    } else if (form.password.length < 8) {
+      errors.password = ['La contraseña debe tener al menos 8 caracteres.']
+    } else if (!/\d/.test(form.password)) {
+      errors.password = ['La contraseña debe contener al menos un número.']
+    }
+
+    // Confirmación de contraseña
+    if (!confirmPassword) {
+      errors.password_confirmation = ['Debe confirmar su contraseña.']
+    } else if (form.password !== confirmPassword) {
+      errors.password_confirmation = ['Las contraseñas no coinciden.']
+    }
+
     if (!accepts)
       errors.accepts_data_policy = [
         'Debe aceptar la política de tratamiento de datos.',
@@ -109,13 +219,15 @@ export default function RegisterPage() {
     setBusy(true)
     setGlobalError('')
 
+    const isoDate = parseDisplayDateToIso(birthDateDisplay) || form.birth_date
+
     const payload: Record<string, string | boolean> = {
       email: form.email,
       username: form.username,
       first_name: form.first_name,
       last_name: form.last_name,
       document_number: form.document_number,
-      birth_date: form.birth_date,
+      birth_date: isoDate,
       birth_place: form.birth_place,
       billing_address: form.billing_address,
       gender: form.gender,
@@ -134,7 +246,6 @@ export default function RegisterPage() {
       setSuccess(true)
     } catch (err) {
       if (err instanceof ApiError) {
-        // Errores de validación por campo
         if (err.status === 400 && err.details) {
           const mapped: FieldErrors = {}
           for (const [key, value] of Object.entries(err.details)) {
@@ -144,7 +255,6 @@ export default function RegisterPage() {
           }
           setFieldErrors(mapped)
         }
-        // Error global
         if (err.status === 409) {
           setGlobalError(
             'Ya existe una cuenta registrada con ese correo electrónico. Puede iniciar sesión o recuperar su contraseña.',
@@ -182,8 +292,8 @@ export default function RegisterPage() {
             <span className="alert__title">¡Su cuenta ha sido creada!</span>
             <span className="alert__body">
               Hemos enviado un correo de verificación a su dirección de correo
-              electrónico. Revise su bandeja de entrada (y la carpeta de spam) y
-              haga clic en el enlace para activar su cuenta.
+              electrónico. Revise su bandeja de entrada y haga clic en el enlace
+              para activar su cuenta.
             </span>
           </div>
           <div className="mt-2">
@@ -203,7 +313,7 @@ export default function RegisterPage() {
     ) : null
 
   return (
-    <div className="page page--narrow" style={{ maxWidth: 640 }}>
+    <div className="page page--narrow" style={{ maxWidth: 680 }}>
       <div className="form-container">
         <h1 className="form-title">Crear cuenta</h1>
         <p className="form-subtitle">
@@ -248,6 +358,7 @@ export default function RegisterPage() {
                   value={form.document_number}
                   onChange={(e) => update('document_number', e.target.value)}
                   maxLength={20}
+                  placeholder="Ej. 1020304050"
                 />
                 {fieldError('document_number')}
               </div>
@@ -262,6 +373,7 @@ export default function RegisterPage() {
                   value={form.first_name}
                   onChange={(e) => update('first_name', e.target.value)}
                   maxLength={150}
+                  placeholder="Ej. Carlos Arturo"
                 />
                 {fieldError('first_name')}
               </div>
@@ -276,22 +388,49 @@ export default function RegisterPage() {
                   value={form.last_name}
                   onChange={(e) => update('last_name', e.target.value)}
                   maxLength={150}
+                  placeholder="Ej. Gómez Pérez"
                 />
                 {fieldError('last_name')}
               </div>
 
+              {/* Input mejorado de fecha de nacimiento */}
               <div className="form-group">
                 <label className="form-label" htmlFor="reg-bdate">
                   Fecha de nacimiento
                   <span className="form-label__required">*</span>
                 </label>
-                <input
-                  id="reg-bdate"
-                  type="date"
-                  className={`form-input ${fieldErrors.birth_date ? 'form-input--error' : ''}`}
-                  value={form.birth_date}
-                  onChange={(e) => update('birth_date', e.target.value)}
-                />
+                <div className="date-input-group">
+                  <input
+                    id="reg-bdate"
+                    type="text"
+                    inputMode="numeric"
+                    className={`form-input ${fieldErrors.birth_date ? 'form-input--error' : ''}`}
+                    value={birthDateDisplay}
+                    onChange={(e) => handleBirthDateTyping(e.target.value)}
+                    placeholder="DD/MM/AAAA (ej. 15/06/1980)"
+                    maxLength={10}
+                  />
+                  <button
+                    type="button"
+                    className="date-picker-btn"
+                    onClick={openNativeDatePicker}
+                    title="Seleccionar fecha en el calendario"
+                    aria-label="Abrir calendario"
+                  >
+                    📅
+                  </button>
+                  <input
+                    ref={nativeDatePickerRef}
+                    type="date"
+                    tabIndex={-1}
+                    className="date-native-hidden"
+                    onChange={(e) => handleNativeDatePickerChange(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <span className="form-hint">
+                  Escriba Día/Mes/Año o pulse el calendario 📅.
+                </span>
                 {fieldError('birth_date')}
               </div>
 
@@ -305,6 +444,7 @@ export default function RegisterPage() {
                   className={`form-input ${fieldErrors.birth_place ? 'form-input--error' : ''}`}
                   value={form.birth_place}
                   onChange={(e) => update('birth_place', e.target.value)}
+                  placeholder="Ej. Bogotá"
                 />
                 {fieldError('birth_place')}
               </div>
@@ -319,7 +459,7 @@ export default function RegisterPage() {
                   value={form.gender}
                   onChange={(e) => update('gender', e.target.value)}
                 >
-                  <option value="">Seleccione</option>
+                  <option value="">Seleccione su género</option>
                   <option value="MASCULINO">Masculino</option>
                   <option value="FEMENINO">Femenino</option>
                   <option value="OTRO">Otro</option>
@@ -346,6 +486,7 @@ export default function RegisterPage() {
                   onChange={(e) => update('email', e.target.value)}
                   maxLength={254}
                   autoComplete="email"
+                  placeholder="correo@ejemplo.com"
                 />
                 {fieldError('email')}
               </div>
@@ -362,6 +503,7 @@ export default function RegisterPage() {
                   onChange={(e) => update('username', e.target.value)}
                   maxLength={150}
                   autoComplete="username"
+                  placeholder="Ej. cgomez80"
                 />
                 {fieldError('username')}
               </div>
@@ -376,6 +518,7 @@ export default function RegisterPage() {
                   className={`form-input ${fieldErrors.billing_address ? 'form-input--error' : ''}`}
                   value={form.billing_address}
                   onChange={(e) => update('billing_address', e.target.value)}
+                  placeholder="Ej. Calle 100 # 15-20, Bogotá"
                 />
                 {fieldError('billing_address')}
               </div>
@@ -384,9 +527,9 @@ export default function RegisterPage() {
 
           {/* --- Seguridad --- */}
           <div className="form-section">
-            <h2 className="form-section__title">Seguridad</h2>
+            <h2 className="form-section__title">Seguridad y contraseña</h2>
             <div className="form-grid">
-              <div className="form-group form-group--full">
+              <div className="form-group">
                 <label className="form-label" htmlFor="reg-pass">
                   Contraseña<span className="form-label__required">*</span>
                 </label>
@@ -410,8 +553,49 @@ export default function RegisterPage() {
                     {showPassword ? 'Ocultar' : 'Ver'}
                   </button>
                 </div>
-                <span className="form-hint">Mínimo 12 caracteres.</span>
+                <span className="form-hint">
+                  Mínimo 8 caracteres e incluir al menos un número.
+                </span>
                 {fieldError('password')}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-pass-confirm">
+                  Confirmar contraseña<span className="form-label__required">*</span>
+                </label>
+                <div className="password-wrapper">
+                  <input
+                    id="reg-pass-confirm"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    className={`form-input ${fieldErrors.password_confirmation ? 'form-input--error' : ''}`}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value)
+                      setFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.password_confirmation
+                        return next
+                      })
+                    }}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={
+                      showConfirmPassword
+                        ? 'Ocultar contraseña'
+                        : 'Mostrar contraseña'
+                    }
+                  >
+                    {showConfirmPassword ? 'Ocultar' : 'Ver'}
+                  </button>
+                </div>
+                <span className="form-hint">
+                  Vuelva a escribir la misma contraseña.
+                </span>
+                {fieldError('password_confirmation')}
               </div>
 
               <div className="form-group form-group--full">
@@ -426,7 +610,7 @@ export default function RegisterPage() {
                   onChange={(e) => setImage(e.target.files?.[0] ?? null)}
                 />
                 <span className="form-hint">
-                  Formatos: PNG, JPEG o WebP. Máximo 2 MB.
+                  Formatos permitidos: PNG, JPEG o WebP. Máximo 2 MB.
                 </span>
                 {fieldError('image')}
               </div>
@@ -468,16 +652,15 @@ export default function RegisterPage() {
             className="btn btn--primary btn--full"
             disabled={busy || !policy}
           >
-            {busy ? 'Registrando...' : 'Registrarse'}
+            {busy ? 'Registrando cuenta...' : 'Crear mi cuenta'}
           </button>
         </form>
 
         <div className="login-footer">
-          ¿Ya tiene una cuenta?{' '}
-          <Link to="/login">Iniciar sesión</Link>
+          ¿Ya tiene una cuenta creada?{' '}
+          <Link to="/login">Iniciar sesión aquí</Link>
         </div>
       </div>
     </div>
   )
 }
-

@@ -137,8 +137,12 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       setRecoverError('Ingrese la nueva contraseña.')
       return
     }
-    if (newPassword.length < 12) {
-      setRecoverError('La contraseña debe tener al menos 12 caracteres.')
+    if (newPassword.length < 8) {
+      setRecoverError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    if (!/\d/.test(newPassword)) {
+      setRecoverError('La contraseña debe contener al menos un número.')
       return
     }
     if (newPassword !== newPasswordConfirm) {
@@ -241,16 +245,16 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <form onSubmit={handleLogin} noValidate>
             <div className="form-group mb-2">
               <label className="form-label" htmlFor="login-id">
-                Correo electrónico
+                Correo electrónico o Usuario Root
               </label>
               <input
                 id="login-id"
-                type="email"
+                type="text"
                 className="form-input"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 autoComplete="username"
-                placeholder="correo@ejemplo.com"
+                placeholder="correo@ejemplo.com o root_id"
               />
             </div>
 
@@ -303,8 +307,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
 
           <div className="login-footer">
-            ¿No tiene una cuenta?{' '}
-            <Link to="/registro">Registrarse</Link>
+            ¿No tiene una cuenta creada?{' '}
+            <Link to="/registro">Registrarse aquí</Link>
           </div>
         </div>
       </div>
@@ -413,7 +417,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {step === 'recover-password' && (
           <>
             <p className="form-subtitle">
-              Ingrese su nueva contraseña. Debe tener al menos 12 caracteres.
+              Ingrese su nueva contraseña. Debe tener al menos 8 caracteres e incluir al menos un número.
             </p>
             <form onSubmit={handlePasswordReset} noValidate>
               <div className="form-group mb-2">
@@ -442,7 +446,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     {showNewPassword ? 'Ocultar' : 'Ver'}
                   </button>
                 </div>
-                <span className="form-hint">Mínimo 12 caracteres.</span>
+                <span className="form-hint">Mínimo 8 caracteres e incluir al menos un número.</span>
               </div>
 
               <div className="form-group mb-2">
@@ -473,4 +477,3 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     </div>
   )
 }
-

@@ -21,12 +21,15 @@ export default function Header({ authenticated, role, onLogout }: HeaderProps) {
       <nav className="site-header__nav">
         {authenticated ? (
           <div className="site-header__user">
-            <span>
+            <Link to="/perfil" className={isActive('/perfil')}>
+              👤 Mi perfil
+            </Link>
+            <span className="user-role-tag">
               {role === 'ROOT'
-                ? 'Administrador ROOT'
+                ? 'ROOT'
                 : role === 'ADMINISTRADOR'
-                  ? 'Administrador'
-                  : 'Mi cuenta'}
+                  ? 'Admin'
+                  : 'Cliente'}
             </span>
             <button className="btn--header" type="button" onClick={onLogout}>
               Cerrar sesión
@@ -46,4 +49,3 @@ export default function Header({ authenticated, role, onLogout }: HeaderProps) {
     </header>
   )
 }
-

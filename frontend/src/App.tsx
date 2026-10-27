@@ -5,6 +5,7 @@ import Header from './components/Header'
 import HomePage from './pages/HomePage'
 import RegisterPage from './pages/RegisterPage'
 import LoginPage from './pages/LoginPage'
+import ProfilePage from './pages/ProfilePage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 
@@ -60,6 +61,10 @@ export default function App() {
         <Route
           path="/login"
           element={<LoginPage onLoginSuccess={refreshSession} />}
+        />
+        <Route
+          path="/perfil"
+          element={<ProfilePage session={session} />}
         />
         <Route path="/verificar" element={<VerifyEmailPage />} />
         <Route path="/restablecer" element={<ResetPasswordPage />} />
