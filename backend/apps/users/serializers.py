@@ -124,3 +124,20 @@ class RegistrationErrorSerializer(serializers.Serializer):
     code = serializers.CharField()
     message = serializers.CharField()
     details = serializers.DictField()
+
+
+class ProfileSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    email = serializers.EmailField(allow_null=True)
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    document_number = serializers.CharField()
+    document_type = serializers.CharField()
+    birth_date = serializers.DateField(allow_null=True)
+    birth_place = serializers.CharField()
+    billing_address = serializers.CharField()
+    gender = serializers.CharField()
+    role = serializers.CharField()
+    is_email_verified = serializers.BooleanField()
+    wallet_balance = serializers.CharField()

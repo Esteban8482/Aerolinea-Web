@@ -15,6 +15,7 @@ from apps.users.auth_views import (
 from apps.users.views import (
     ConfirmEmailView,
     CsrfView,
+    ProfileView,
     RegisterView,
     RegistrationPolicyView,
     ResendVerificationView,
@@ -29,6 +30,7 @@ urlpatterns = [
     path("api/v1/auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("api/v1/auth/session/", SessionView.as_view(), name="auth-session"),
     path("api/v1/auth/session/activity/", SessionActivityView.as_view(), name="auth-activity"),
+    path("api/v1/auth/profile/", ProfileView.as_view(), name="auth-profile"),
     path("api/v1/auth/password-recovery/", RecoveryRequestView.as_view(), name="auth-recovery"),
     path("api/v1/auth/password-reset/", ResetPasswordView.as_view(), name="auth-password-reset"),
     path("api/health/", HealthCheckView.as_view(), name="api-health"),
