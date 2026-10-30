@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from datetime import date
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -9,6 +10,11 @@ from .models import User
 from .password_check import validate_registration_password
 from .policy import current_registration_policy
 
+DISPOSABLE_EMAIL_DOMAINS = {
+    "mailinator.com", "tempmail.com", "10minutemail.com", "guerrillamail.com",
+    "yopmail.com", "trashmail.com", "temp-mail.org", "sharklasers.com",
+    "guerrillamail.net", "dispostable.com",
+}
 
 class StrictSerializer(serializers.Serializer):
     def to_internal_value(self, data):
@@ -33,14 +39,35 @@ class RegistrationSerializer(StrictSerializer):
     birth_place = serializers.CharField(max_length=100)
     billing_address = serializers.CharField(max_length=200)
     gender = serializers.CharField(max_length=20)
+    phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
     password = serializers.CharField(write_only=True, trim_whitespace=False)
     accepts_data_policy = serializers.BooleanField()
     policy_reference = serializers.CharField(max_length=200)
     policy_version = serializers.CharField(max_length=100)
     image = serializers.FileField(required=False, write_only=True)
 
+    MIN_AGE_YEARS = 18
+    MAX_AGE_YEARS = 120
+
+    def validate_birth_date(self, value):
+        today = date.today()
+        if value > today:
+            raise serializers.ValidationError("La fecha de nacimiento no puede ser futura.")
+        age = today.year - value.year - ((today.month, today.day) < (value.month, value.day))
+        if age < self.MIN_AGE_YEARS:
+            raise serializers.ValidationError("No supera la edad minima para registrarse.")
+        if age > self.MAX_AGE_YEARS:
+            raise serializers.ValidationError("La fecha de nacimiento no es plausible.")
+        return value
+    
     def validate_email(self, value):
-        return value.strip().lower()
+        value = value.strip().lower()
+        domain = value.rsplit("@", 1)[-1]
+        if domain in DISPOSABLE_EMAIL_DOMAINS:
+            raise serializers.ValidationError(
+                "No se admiten correos temporales o desechables."
+            )
+        return value
 
     def validate_accepts_data_policy(self, value):
         if not value:
@@ -71,6 +98,7 @@ class RegistrationSerializer(StrictSerializer):
             if k
             not in {
                 "password",
+                "phone",
                 "accepts_data_policy",
                 "policy_reference",
                 "policy_version",
@@ -124,3 +152,20 @@ class RegistrationErrorSerializer(serializers.Serializer):
     code = serializers.CharField()
     message = serializers.CharField()
     details = serializers.DictField()
+
+
+class ProfileSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    email = serializers.EmailField(allow_null=True)
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    document_number = serializers.CharField()
+    document_type = serializers.CharField()
+    birth_date = serializers.DateField(allow_null=True)
+    birth_place = serializers.CharField()
+    billing_address = serializers.CharField()
+    gender = serializers.CharField()
+    role = serializers.CharField()
+    is_email_verified = serializers.BooleanField()
+    wallet_balance = serializers.CharField()

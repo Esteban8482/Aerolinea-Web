@@ -34,10 +34,10 @@ class ProgramarVueloSerializer(serializers.Serializer):
     fecha_salida = serializers.DateField()
     hora_salida = serializers.TimeField()
     costo_persona_economica = serializers.DecimalField(
-        max_digits=12, decimal_places=2, min_value=Decimal("0.01")
+        max_digits=12, decimal_places=2
     )
     costo_persona_primera = serializers.DecimalField(
-        max_digits=12, decimal_places=2, min_value=Decimal("0.01"), required=False, allow_null=True
+        max_digits=12, decimal_places=2, required=False, allow_null=True
     )
 
 
@@ -45,10 +45,10 @@ class EditarVueloSerializer(serializers.Serializer):
     fecha_salida = serializers.DateField(required=False, allow_null=True)
     hora_salida = serializers.TimeField(required=False, allow_null=True)
     costo_persona_economica = serializers.DecimalField(
-        max_digits=12, decimal_places=2, min_value=Decimal("0.01"), required=False, allow_null=True
+        max_digits=12, decimal_places=2, required=False, allow_null=True
     )
     costo_persona_primera = serializers.DecimalField(
-        max_digits=12, decimal_places=2, min_value=Decimal("0.01"), required=False, allow_null=True
+        max_digits=12, decimal_places=2, required=False, allow_null=True
     )
 
     def validate(self, attrs):

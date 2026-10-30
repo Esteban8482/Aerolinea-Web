@@ -3,7 +3,11 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import AllowAny
 
-from apps.users.administration_views import AdministratorsView, RootPasswordView
+from apps.users.administration_views import (
+    AdministratorPasswordChangeView,
+    AdministratorsView,
+    RootPasswordView,
+)
 from apps.users.auth_views import (
     LoginView,
     LogoutView,
@@ -15,6 +19,7 @@ from apps.users.auth_views import (
 from apps.users.views import (
     ConfirmEmailView,
     CsrfView,
+    ProfileView,
     RegisterView,
     RegistrationPolicyView,
     ResendVerificationView,
@@ -24,12 +29,18 @@ from config.views import HealthCheckView
 
 urlpatterns = [
     path("api/v1/users/administrators/", AdministratorsView.as_view(), name="administrators"),
+    path(
+        "api/v1/users/administrators/password/",
+        AdministratorPasswordChangeView.as_view(),
+        name="administrator-password-change",
+    ),
     path("api/v1/flights/", include("apps.flights.urls")),
     path("api/v1/users/root/password/", RootPasswordView.as_view(), name="root-password"),
     path("api/v1/auth/login/", LoginView.as_view(), name="auth-login"),
     path("api/v1/auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("api/v1/auth/session/", SessionView.as_view(), name="auth-session"),
     path("api/v1/auth/session/activity/", SessionActivityView.as_view(), name="auth-activity"),
+    path("api/v1/auth/profile/", ProfileView.as_view(), name="auth-profile"),
     path("api/v1/auth/password-recovery/", RecoveryRequestView.as_view(), name="auth-recovery"),
     path("api/v1/auth/password-reset/", ResetPasswordView.as_view(), name="auth-password-reset"),
     path("api/health/", HealthCheckView.as_view(), name="api-health"),
