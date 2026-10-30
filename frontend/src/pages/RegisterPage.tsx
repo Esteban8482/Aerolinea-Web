@@ -188,8 +188,8 @@ export default function RegisterPage() {
     // Validación de contraseña (mínimo 8 caracteres y al menos un número)
     if (!form.password) {
       errors.password = ['Este campo es obligatorio.']
-    } else if (form.password.length < 8) {
-      errors.password = ['La contraseña debe tener al menos 8 caracteres.']
+    } else if (form.password.length < 12) {
+      errors.password = ['La contraseña debe tener al menos 12 caracteres.']
     } else if (!/\d/.test(form.password)) {
       errors.password = ['La contraseña debe contener al menos un número.']
     }
@@ -554,7 +554,7 @@ export default function RegisterPage() {
                   </button>
                 </div>
                 <span className="form-hint">
-                  Mínimo 8 caracteres e incluir al menos un número.
+                  Mínimo 12 caracteres e incluir al menos un número.
                 </span>
                 {fieldError('password')}
               </div>
