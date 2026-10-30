@@ -246,7 +246,6 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     <div className="page-shell">
       <div className="page-card" style={{ maxWidth: '1100px' }}>
         <header className="page-card__header">
-          <span className="page-card__eyebrow">Gestión de Operaciones · Alas</span>
           <h1 className="page-card__title">
             {view === 'CREATE'
               ? 'Programar nuevo vuelo (CU-01)'
@@ -259,7 +258,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
               ? 'Configure los parámetros de la ruta, salida y tarifas para habilitar la venta de cupos.'
               : view === 'EDIT'
                 ? 'Ajuste fechas, horarios y costos con recálculo automático de arribos.'
-                : 'Consulta de disponibilidad, itinerarios y administración de vuelos comerciales.'}
+                : 'Consulta de disponibilidad e itinerarios de vuelos comerciales.'}
           </p>
         </header>
 
@@ -593,54 +592,63 @@ export default function FlightsPage({ session }: FlightsPageProps) {
             ============================================================ */}
         {view === 'LIST' && (
           <>
-            <div className="flight-controls-bar">
-              <div className="flight-filters">
-                <input
-                  type="text"
-                  className="form-input"
-                  style={{ width: '220px', padding: '0.5rem 0.75rem' }}
-                  placeholder="Buscar origen o destino..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <div className="flight-controls-bar" style={{ alignItems: 'flex-end' }}>
+              <div className="flight-filters" style={{ alignItems: 'flex-end' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="flight-search" className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                    Buscar ruta o código
+                  </label>
+                  <input
+                    id="flight-search"
+                    type="text"
+                    className="form-input"
+                    style={{ width: '220px', padding: '0.5rem 0.75rem' }}
+                    placeholder="Buscar origen o destino..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
 
-                <select
-                  className="form-select"
-                  style={{ width: '160px', padding: '0.5rem 0.75rem' }}
-                  value={filterEstado}
-                  onChange={(e) => setFilterEstado(e.target.value)}
-                >
-                  <option value="">Estado: Todos</option>
-                  <option value="PROGRAMADO">Programado</option>
-                  <option value="REALIZADO">Realizado</option>
-                  <option value="CANCELADO">Cancelado</option>
-                </select>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="filter-estado" className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                    Estado
+                  </label>
+                  <select
+                    id="filter-estado"
+                    className="form-select"
+                    style={{ width: '160px', padding: '0.5rem 0.75rem' }}
+                    value={filterEstado}
+                    onChange={(e) => setFilterEstado(e.target.value)}
+                  >
+                    <option value="">Todos</option>
+                    <option value="PROGRAMADO">Programado</option>
+                    <option value="REALIZADO">Realizado</option>
+                    <option value="CANCELADO">Cancelado</option>
+                  </select>
+                </div>
 
-                <select
-                  className="form-select"
-                  style={{ width: '160px', padding: '0.5rem 0.75rem' }}
-                  value={filterTipo}
-                  onChange={(e) => setFilterTipo(e.target.value)}
-                >
-                  <option value="">Tipo: Todos</option>
-                  <option value="NACIONAL">Nacional</option>
-                  <option value="INTERNACIONAL">Internacional</option>
-                </select>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label htmlFor="filter-tipo" className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                    Tipo de vuelo
+                  </label>
+                  <select
+                    id="filter-tipo"
+                    className="form-select"
+                    style={{ width: '160px', padding: '0.5rem 0.75rem' }}
+                    value={filterTipo}
+                    onChange={(e) => setFilterTipo(e.target.value)}
+                  >
+                    <option value="">Todos</option>
+                    <option value="NACIONAL">Nacional</option>
+                    <option value="INTERNACIONAL">Internacional</option>
+                  </select>
+                </div>
               </div>
 
-              {isAdmin ? (
+              {isAdmin && (
                 <button type="button" className="btn btn--primary" onClick={() => setView('CREATE')}>
                   + Programar nuevo vuelo (CU-01)
                 </button>
-              ) : (
-                <span className="form-hint">
-                  {!session.authenticated ? (
-                    <Link to="/login" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-                      Inicia sesión
-                    </Link>
-                  ) : null}{' '}
-                  como administrador para gestionar vuelos.
-                </span>
               )}
             </div>
 
@@ -837,3 +845,4 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     </div>
   )
 }
+

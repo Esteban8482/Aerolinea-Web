@@ -48,3 +48,4 @@ export interface VueloDetalle extends Vuelo {
   creado_en?: string
   actualizado_en?: string
 }
+

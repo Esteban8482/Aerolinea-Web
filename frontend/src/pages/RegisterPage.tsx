@@ -289,7 +289,7 @@ export default function RegisterPage() {
   /* -------- render: éxito -------- */
   if (success) {
     return (
-      <div className="page page--narrow">
+      <div className="page page--wide">
         <div className="form-container">
           <h1 className="form-title">Registro exitoso</h1>
           <div className="alert alert--success">
@@ -319,7 +319,7 @@ export default function RegisterPage() {
 
   /* -------- render: formulario principal -------- */
   return (
-    <div className="page page--narrow">
+    <div className="page page--wide">
       <div className="form-container">
         <h1 className="form-title">Crear una cuenta nueva</h1>
         <p className="form-subtitle">
