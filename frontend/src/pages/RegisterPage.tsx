@@ -19,6 +19,7 @@ export default function RegisterPage() {
     document_number: '',
     first_name: '',
     last_name: '',
+    phone: '',
     birth_date: '',
     birth_place: '',
     billing_address: '',
@@ -161,6 +162,8 @@ export default function RegisterPage() {
       errors.first_name = ['Este campo es obligatorio.']
     if (!form.last_name.trim())
       errors.last_name = ['Este campo es obligatorio.']
+    if (!form.phone.trim())
+      errors.phone = ['Este campo es obligatorio.']
 
     // Validación de fecha de nacimiento
     if (!birthDateDisplay.trim()) {
@@ -188,8 +191,8 @@ export default function RegisterPage() {
     // Validación de contraseña (mínimo 8 caracteres y al menos un número)
     if (!form.password) {
       errors.password = ['Este campo es obligatorio.']
-    } else if (form.password.length < 12) {
-      errors.password = ['La contraseña debe tener al menos 12 caracteres.']
+    } else if (form.password.length < 8) {
+      errors.password = ['La contraseña debe tener al menos 8 caracteres.']
     } else if (!/\d/.test(form.password)) {
       errors.password = ['La contraseña debe contener al menos un número.']
     }
@@ -227,6 +230,7 @@ export default function RegisterPage() {
       first_name: form.first_name,
       last_name: form.last_name,
       document_number: form.document_number,
+      phone: form.phone.trim(),
       birth_date: isoDate,
       birth_place: form.birth_place,
       billing_address: form.billing_address,
@@ -306,23 +310,25 @@ export default function RegisterPage() {
     )
   }
 
-  /* -------- render: formulario -------- */
-  const fieldError = (name: string) =>
-    fieldErrors[name] ? (
-      <span className="form-error">{fieldErrors[name].join(' ')}</span>
-    ) : null
+  /* -------- helper para errores -------- */
+  const fieldError = (key: string) => {
+    const errs = fieldErrors[key]
+    if (!errs || errs.length === 0) return null
+    return <span className="form-error">{errs.join(' ')}</span>
+  }
 
+  /* -------- render: formulario principal -------- */
   return (
-    <div className="page page--narrow" style={{ maxWidth: 680 }}>
+    <div className="page page--narrow">
       <div className="form-container">
-        <h1 className="form-title">Crear cuenta</h1>
+        <h1 className="form-title">Crear una cuenta nueva</h1>
         <p className="form-subtitle">
-          Complete los datos a continuación para registrarse como cliente.
+          Complete los campos para registrarse en el sistema de tiquetes aéreos.
         </p>
 
         {policyError && (
           <div className="alert alert--error">
-            <span className="alert__title">Servicio no disponible</span>
+            <span className="alert__title">Atención</span>
             <span className="alert__body">{policyError}</span>
           </div>
         )}
@@ -330,15 +336,6 @@ export default function RegisterPage() {
         {globalError && (
           <div className="alert alert--error">
             <span className="alert__body">{globalError}</span>
-          </div>
-        )}
-
-        {policy?.is_test_document && (
-          <div className="alert alert--info">
-            <span className="alert__body">
-              Entorno de desarrollo: la política de datos es un documento de
-              prueba.
-            </span>
           </div>
         )}
 
@@ -358,7 +355,7 @@ export default function RegisterPage() {
                   value={form.document_number}
                   onChange={(e) => update('document_number', e.target.value)}
                   maxLength={20}
-                  placeholder="Ej. 1020304050"
+                  placeholder="Ej. 1098765432"
                 />
                 {fieldError('document_number')}
               </div>
@@ -373,7 +370,8 @@ export default function RegisterPage() {
                   value={form.first_name}
                   onChange={(e) => update('first_name', e.target.value)}
                   maxLength={150}
-                  placeholder="Ej. Carlos Arturo"
+                  autoComplete="given-name"
+                  placeholder="Ej. Carlos Eduardo"
                 />
                 {fieldError('first_name')}
               </div>
@@ -388,34 +386,36 @@ export default function RegisterPage() {
                   value={form.last_name}
                   onChange={(e) => update('last_name', e.target.value)}
                   maxLength={150}
+                  autoComplete="family-name"
                   placeholder="Ej. Gómez Pérez"
                 />
                 {fieldError('last_name')}
               </div>
 
-              {/* Input mejorado de fecha de nacimiento */}
+              {/* Selector e input de Fecha de Nacimiento */}
               <div className="form-group">
-                <label className="form-label" htmlFor="reg-bdate">
+                <label className="form-label" htmlFor="reg-bdate-display">
                   Fecha de nacimiento
                   <span className="form-label__required">*</span>
                 </label>
-                <div className="date-input-group">
+                <div className="date-picker-wrapper">
                   <input
-                    id="reg-bdate"
+                    id="reg-bdate-display"
                     type="text"
                     inputMode="numeric"
-                    className={`form-input ${fieldErrors.birth_date ? 'form-input--error' : ''}`}
+                    className={`form-input date-text-input ${fieldErrors.birth_date ? 'form-input--error' : ''}`}
                     value={birthDateDisplay}
                     onChange={(e) => handleBirthDateTyping(e.target.value)}
                     placeholder="DD/MM/AAAA (ej. 15/06/1980)"
                     maxLength={10}
+                    autoComplete="bday"
                   />
                   <button
                     type="button"
                     className="date-picker-btn"
                     onClick={openNativeDatePicker}
-                    title="Seleccionar fecha en el calendario"
-                    aria-label="Abrir calendario"
+                    title="Abrir calendario interactivo"
+                    aria-label="Abrir calendario interactivo"
                   >
                     📅
                   </button>
@@ -473,6 +473,24 @@ export default function RegisterPage() {
           <div className="form-section">
             <h2 className="form-section__title">Datos de contacto y cuenta</h2>
             <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-phone">
+                  Teléfono
+                  <span className="form-label__required">*</span>
+                </label>
+                <input
+                  id="reg-phone"
+                  type="tel"
+                  className={`form-input ${fieldErrors.phone ? 'form-input--error' : ''}`}
+                  value={form.phone}
+                  onChange={(e) => update('phone', e.target.value)}
+                  maxLength={30}
+                  autoComplete="tel"
+                  placeholder="Ej. +57 300 1234567"
+                />
+                {fieldError('phone')}
+              </div>
+
               <div className="form-group">
                 <label className="form-label" htmlFor="reg-email">
                   Correo electrónico
@@ -554,7 +572,7 @@ export default function RegisterPage() {
                   </button>
                 </div>
                 <span className="form-hint">
-                  Mínimo 12 caracteres e incluir al menos un número.
+                  Mínimo 8 caracteres e incluir al menos un número.
                 </span>
                 {fieldError('password')}
               </div>

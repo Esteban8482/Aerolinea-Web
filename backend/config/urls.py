@@ -3,7 +3,11 @@ from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import AllowAny
 
-from apps.users.administration_views import AdministratorsView, RootPasswordView
+from apps.users.administration_views import (
+    AdministratorPasswordChangeView,
+    AdministratorsView,
+    RootPasswordView,
+)
 from apps.users.auth_views import (
     LoginView,
     LogoutView,
@@ -25,6 +29,11 @@ from config.views import HealthCheckView
 
 urlpatterns = [
     path("api/v1/users/administrators/", AdministratorsView.as_view(), name="administrators"),
+    path(
+        "api/v1/users/administrators/password/",
+        AdministratorPasswordChangeView.as_view(),
+        name="administrator-password-change",
+    ),
     path("api/v1/users/root/password/", RootPasswordView.as_view(), name="root-password"),
     path("api/v1/auth/login/", LoginView.as_view(), name="auth-login"),
     path("api/v1/auth/logout/", LogoutView.as_view(), name="auth-logout"),

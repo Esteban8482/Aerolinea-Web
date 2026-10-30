@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from datetime import date
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -8,8 +9,6 @@ from .images import sanitize_profile_image
 from .models import User
 from .password_check import validate_registration_password
 from .policy import current_registration_policy
-
-from datetime import date
 
 DISPOSABLE_EMAIL_DOMAINS = {
     "mailinator.com", "tempmail.com", "10minutemail.com", "guerrillamail.com",
@@ -40,6 +39,7 @@ class RegistrationSerializer(StrictSerializer):
     birth_place = serializers.CharField(max_length=100)
     billing_address = serializers.CharField(max_length=200)
     gender = serializers.CharField(max_length=20)
+    phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
     password = serializers.CharField(write_only=True, trim_whitespace=False)
     accepts_data_policy = serializers.BooleanField()
     policy_reference = serializers.CharField(max_length=200)
@@ -98,6 +98,7 @@ class RegistrationSerializer(StrictSerializer):
             if k
             not in {
                 "password",
+                "phone",
                 "accepts_data_policy",
                 "policy_reference",
                 "policy_version",

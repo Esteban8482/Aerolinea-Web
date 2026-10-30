@@ -867,3 +867,90 @@ a:focus-visible {
   border-top: 2px solid var(--color-border);
   padding-top: 1.5rem;
 }
+
+
+/* ------------------------------------------------------------
+   13. Administrators Table & Pager (HU-009)
+   ------------------------------------------------------------ */
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+  text-align: left;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-table th {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 700;
+  border-bottom: 2px solid var(--color-border);
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+.admin-table tr:hover td {
+  background: #f8fafc;
+}
+
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.pager span {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+
+/* ------------------------------------------------------------
+   14. Administrator Split Forms Layout (HU-009)
+   ------------------------------------------------------------ */
+
+.admin-forms-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 860px) {
+  .admin-forms-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-card-panel {
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
