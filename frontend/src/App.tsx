@@ -7,6 +7,7 @@ import RegisterPage from './pages/RegisterPage'
 import LoginPage from './pages/LoginPage'
 import ProfilePage from './pages/ProfilePage'
 import AdministratorsPage from './pages/AdministratorsPage'
+import CatalogPage from './pages/CatalogPage'
 import FlightsPage from './pages/FlightsPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
@@ -60,6 +61,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/vuelos" element={<FlightsPage session={session} />} />
+        <Route path="/catalogo" element={<CatalogPage session={session} />} />
         <Route path="/registro" element={<RegisterPage />} />
         <Route
           path="/login"

@@ -29,6 +29,11 @@ export default function Header({ authenticated, role, onLogout }: HeaderProps) {
                 🛠️ Crear Administrador
               </Link>
             )}
+            {(role === 'ROOT' || role === 'ADMINISTRADOR') && (
+              <Link to="/catalogo" className={isActive('/catalogo')}>
+                🗺️ Catálogo de rutas
+              </Link>
+            )}
             <Link to="/perfil" className={isActive('/perfil')}>
               👤 Mi perfil
             </Link>

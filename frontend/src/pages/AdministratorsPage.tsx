@@ -266,7 +266,7 @@ export default function AdministratorsPage({ session }: AdministratorsPageProps)
         <div className="form-container">
           <h1 className="form-title">Acceso restringido</h1>
           <div className="alert alert--error">
-            <span className="alert__title">Permisos insuficientes (HU-009)</span>
+            <span className="alert__title">Permisos insuficientes</span>
             <span className="alert__body">
               Solo el usuario con rol <strong>ROOT</strong> tiene autorización para crear y gestionar cuentas de administrador. Su rol actual es <strong>{session.role || 'Visitante'}</strong>.
             </span>
@@ -285,7 +285,7 @@ export default function AdministratorsPage({ session }: AdministratorsPageProps)
       <div className="form-container">
         <h1 className="form-title">Gestión de Administradores y Credenciales</h1>
         <p className="form-subtitle">
-          Panel exclusivo de ROOT (HU-009). Registre nuevos administradores, modifique contraseñas de administradores existentes e inspeccione el equipo activo.
+          Panel exclusivo de ROOT. Registre nuevos administradores, modifique contraseñas de administradores existentes e inspeccione el equipo activo.
         </p>
 
         {/* --- Grilla de dos columnas (Izquierda: Crear, Derecha: Cambiar Contraseña) --- */}

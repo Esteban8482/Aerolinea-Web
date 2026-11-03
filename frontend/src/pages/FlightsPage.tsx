@@ -31,7 +31,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
   const [selectedFlight, setSelectedFlight] = useState<VueloDetalle | null>(null)
   const [flightToCancel, setFlightToCancel] = useState<Vuelo | null>(null)
 
-  // Estado formulario creación (CU-01)
+  // Estado formulario creación
   const [createTipo, setCreateTipo] = useState<'NACIONAL' | 'INTERNACIONAL'>('NACIONAL')
   const [createOrigenId, setCreateOrigenId] = useState<number>(0)
   const [createDestinoId, setCreateDestinoId] = useState<number>(0)
@@ -42,7 +42,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
   const [createBusy, setCreateBusy] = useState(false)
   const [createError, setCreateError] = useState('')
 
-  // Estado formulario edición (CU-02)
+  // Estado formulario edición
   const [editFechaSalida, setEditFechaSalida] = useState('')
   const [editHoraSalida, setEditHoraSalida] = useState('')
   const [editCostoEconomica, setEditCostoEconomica] = useState('')
@@ -50,7 +50,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
   const [editBusy, setEditBusy] = useState(false)
   const [editError, setEditError] = useState('')
 
-  // Estado modal cancelación (CU-03)
+  // Estado modal cancelación
   const [cancelMotivo, setCancelMotivo] = useState('')
   const [cancelAlternativa, setCancelAlternativa] = useState<'REINTEGRO' | 'REUBICACION'>('REINTEGRO')
   const [cancelBusy, setCancelBusy] = useState(false)
@@ -84,25 +84,46 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     loadFlights()
   }, [loadFlights])
 
-  // Filtrado reactivo de ciudades para creación
-  const origenesDisponibles = useMemo(() => {
-    if (createTipo === 'NACIONAL') {
-      return cities.filter((c) => c.es_capital_principal)
-    }
-    return cities.filter((c) => c.origen_internacional)
-  }, [cities, createTipo])
+  // Catálogo de rutas activas
+  const activeRoutes = useMemo(() => routes.filter((r) => r.activa !== false), [routes])
 
-  const destinosDisponibles = useMemo(() => {
-    if (createTipo === 'NACIONAL') {
-      return cities.filter((c) => c.es_capital_principal && c.id !== createOrigenId)
+  // Rutas disponibles según el tipo de vuelo seleccionado
+  const tipoRoutes = useMemo(() => {
+    return activeRoutes.filter((r) => r.tipo_vuelo === createTipo)
+  }, [activeRoutes, createTipo])
+
+  // Orígenes disponibles: reactivo a la selección de destino y catálogo de rutas
+  const origenesDisponibles = useMemo(() => {
+    const candidateRoutes = createDestinoId
+      ? tipoRoutes.filter((r) => r.destino.id === createDestinoId)
+      : tipoRoutes
+    const map = new Map<number, Ciudad>()
+    for (const r of candidateRoutes) {
+      if (!map.has(r.origen.id)) {
+        map.set(r.origen.id, r.origen)
+      }
     }
-    return cities.filter((c) => c.destino_internacional)
-  }, [cities, createTipo, createOrigenId])
+    return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [tipoRoutes, createDestinoId])
+
+  // Destinos disponibles: reactivo a la selección de origen y catálogo de rutas
+  const destinosDisponibles = useMemo(() => {
+    const candidateRoutes = createOrigenId
+      ? tipoRoutes.filter((r) => r.origen.id === createOrigenId)
+      : tipoRoutes
+    const map = new Map<number, Ciudad>()
+    for (const r of candidateRoutes) {
+      if (!map.has(r.destino.id)) {
+        map.set(r.destino.id, r.destino)
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [tipoRoutes, createOrigenId])
 
   const rutaSeleccionada = useMemo(() => {
     if (!createOrigenId || !createDestinoId) return null
-    return routes.find((r) => r.origen.id === createOrigenId && r.destino.id === createDestinoId)
-  }, [routes, createOrigenId, createDestinoId])
+    return activeRoutes.find((r) => r.origen.id === createOrigenId && r.destino.id === createDestinoId)
+  }, [activeRoutes, createOrigenId, createDestinoId])
 
   const capacidad = createTipo === 'NACIONAL' ? 150 : 250
   const sillasPrimera = createTipo === 'NACIONAL' ? 25 : 50
@@ -120,7 +141,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     )
   }, [flights, searchTerm])
 
-  // Manejo de CU-01: Programar Vuelo
+  // Manejo de: Programar Vuelo
   const handleCreateSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!createOrigenId || !createDestinoId) {
@@ -146,7 +167,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
       setView('LIST')
       setNotification({
         type: 'success',
-        message: '¡Vuelo programado exitosamente (CU-01)! Código de vuelo y sillas generadas.',
+        message: '¡Vuelo programado exitosamente! Código de vuelo y sillas generadas.',
       })
       loadFlights()
     } catch (err) {
@@ -160,7 +181,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     }
   }
 
-  // Manejo de CU-02: Editar Vuelo
+  // Manejo de: Editar Vuelo
   const handleOpenEdit = async (flight: Vuelo) => {
     try {
       const detail: VueloDetalle = await api.get(`/flights/${flight.id}/`)
@@ -194,7 +215,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
       setSelectedFlight(null)
       setNotification({
         type: 'success',
-        message: '¡Vuelo editado exitosamente (CU-02)! Horarios de llegada recalculados.',
+        message: '¡Vuelo editado exitosamente! Horarios de llegada recalculados.',
       })
       loadFlights()
     } catch (err) {
@@ -208,7 +229,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     }
   }
 
-  // Manejo de CU-03: Cancelar Vuelo
+  // Manejo de: Cancelar Vuelo
   const handleCancelSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!flightToCancel) return
@@ -228,7 +249,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
       setCancelMotivo('')
       setNotification({
         type: 'success',
-        message: '¡Vuelo cancelado exitosamente (CU-03)! Notificación oficial y reintegros procesados.',
+        message: '¡Vuelo cancelado exitosamente! Notificación oficial y reintegros procesados.',
       })
       loadFlights()
     } catch (err) {
@@ -248,9 +269,9 @@ export default function FlightsPage({ session }: FlightsPageProps) {
         <header className="page-card__header">
           <h1 className="page-card__title">
             {view === 'CREATE'
-              ? 'Programar nuevo vuelo (CU-01)'
+              ? 'Programar nuevo vuelo'
               : view === 'EDIT'
-                ? `Editar vuelo ${selectedFlight?.codigo_vuelo} (CU-02)`
+                ? `Editar vuelo ${selectedFlight?.codigo_vuelo}`
                 : 'Vuelos y Rutas'}
           </h1>
           <p className="page-card__subtitle">
@@ -279,7 +300,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
         )}
 
         {/* ============================================================
-            VISTA: CREACIÓN (CU-01)
+            VISTA: CREACIÓN
             ============================================================ */}
         {view === 'CREATE' && (
           <form onSubmit={handleCreateSubmit} noValidate>
@@ -318,10 +339,25 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                     id="create-origen"
                     className="form-select"
                     value={createOrigenId || ''}
-                    onChange={(e) => setCreateOrigenId(Number(e.target.value))}
+                    onChange={(e) => {
+                      const nextOrigenId = Number(e.target.value)
+                      setCreateOrigenId(nextOrigenId)
+                      if (nextOrigenId) {
+                        const availableDests = tipoRoutes.filter((r) => r.origen.id === nextOrigenId)
+                        if (availableDests.length === 1) {
+                          setCreateDestinoId(availableDests[0].destino.id)
+                        } else if (createDestinoId && !availableDests.some((r) => r.destino.id === createDestinoId)) {
+                          setCreateDestinoId(0)
+                        }
+                      }
+                    }}
                     required
                   >
-                    <option value="">Seleccione origen...</option>
+                    <option value="">
+                      {origenesDisponibles.length === 0
+                        ? 'No hay orígenes con rutas activas'
+                        : 'Seleccione origen...'}
+                    </option>
                     {origenesDisponibles.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.nombre} ({c.codigo_pais})
@@ -338,10 +374,27 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                     id="create-destino"
                     className="form-select"
                     value={createDestinoId || ''}
-                    onChange={(e) => setCreateDestinoId(Number(e.target.value))}
+                    onChange={(e) => {
+                      const nextDestinoId = Number(e.target.value)
+                      setCreateDestinoId(nextDestinoId)
+                      if (nextDestinoId) {
+                        const availableOrigins = tipoRoutes.filter((r) => r.destino.id === nextDestinoId)
+                        if (availableOrigins.length === 1) {
+                          setCreateOrigenId(availableOrigins[0].origen.id)
+                        } else if (createOrigenId && !availableOrigins.some((r) => r.origen.id === createOrigenId)) {
+                          setCreateOrigenId(0)
+                        }
+                      }
+                    }}
                     required
                   >
-                    <option value="">Seleccione destino...</option>
+                    <option value="">
+                      {destinosDisponibles.length === 0
+                        ? createOrigenId
+                          ? 'No hay rutas activas desde este origen'
+                          : 'Seleccione origen primero...'
+                        : 'Seleccione destino...'}
+                    </option>
                     {destinosDisponibles.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.nombre} ({c.codigo_pais})
@@ -425,7 +478,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                 <div>
                   <strong>Código de vuelo:</strong>
-                  <p style={{ margin: 0 }}>Autogenerado (XX0001 - XX9999)</p>
+                  <p style={{ margin: 0 }}>Asignado automáticamente por el sistema</p>
                 </div>
                 <div>
                   <strong>Duración estimada:</strong>
@@ -471,7 +524,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
         )}
 
         {/* ============================================================
-            VISTA: EDICIÓN (CU-02)
+            VISTA: EDICIÓN
             ============================================================ */}
         {view === 'EDIT' && selectedFlight && (
           <form onSubmit={handleEditSubmit} noValidate>
@@ -647,7 +700,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
 
               {isAdmin && (
                 <button type="button" className="btn btn--primary" onClick={() => setView('CREATE')}>
-                  + Programar nuevo vuelo (CU-01)
+                  + Programar nuevo vuelo
                 </button>
               )}
             </div>
@@ -752,12 +805,12 @@ export default function FlightsPage({ session }: FlightsPageProps) {
       </div>
 
       {/* ============================================================
-          MODAL: CANCELACIÓN DE VUELO (CU-03)
+          MODAL: CANCELACIÓN DE VUELO
           ============================================================ */}
       {flightToCancel && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
           <div className="modal-box">
-            <h2 className="modal-box__title">¿Cancelar vuelo {flightToCancel.codigo_vuelo}? (CU-03)</h2>
+            <h2 className="modal-box__title">¿Cancelar vuelo {flightToCancel.codigo_vuelo}?</h2>
 
             <div className="flight-details-summary">
               <p>
