@@ -84,6 +84,46 @@ def api_exception_handler(exc, context):
             "refund_failed": (
                 "Falla técnica durante el abono a las billeteras de los pasajeros afectados."
             ),
+            "insufficient_wallet_balance": (
+                "Saldo insuficiente en la billetera para completar la operación."
+            ),
+            "invalid_amount": "El monto debe ser un valor positivo.",
+            "reservation_window_closed": (
+                "Ya no es posible realizar reservas para este vuelo debido a la proximidad de la salida."
+            ),
+            "flight_not_available_for_sale": (
+                "El vuelo no se encuentra disponible para venta o reserva."
+            ),
+            "insufficient_seats": (
+                "No hay cupos suficientes disponibles en la clase seleccionada."
+            ),
+            "ticket_limit_exceeded": (
+                "Un cliente no puede superar el límite de 5 tiquetes activos para el mismo vuelo."
+            ),
+            "adult_passenger_required": (
+                "Al menos un viajero debe ser mayor de edad en la fecha del vuelo."
+            ),
+            "duplicate_passenger_in_flight": (
+                "Una misma persona no puede figurar duplicada como viajero en el mismo vuelo."
+            ),
+            "reservation_not_active": (
+                "La reserva no está vigente o ya fue utilizada o cancelada."
+            ),
+            "cancellation_window_closed": (
+                "Se ha superado el plazo límite permitido para cancelar esta operación."
+            ),
+            "seat_not_available": (
+                "La silla seleccionada no está disponible o no pertenece a la clase del tiquete."
+            ),
+            "seat_change_limit_reached": (
+                "El tiquete ya ha alcanzado el límite máximo de un cambio de silla permitido."
+            ),
+            "checkin_already_confirmed": (
+                "No es posible cambiar de silla debido a que el check-in ya fue confirmado."
+            ),
+            "purchase_not_cancellable": (
+                "La compra no se encuentra en estado cancelable."
+            ),
         }
         message, details = messages.get(code, "No se pudo procesar la solicitud."), {}
     response.data = {"code": code, "message": message, "details": details}

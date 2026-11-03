@@ -1,8 +1,14 @@
-from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import Ciudad, Ruta, Vuelo
+from .models import Ciudad, ClaseTiquete, Ruta, Silla, TipoVuelo, Vuelo
+
+
+class SillaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Silla
+        fields = ["id", "numero_silla", "clase", "estado", "espacio_extra"]
+
 
 
 class CiudadSerializer(serializers.ModelSerializer):
@@ -124,3 +130,57 @@ class VueloDetalleSerializer(serializers.ModelSerializer):
             "creado_en",
             "actualizado_en",
         ]
+
+
+class FlightSearchRequestSerializer(serializers.Serializer):
+    origen_id = serializers.IntegerField(required=False, allow_null=True)
+    destino_id = serializers.IntegerField(required=False, allow_null=True)
+    origen = serializers.CharField(required=False, allow_blank=True)
+    destino = serializers.CharField(required=False, allow_blank=True)
+    fecha_salida = serializers.DateField(required=False, allow_null=True)
+    fecha_regreso = serializers.DateField(required=False, allow_null=True)
+    tipo_trayecto = serializers.ChoiceField(
+        choices=["UNICO", "COMPLETO"], default="UNICO", required=False
+    )
+    pasajeros = serializers.IntegerField(min_value=1, max_value=5, default=1, required=False)
+    clase = serializers.ChoiceField(
+        choices=ClaseTiquete.choices, required=False, allow_blank=True, default=""
+    )
+    tipo_vuelo = serializers.ChoiceField(
+        choices=TipoVuelo.choices, required=False, allow_blank=True, default=""
+    )
+    precio_max = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True
+    )
+
+    def validate(self, attrs):
+        tipo_trayecto = attrs.get("tipo_trayecto", "UNICO")
+        fecha_salida = attrs.get("fecha_salida")
+        fecha_regreso = attrs.get("fecha_regreso")
+
+        if tipo_trayecto == "COMPLETO" and fecha_salida and fecha_regreso:
+            if fecha_regreso < fecha_salida:
+                raise serializers.ValidationError(
+                    {
+                        "fecha_regreso": (
+                            "La fecha de regreso no puede ser anterior a la fecha de salida."
+                        )
+                    }
+                )
+
+        origen_id = attrs.get("origen_id")
+        destino_id = attrs.get("destino_id")
+        if origen_id and destino_id and origen_id == destino_id:
+            raise serializers.ValidationError(
+                {"destino_id": "El origen y el destino deben ser diferentes."}
+            )
+        return attrs
+
+
+class FlightSearchResultSerializer(serializers.Serializer):
+    tipo_trayecto = serializers.CharField()
+    pasajeros = serializers.IntegerField()
+    clase = serializers.CharField()
+    vuelos_ida = VueloListSerializer(many=True)
+    vuelos_regreso = VueloListSerializer(many=True)
+

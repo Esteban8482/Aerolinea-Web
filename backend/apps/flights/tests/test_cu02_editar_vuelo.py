@@ -134,7 +134,6 @@ def test_editar_vuelo_denegado_para_no_administrador(vuelo_programado, regular_c
     assert res_anon.status_code in (401, 403)
 
 
-
 @pytest.mark.django_db
 def test_editar_vuelo_en_estado_realizado_rechazado(vuelo_programado, admin_client):
     vuelo_programado.estado = EstadoVuelo.REALIZADO

@@ -326,6 +326,11 @@ def cancelar_vuelo(
     # Retirar noticias asociadas para que dejen de presentarse (CU-03)
     vuelo.noticias.filter(vigente=True).update(vigente=False)
 
+    # Reembolsar a billeteras de pasajeros afectados si existen compras confirmadas (CU-03, §6.5)
+    from apps.sales.services import reembolsar_tiquetes_por_cancelacion_vuelo
+
+    reembolsar_tiquetes_por_cancelacion_vuelo(vuelo.pk)
+
     # Registrar notificación persistente de cancelación (DEC-13)
     NotificacionAfectacion.objects.create(
         vuelo=vuelo,

@@ -97,7 +97,6 @@ def test_cancelar_vuelo_denegado_para_no_administrador(
     assert res_anon.status_code in (401, 403)
 
 
-
 @pytest.mark.django_db
 def test_cancelar_vuelo_en_estado_realizado_rechazado(vuelo_para_cancelar, admin_client):
     vuelo_para_cancelar.estado = EstadoVuelo.REALIZADO
@@ -149,12 +148,16 @@ def test_cancelar_vuelo_con_alternativa_reubicacion(vuelo_para_cancelar, admin_c
 def test_vuelo_cancelado_no_puede_ser_editado(vuelo_para_cancelar, admin_client):
     # Primero cancelamos el vuelo vía API
     cancel_url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/cancel/"
-    res_cancel = admin_client.post(cancel_url, {"motivo": "Cancelado antes de editar."}, format="json")
+    res_cancel = admin_client.post(
+        cancel_url, {"motivo": "Cancelado antes de editar."}, format="json"
+    )
     assert res_cancel.status_code == 200
 
     # Ahora intentamos editarlo vía PATCH
     edit_url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/"
-    res_edit = admin_client.patch(edit_url, {"costo_persona_economica": "200000.00"}, format="json")
+    res_edit = admin_client.patch(
+        edit_url, {"costo_persona_economica": "200000.00"}, format="json"
+    )
     assert res_edit.status_code == 400
     assert res_edit.json()["code"] == "flight_not_editable"
 
