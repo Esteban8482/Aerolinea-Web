@@ -1,6 +1,12 @@
 # ==============================================================================
 # Script PowerShell para desarrollo: Backend (Docker Compose) + Frontend (Vite)
 # ==============================================================================
+[CmdletBinding()]
+param(
+    [switch]$Clean,           # Inicia sin sembrar datos de prueba
+    [switch]$ResetDatabase    # Borra volumenes de Docker para iniciar una base de datos completamente vacia
+)
+
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -100,11 +106,23 @@ if (-not (Test-Path ".env")) {
 }
 
 # 3. Levantar backend
+if ($ResetDatabase) {
+    Write-Host "==> [-ResetDatabase] Deteniendo contenedores y eliminando volumenes..." -ForegroundColor Yellow
+    & docker compose down -v
+}
+
 Write-Host "`n==> [1/3] Levantando base de datos (PostgreSQL) y backend (Django)..." -ForegroundColor Yellow
 & docker compose up -d --wait backend
 
 Write-Host "==> [2/3] Aplicando migraciones de base de datos..." -ForegroundColor Yellow
 & docker compose exec -T backend python manage.py migrate --noinput
+
+if ($Clean) {
+    Write-Host "==> [Modo Limpio (-Clean)] Omitiendo la siembra de usuarios y vuelos de prueba." -ForegroundColor Cyan
+} else {
+    Write-Host "==> Sembrando datos de prueba para desarrollo (usuarios y vuelos)..." -ForegroundColor Yellow
+    & docker compose exec -T backend python manage.py seed_dev_data
+}
 
 Write-Host "==> Comprobando estado del sistema Django..." -ForegroundColor Yellow
 & docker compose exec -T backend python manage.py check
@@ -123,6 +141,12 @@ Write-Host "  Servicios listos para desarrollo!" -ForegroundColor Green
 Write-Host "  - Frontend (con recarga en vivo):  http://localhost:5173" -ForegroundColor Green
 Write-Host "  - Backend API:                     http://127.0.0.1:8000/api/health/" -ForegroundColor Green
 Write-Host "  - Documentacion Swagger API:       http://127.0.0.1:8000/api/docs/" -ForegroundColor Green
+if (-not $Clean) {
+    Write-Host "  - Cuentas de prueba preconfiguradas:" -ForegroundColor Cyan
+    Write-Host "    * ROOT:          root / Root12345678!" -ForegroundColor Gray
+    Write-Host "    * Administrador: admin@alas.com / Admin12345!" -ForegroundColor Gray
+    Write-Host "    * Cliente:       cliente@alas.com / Cliente12345! (Billetera: `$5.000.000 COP)" -ForegroundColor Gray
+}
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host "Presiona Ctrl+C en esta terminal para detener el Frontend.`n"
 

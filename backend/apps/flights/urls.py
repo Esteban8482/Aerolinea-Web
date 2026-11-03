@@ -1,6 +1,13 @@
 from django.urls import path
 
-from .views import CitiesView, FlightCancelView, FlightDetailView, FlightsView, RoutesView
+from .views import (
+    CitiesView,
+    FlightCancelView,
+    FlightDetailView,
+    FlightsView,
+    RouteDetailView,
+    RoutesView,
+)
 
 urlpatterns = [
     path("", FlightsView.as_view(), name="flights-list-create"),
@@ -8,4 +15,5 @@ urlpatterns = [
     path("<int:pk>/cancel/", FlightCancelView.as_view(), name="flights-cancel"),
     path("cities/", CitiesView.as_view(), name="flights-cities"),
     path("routes/", RoutesView.as_view(), name="flights-routes"),
+    path("routes/<int:pk>/", RouteDetailView.as_view(), name="flights-routes-detail"),
 ]

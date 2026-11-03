@@ -1,0 +1,6 @@
+[ROOT]
+root: Root12345678!
+
+[ADMINISTRADOR]
+admin@alas.com: Admin12345!
+

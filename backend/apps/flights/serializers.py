@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import Ciudad, Ruta, Vuelo
+from .models import Ciudad, Ruta, TipoVuelo, Vuelo
 
 
 class CiudadSerializer(serializers.ModelSerializer):
@@ -26,6 +26,26 @@ class RutaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ruta
         fields = ["id", "origen", "destino", "tipo_vuelo", "duracion_min", "activa"]
+
+
+class RutaWriteSerializer(serializers.Serializer):
+    origen_id = serializers.IntegerField(min_value=1)
+    destino_id = serializers.IntegerField(min_value=1)
+    duracion_min = serializers.IntegerField(min_value=1, max_value=2880)
+    tipo_vuelo = serializers.ChoiceField(choices=TipoVuelo.choices)
+    activa = serializers.BooleanField(default=True, required=False)
+
+    def validate(self, attrs):
+        origen_id = attrs.get("origen_id")
+        destino_id = attrs.get("destino_id")
+        if origen_id and destino_id and origen_id == destino_id:
+            raise serializers.ValidationError({"destino_id": "El origen y el destino no pueden ser iguales."})
+        return attrs
+
+
+class RutaUpdateSerializer(serializers.Serializer):
+    duracion_min = serializers.IntegerField(min_value=1, max_value=2880, required=False)
+    activa = serializers.BooleanField(required=False)
 
 
 class ProgramarVueloSerializer(serializers.Serializer):

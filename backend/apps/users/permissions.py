@@ -51,6 +51,21 @@ class IsAdministrator(BasePermission):
         )
 
 
+class IsAdminOrRoot(BasePermission):
+    """Permiso para operaciones accesibles por administradores y por la cuenta ROOT."""
+
+    def has_permission(self, request, view):
+        from .models import User
+
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and user.is_active
+            and user.role in (User.Role.ADMINISTRADOR, User.Role.ROOT)
+        )
+
+
 class IsClient(BasePermission):
     """Combinar con verificación y propiedad en futuras reservas y compras."""
 
