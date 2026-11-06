@@ -592,3 +592,132 @@ def test_mail_never_runs_inside_registration_transaction(root, data, provider):
     with transaction.atomic():
         with pytest.raises(RuntimeError, match="commit"):
             process_administrator_notifications()
+
+
+
+ADMIN_PASSWORD_URL = "/api/v1/users/administrators/password/"
+
+
+@pytest.mark.django_db
+def test_create_administrator_accepts_phone(root_client, data, provider):
+    payload = {**data, "email": "admin_phone@example.invalid", "phone": "+57 300 1234567"}
+    response = root_client.post(URL, payload, format="json")
+    assert response.status_code == 201
+    user = User.objects.get(email="admin_phone@example.invalid")
+    assert user.role == User.Role.ADMINISTRADOR
+
+
+@pytest.mark.django_db
+def test_change_administrator_password_success(root, root_client, data, provider):
+    admin = create_administrator(actor=root, data=data, origin="test")
+    new_admin_pass = "Credencial-Actualizada-2026!"
+    payload = {
+        "admin_id": admin.pk,
+        "password": new_admin_pass,
+        "password_confirmation": new_admin_pass,
+    }
+    response = root_client.post(ADMIN_PASSWORD_URL, payload, format="json")
+    assert response.status_code == 200
+    assert response.json() == {"status": "password_changed"}
+
+    # Comprobar que la nueva clave funciona para iniciar sesion
+    admin_client = APIClient(enforce_csrf_checks=True)
+    csrf(admin_client)
+    login_resp = login(admin_client, admin, new_admin_pass)
+    assert login_resp.status_code == 200
+
+    # Comprobar auditoria
+    event = AdministrationEvent.objects.filter(
+        kind=AdministrationEvent.Kind.PASSWORD_CHANGED,
+        actor=root,
+        target=admin,
+    ).latest("created_at")
+    assert event is not None
+
+
+@pytest.mark.django_db
+def test_change_administrator_password_requires_root(root, data, provider):
+    admin = create_administrator(actor=root, data=data, origin="test")
+    new_admin_pass = "Credencial-Actualizada-2026!"
+    payload = {
+        "admin_id": admin.pk,
+        "password": new_admin_pass,
+        "password_confirmation": new_admin_pass,
+    }
+
+    # Sin autenticacion
+    anon_client = APIClient(enforce_csrf_checks=True)
+    csrf(anon_client)
+    res_anon = anon_client.post(ADMIN_PASSWORD_URL, payload, format="json")
+    assert res_anon.status_code == 403
+
+    # Con cliente regular (no ROOT)
+    client_user = User(
+        email="cliente@example.invalid",
+        role=User.Role.CLIENTE,
+        is_email_verified=True,
+    )
+    client_user.set_password(PASSWORD)
+    client_user.save()
+    regular_client = APIClient(enforce_csrf_checks=True)
+    csrf(regular_client)
+    assert login(regular_client, client_user).status_code == 200
+    res_user = regular_client.post(ADMIN_PASSWORD_URL, payload, format="json")
+    assert res_user.status_code == 403
+
+    # Con otro administrador (no ROOT)
+    admin_client = APIClient(enforce_csrf_checks=True)
+    csrf(admin_client)
+    assert login(admin_client, admin, data["password"]).status_code == 200
+    res_adm = admin_client.post(ADMIN_PASSWORD_URL, payload, format="json")
+    assert res_adm.status_code == 403
+
+
+@pytest.mark.django_db
+def test_change_administrator_password_validations(root_client, root, data, provider):
+    admin = create_administrator(actor=root, data=data, origin="test")
+
+    # Contraseñas no coinciden
+    res_mismatch = root_client.post(
+        ADMIN_PASSWORD_URL,
+        {
+            "admin_id": admin.pk,
+            "password": "Password123-valida",
+            "password_confirmation": "OtraPassword456",
+        },
+        format="json",
+    )
+    assert res_mismatch.status_code == 400
+    assert "password_confirmation" in res_mismatch.json()["details"]
+
+    # Administrador inexistente
+    res_notfound = root_client.post(
+        ADMIN_PASSWORD_URL,
+        {
+            "admin_id": 999999,
+            "password": "Password123-valida",
+            "password_confirmation": "Password123-valida",
+        },
+        format="json",
+    )
+    assert res_notfound.status_code == 400
+    assert "admin_id" in res_notfound.json()["details"]
+
+    # Target no es ADMINISTRADOR (es un CLIENTE)
+    cliente = User(
+        email="otro_cliente@example.invalid",
+        role=User.Role.CLIENTE,
+    )
+    cliente.set_password(PASSWORD)
+    cliente.save()
+    res_notadmin = root_client.post(
+        ADMIN_PASSWORD_URL,
+        {
+            "admin_id": cliente.pk,
+            "password": "Password123-valida",
+            "password_confirmation": "Password123-valida",
+        },
+        format="json",
+    )
+    assert res_notadmin.status_code == 400
+    assert "admin_id" in res_notadmin.json()["details"]

@@ -5,7 +5,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.parsers import JSONParser, MultiPartParser
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -21,6 +21,7 @@ from .policy import current_registration_policy
 from .serializers import (
     CsrfSerializer,
     PolicySerializer,
+    ProfileSerializer,
     RegistrationErrorSerializer,
     RegistrationResultSerializer,
     RegistrationSerializer,
@@ -174,3 +175,37 @@ class ConfirmEmailView(APIView):
         serializer.is_valid(raise_exception=True)
         confirm_email(**serializer.validated_data)
         return Response({"status": "verified"})
+
+
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={
+            200: ProfileSerializer,
+            **{code: RegistrationErrorSerializer for code in [401, 403, 500]},
+        },
+        tags=["Perfil"],
+        description="Obtiene los datos del usuario autenticado en la sesión actual.",
+    )
+    def get(self, request):
+        user = request.user
+        balance = "0.00"
+        if hasattr(user, "wallet"):
+            balance = str(user.wallet.balance)
+        return Response({
+            "id": user.pk,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "document_number": user.document_number,
+            "document_type": user.document_type,
+            "birth_date": user.birth_date.isoformat() if user.birth_date else None,
+            "birth_place": user.birth_place,
+            "billing_address": user.billing_address,
+            "gender": user.gender,
+            "role": user.role,
+            "is_email_verified": user.is_email_verified,
+            "wallet_balance": balance,
+        })

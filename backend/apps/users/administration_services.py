@@ -57,6 +57,7 @@ def create_administrator(*, actor, data, origin):
     serializer.is_valid(raise_exception=True)
     attrs = dict(serializer.validated_data)
     password = attrs.pop("password")
+    attrs.pop("phone", "")
     user = User(
         **attrs,
         role=User.Role.ADMINISTRADOR,
@@ -199,3 +200,25 @@ def change_root_password(*, actor, current_password, password, origin):
         deny_root_action(actor, action=action, origin=origin)
     # No conservar la sesión actual con update_session_auth_hash: todas se invalidan
     # por el mecanismo de Django en su siguiente petición, como se aprobó para HU-009.
+
+
+def change_administrator_password(*, actor, admin_id, password, origin):
+    action = AdministrationEvent.Action.PASSWORD
+    if root_user(actor) is None:
+        deny_root_action(actor, action=action, origin=origin)
+    try:
+        admin = User.objects.get(pk=admin_id, role=User.Role.ADMINISTRADOR, is_active=True)
+    except User.DoesNotExist:
+        raise ValidationError({"admin_id": ["No se encontró el administrador especificado."]})
+    check_new_password(password, admin)
+    with transaction.atomic():
+        admin.set_password(password)
+        admin.save(update_fields=["password"])
+        administration_event(
+            kind=AdministrationEvent.Kind.PASSWORD_CHANGED,
+            action=action,
+            actor=actor,
+            target=admin,
+            origin=origin,
+        )
+    return admin

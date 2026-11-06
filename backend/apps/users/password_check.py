@@ -124,3 +124,15 @@ def validate_registration_password(password):
             "Esta contraseña aparece en contraseñas comprometidas. Elige otra.",
             code="password_compromised",
         )
+
+
+class ContainsDigitValidator:
+    def validate(self, password, user=None):
+        if not any(char.isdigit() for char in password):
+            raise ValidationError(
+                "La contraseña debe contener al menos un número.",
+                code="password_no_number",
+            )
+
+    def get_help_text(self):
+        return "Tu contraseña debe contener al menos un número."

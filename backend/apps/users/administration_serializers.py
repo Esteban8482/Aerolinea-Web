@@ -7,10 +7,10 @@ from .serializers import StrictSerializer
 class AdministratorCreateSerializer(StrictSerializer):
     email = serializers.EmailField(max_length=254)
     password = serializers.CharField(write_only=True, trim_whitespace=False)
-    # RF-USU-06 permite completar el perfil posteriormente. No exigir datos de cliente.
-    first_name = serializers.CharField(max_length=150, required=False)
-    last_name = serializers.CharField(max_length=150, required=False)
-    document_number = serializers.CharField(max_length=20, required=False)
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    document_number = serializers.CharField(max_length=20, required=False, allow_blank=True, default="")
+    phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
 
     def validate_email(self, value):
         return value.strip().lower()
@@ -47,3 +47,16 @@ class RootPasswordSerializer(StrictSerializer):
 
 class RootPasswordResultSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=["password_changed"])
+
+
+class AdministratorPasswordChangeSerializer(StrictSerializer):
+    admin_id = serializers.IntegerField(required=True)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+    password_confirmation = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password_confirmation"]:
+            raise serializers.ValidationError(
+                {"password_confirmation": ["Las contraseñas no coinciden."]}
+            )
+        return attrs

@@ -245,7 +245,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <form onSubmit={handleLogin} noValidate>
             <div className="form-group mb-2">
               <label className="form-label" htmlFor="login-id">
-                Correo electrónico o Usuario Root
+                Correo electrónico
               </label>
               <input
                 id="login-id"
@@ -254,7 +254,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 autoComplete="username"
-                placeholder="correo@ejemplo.com o root_id"
+                placeholder="correo@ejemplo.com"
               />
             </div>
 

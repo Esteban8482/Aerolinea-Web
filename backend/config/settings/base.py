@@ -16,6 +16,8 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "apps.users",
     "apps.wallets",
+    "apps.flights",
+    "apps.sales",
 ]
 
 MIDDLEWARE = [
@@ -56,13 +58,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-        "OPTIONS": {"min_length": 12},
+        "OPTIONS": {"min_length": 8},
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+    {
+        "NAME": "apps.users.password_check.ContainsDigitValidator",
     },
 ]
 PASSWORD_HASHERS = [
@@ -125,7 +130,15 @@ SPECTACULAR_SETTINGS = {
     "SWAGGER_UI_SETTINGS": {"persistAuthorization": False},
     "SWAGGER_UI_DIST": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.9",
     "SWAGGER_UI_FAVICON_HREF": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.9/favicon-32x32.png",
-    "ENUM_NAME_OVERRIDES": {"HealthStatusEnum": ["ok", "unavailable"]},
+    "ENUM_NAME_OVERRIDES": {
+        "HealthStatusEnum": ["ok", "unavailable"],
+        "EstadoReservaEnum": "apps.sales.models.EstadoReserva",
+        "EstadoCompraEnum": "apps.sales.models.EstadoCompra",
+        "EstadoTiqueteEnum": "apps.sales.models.EstadoTiquete",
+        "EstadoCheckinEnum": "apps.sales.models.EstadoCheckin",
+        "EstadoVueloEnum": "apps.flights.models.EstadoVuelo",
+        "TipoTrayectoEnum": "apps.sales.models.TipoTrayecto",
+    },
     "COMPONENT_SPLIT_REQUEST": True,
 }
 
@@ -146,3 +159,4 @@ LOGGING = {
 PWNED_PASSWORDS_TIMEOUT_SECONDS = 3
 
 PASSWORD_RECOVERY_FRONTEND_URL = env("PASSWORD_RECOVERY_FRONTEND_URL", default="")
+AIRLINE_CODE_PREFIX = env("AIRLINE_CODE_PREFIX", default="XX")

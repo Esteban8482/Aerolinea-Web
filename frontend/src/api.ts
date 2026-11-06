@@ -1,4 +1,4 @@
-// Cliente HTTP compartido – HU-007 / HU-008 / HU-009.
+// Cliente HTTP compartido – HU-007 / HU-008 / HU-009 / CU-01-03.
 // Gestiona CSRF y cookies de sesión de forma transparente.
 
 const BASE = '/api/v1'
@@ -71,6 +71,11 @@ export const api = {
     return request('POST', path, body ?? {}, csrfToken)
   },
 
+  patch: async (path: string, body: unknown) => {
+    const csrfToken = await getCsrfToken()
+    return request('PATCH', path, body ?? {}, csrfToken)
+  },
+
   postMultipart: async (path: string, form: FormData) => {
     const csrfToken = await getCsrfToken()
     const response = await fetch(`${BASE}${path}`, {
@@ -82,4 +87,3 @@ export const api = {
     return parse(response)
   },
 }
-

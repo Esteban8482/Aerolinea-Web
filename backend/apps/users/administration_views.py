@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from .administration_serializers import (
     AdministratorCreatedSerializer,
     AdministratorCreateSerializer,
+    AdministratorPasswordChangeSerializer,
     AdministratorSerializer,
     RootPasswordResultSerializer,
     RootPasswordSerializer,
@@ -19,6 +20,7 @@ from .administration_services import (
     CREATE_PER_ROOT,
     ROOT_PASSWORD_PER_ORIGIN,
     ROOT_PASSWORD_WINDOW,
+    change_administrator_password,
     change_root_password,
     create_administrator,
     deny_root_action,
@@ -40,7 +42,7 @@ class AdministratorsView(GenericAPIView):
     serializer_class = AdministratorSerializer
     queryset = (
         User.objects.filter(role=User.Role.ADMINISTRADOR)
-        .only("id", "email", "first_name", "last_name", "role")
+        .only("id", "email", "first_name", "last_name", "document_number", "role")
         .order_by("pk")
     )
 
@@ -80,9 +82,8 @@ class AdministratorsView(GenericAPIView):
         parameters=[CSRF_HEADER],
         tags=["Administradores"],
         description="Solo ROOT activo, independientemente de staff/superuser o verificación. "
-        "Correo y contraseña inicial obligatorios; nombres, apellidos y DNI opcionales "
-        "(el administrador completa su perfil posteriormente). Rol ADMINISTRADOR fijado "
-        "por servidor. Máximo 10 solicitudes por ROOT/hora y 20/origen/hora; "
+        "Correo, contraseña inicial, nombres, apellidos, DNI y teléfono obligatorios. "
+        "Rol ADMINISTRADOR fijado por servidor. Máximo 10 solicitudes por ROOT/hora y 20/origen/hora; "
         "429 con Retry-After. Cuenta, billetera cero, aviso y auditoría atómicos. "
         "No envía la contraseña por correo ni marca el correo como verificado. "
         "Correo duplicado: 409 email_already_registered; Pwned Passwords no disponible: "
@@ -96,6 +97,7 @@ class AdministratorsView(GenericAPIView):
                     "first_name": "Persona",
                     "last_name": "De Prueba",
                     "document_number": "000TEST009",
+                    "phone": "3001234567",
                     "password": "CONTRASEÑA-SINTÉTICA",
                 },
             )
@@ -149,6 +151,33 @@ class RootPasswordView(APIView):
         change_root_password(
             actor=request.user,
             current_password=attrs["current_password"],
+            password=attrs["password"],
+            origin=origin,
+        )
+        return Response({"status": "password_changed"})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class AdministratorPasswordChangeView(APIView):
+    permission_classes = [IsRoot]
+    parser_classes = [JSONParser]
+    administration_action = AdministrationEvent.Action.PASSWORD
+
+    @extend_schema(
+        request=AdministratorPasswordChangeSerializer,
+        responses={200: RootPasswordResultSerializer, **ERRORS},
+        parameters=[CSRF_HEADER],
+        tags=["Administradores"],
+        description="Solo ROOT activo. Permite actualizar la contraseña de un administrador existente.",
+    )
+    def post(self, request):
+        origin = request_origin(request)
+        serializer = AdministratorPasswordChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        attrs = serializer.validated_data
+        change_administrator_password(
+            actor=request.user,
+            admin_id=attrs["admin_id"],
             password=attrs["password"],
             origin=origin,
         )

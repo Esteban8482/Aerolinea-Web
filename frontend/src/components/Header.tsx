@@ -19,8 +19,21 @@ export default function Header({ authenticated, role, onLogout }: HeaderProps) {
       </Link>
 
       <nav className="site-header__nav">
+        <Link to="/vuelos" className={isActive('/vuelos')}>
+          ✈ Vuelos
+        </Link>
         {authenticated ? (
           <div className="site-header__user">
+            {role === 'ROOT' && (
+              <Link to="/administradores" className={isActive('/administradores')}>
+                🛠️ Crear Administrador
+              </Link>
+            )}
+            {(role === 'ROOT' || role === 'ADMINISTRADOR') && (
+              <Link to="/catalogo" className={isActive('/catalogo')}>
+                🗺️ Catálogo de rutas
+              </Link>
+            )}
             <Link to="/perfil" className={isActive('/perfil')}>
               👤 Mi perfil
             </Link>

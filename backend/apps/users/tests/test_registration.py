@@ -559,3 +559,19 @@ def test_service_cannot_accept_an_unpublished_policy(data, settings):
     settings.REGISTRATION_POLICY_URL = ""
     with pytest.raises(RegistrationUnavailable):
         register_customer(data=data)
+
+
+
+@pytest.mark.django_db
+def test_registration_accepts_phone(data, csrf_client, settings):
+    payload = {
+        **data,
+        "email": "customer_phone@example.invalid",
+        "username": "customer_phone",
+        "phone": "+57 300 1234567",
+    }
+    response = csrf_client.post("/api/v1/auth/register/", payload, format="json")
+    assert response.status_code == 201
+    assert response.json() == {"status": "unverified", "delivery": "pending"}
+    user = User.objects.get(email="customer_phone@example.invalid")
+    assert user.role == User.Role.CLIENTE
