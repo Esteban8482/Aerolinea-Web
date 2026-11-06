@@ -15,6 +15,8 @@ export default function CatalogPage({ session }: CatalogPageProps) {
   const isAuthorized =
     session.authenticated && (session.role === 'ADMINISTRADOR' || session.role === 'ROOT')
 
+
+    
   const [cities, setCities] = useState<Ciudad[]>([])
   const [routes, setRoutes] = useState<Ruta[]>([])
   const [loading, setLoading] = useState(false)
