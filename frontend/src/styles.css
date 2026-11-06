@@ -867,3 +867,160 @@ a:focus-visible {
   border-top: 2px solid var(--color-border);
   padding-top: 1.5rem;
 }
+
+.demo-profile-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  background: #ffe8f0;
+  border: 2px solid #ff4885;
+  color: var(--color-primary);
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.demo-profile-banner span {
+  color: var(--color-text-secondary);
+}
+
+.badge--demo {
+  background: #ffe8f0;
+  border-color: #ff4885;
+  color: var(--color-primary);
+}
+
+.profile-card--accent {
+  background: #cbe2fe;
+  border-color: #cbe2fe;
+}
+
+.demo-profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 0 0 2rem;
+}
+
+.demo-profile-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 1.1rem;
+  background: #ffe8f0;
+}
+
+.demo-profile-stats strong {
+  color: var(--color-primary);
+  font-size: 1.7rem;
+}
+
+.demo-profile-stats span {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .demo-profile-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .demo-profile-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Iteración 2: búsqueda, vuelos, catálogo y billetera */
+.iteration-page { max-width: 1100px; margin: 0 auto; padding: 3rem 2rem 5rem; width: 100%; }
+.iteration-heading { margin-bottom: 2rem; }
+.iteration-heading h1 { margin: .25rem 0 .5rem; }
+.iteration-heading p { color: var(--color-text-secondary); margin: 0; }
+.eyebrow { color: var(--color-focus); font-size: .75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.iteration-panel { background: var(--color-surface); border: 1px solid var(--color-border); padding: 1.5rem; margin-bottom: 1.25rem; }
+.iteration-panel h2 { font-size: 1.25rem; margin-bottom: 1rem; }
+.search-form, .admin-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; align-items: end; }
+.search-form label, .admin-form label, .catalog-controls label, .stack-form label { display: grid; gap: .35rem; color: var(--color-text-secondary); font-size: .85rem; font-weight: 600; }
+.search-form input, .search-form select, .admin-form input, .admin-form select, .catalog-controls select, .stack-form input, .stack-form select { border: 1px solid var(--color-border); background: #fff; color: var(--color-text); font: inherit; padding: .7rem; width: 100%; }
+.search-form input:focus, .search-form select:focus, .admin-form input:focus, .admin-form select:focus, .catalog-controls select:focus, .stack-form input:focus, .stack-form select:focus { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.iteration-form__submit { height: 45px; }
+.iteration-notice { margin: 1rem 0; padding: .9rem 1rem; border: 1px solid; font-weight: 600; }
+.iteration-notice--ok { background: var(--color-success-bg); border-color: #9bd0aa; color: var(--color-success); }
+.iteration-notice--error { background: var(--color-error-bg); border-color: #e7aaaa; color: var(--color-error); }
+.iteration-results { margin-top: 2rem; }
+.section-title { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; margin-bottom: 1rem; }
+.section-title h2 { margin: 0; font-size: 1.35rem; }
+.section-title span { color: var(--color-text-secondary); font-size: .9rem; }
+.flight-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.flight-card { background: var(--color-surface); border: 1px solid var(--color-border); padding: 1.25rem; position: relative; }
+.flight-card__top, .flight-card__details { display: flex; justify-content: space-between; gap: .75rem; align-items: center; }
+.flight-code { color: var(--color-primary); font-size: .85rem; font-weight: 800; letter-spacing: .08em; }
+.status-pill { display: inline-block; font-size: .72rem; font-weight: 700; padding: .25rem .55rem; }
+.status-pill--ok { background: var(--color-success-bg); color: var(--color-success); }
+.status-pill--muted { background: #edf0f2; color: var(--color-text-secondary); }
+.flight-route { display: grid; grid-template-columns: 1fr 1.2fr 1fr; align-items: center; text-align: center; margin: 1.5rem 0 1rem; }
+.flight-route div { display: grid; gap: .15rem; }
+.flight-route strong { font-size: 1.7rem; color: var(--color-primary); }
+.flight-route span { color: var(--color-text-secondary); font-size: .8rem; }
+.flight-route__line { color: var(--color-focus); border-bottom: 1px solid var(--color-border); margin: 0 1rem; }
+.flight-route__line small { display: block; padding-top: .3rem; color: var(--color-text-secondary); }
+.flight-card__details { border-top: 1px solid #eee; padding-top: .9rem; font-size: .78rem; color: var(--color-text-secondary); }
+.flight-card__details strong { color: var(--color-primary); font-size: 1rem; }
+.flight-card .btn { margin-top: 1rem; }
+.promotion-label { display: inline-block; color: var(--color-success); font-size: .75rem; font-weight: 700; margin-top: .7rem; }
+.empty-state { background: var(--color-surface); border: 1px dashed var(--color-border); display: grid; gap: .4rem; padding: 2rem; text-align: center; }
+.empty-state span { color: var(--color-text-secondary); }
+.detail-panel { background: #fff8fb; border: 1px solid #f3bdd0; margin-top: 1.5rem; padding: 1.5rem; position: relative; }
+.detail-panel h2 { margin: .35rem 0 .75rem; }
+.close-button { background: transparent; border: 0; color: var(--color-primary); cursor: pointer; position: absolute; right: 1rem; text-decoration: underline; }
+.catalog-controls { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; }
+.form-summary { background: #f7f3fa; border-left: 3px solid var(--color-primary); display: grid; gap: .25rem; padding: .85rem 1rem; font-size: .85rem; }
+.form-summary span { color: var(--color-text-secondary); }
+.wallet-balance { background: var(--color-primary); color: #fff; display: grid; gap: .25rem; margin-bottom: 1.25rem; padding: 1.5rem; }
+.wallet-balance span, .wallet-balance small { opacity: .8; }
+.wallet-balance strong { font-size: 2.2rem; }
+.wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.stack-form { display: grid; gap: 1rem; }
+.payment-row, .movement-row { align-items: center; border-top: 1px solid #eee; display: flex; gap: 1rem; justify-content: space-between; padding: .9rem 0; }
+.payment-row:first-of-type, .movement-row:first-of-type { border-top: 0; }
+.payment-row div, .movement-row div { display: grid; gap: .2rem; margin-right: auto; }
+.payment-row div span, .movement-row div span, .movement-row > span { color: var(--color-text-secondary); font-size: .8rem; }
+.payment-icon { color: var(--color-primary); font-size: 1.5rem; }
+.movement-amount { color: var(--color-success); }
+
+@media (max-width: 760px) {
+  .iteration-page { padding: 2rem 1rem 4rem; }
+  .search-form, .admin-form, .flight-grid, .wallet-grid { grid-template-columns: 1fr; }
+  .catalog-controls { grid-template-columns: 1fr; }
+  .site-header { height: auto; padding: .75rem 1rem; gap: .5rem; flex-wrap: wrap; }
+  .site-header__nav { flex-wrap: wrap; justify-content: flex-end; }
+  .site-header__link { padding: .35rem .5rem; font-size: .85rem; }
+}
+
+.commerce-flights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.commerce-flight { background: #fff; border: 1px solid var(--color-border); color: var(--color-text); cursor: pointer; display: grid; gap: .35rem; padding: 1rem; text-align: left; }
+.commerce-flight:hover, .commerce-flight--selected { border-color: var(--color-focus); box-shadow: 0 0 0 2px rgba(255, 72, 133, .15); }
+.commerce-flight strong { color: var(--color-primary); font-size: 1.15rem; }
+.commerce-flight span, .commerce-flight small { color: var(--color-text-secondary); }
+.commerce-flight b { color: var(--color-primary); }
+.commerce-options { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 1rem; align-items: end; }
+.commerce-options h2 { grid-column: 1 / -1; margin-bottom: 0; }
+.commerce-options label { display: grid; gap: .35rem; color: var(--color-text-secondary); font-size: .85rem; font-weight: 600; }
+.commerce-options select { border: 1px solid var(--color-border); font: inherit; padding: .7rem; }
+.commerce-total { background: #f7f3fa; display: grid; gap: .2rem; padding: .75rem 1rem; }
+.commerce-total span { color: var(--color-text-secondary); font-size: .85rem; }
+.commerce-total strong { color: var(--color-primary); font-size: 1.35rem; }
+.form-help { color: var(--color-text-secondary); font-size: .9rem; }
+.traveler-grid { display: grid; gap: 1rem; }
+.traveler-form { border: 1px solid var(--color-border); display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 0; padding: 1rem; }
+.traveler-form legend { color: var(--color-primary); font-weight: 700; padding: 0 .4rem; }
+.traveler-form label { display: grid; gap: .35rem; color: var(--color-text-secondary); font-size: .85rem; font-weight: 600; }
+.traveler-form input { border: 1px solid var(--color-border); font: inherit; padding: .7rem; }
+.commerce-confirmation { align-items: center; display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.25rem; }
+.commerce-footnote { color: var(--color-text-secondary); text-align: center; }
+
+@media (max-width: 760px) {
+  .commerce-flights, .commerce-options, .traveler-form { grid-template-columns: 1fr; }
+  .commerce-options h2 { grid-column: auto; }
+  .commerce-confirmation { align-items: stretch; flex-direction: column; }
+}

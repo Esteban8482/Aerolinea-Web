@@ -19,8 +19,13 @@ export default function Header({ authenticated, role, onLogout }: HeaderProps) {
       </Link>
 
       <nav className="site-header__nav">
+        <Link to="/vuelos/buscar" className={isActive('/vuelos/buscar')}>Buscar vuelos</Link>
+        <Link to="/vuelos/catalogo" className={isActive('/vuelos/catalogo')}>Catálogo</Link>
+        <Link to="/reservas/nueva" className={isActive('/reservas/nueva')}>Reservar</Link>
+        <Link to="/compras/nueva" className={isActive('/compras/nueva')}>Comprar</Link>
         {authenticated ? (
           <div className="site-header__user">
+            <Link to="/billetera" className={isActive('/billetera')}>Billetera</Link>
             <Link to="/perfil" className={isActive('/perfil')}>
               👤 Mi perfil
             </Link>

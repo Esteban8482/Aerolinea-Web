@@ -8,6 +8,9 @@ import LoginPage from './pages/LoginPage'
 import ProfilePage from './pages/ProfilePage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import DemoProfilePage from './pages/DemoProfilePage'
+import { FlightCatalogPage, FlightSearchPage, ScheduleFlightPage, WalletPage } from './pages/Iteration2Pages'
+import { PurchasePage, ReservationPage } from './pages/Iteration3Pages'
 
 interface Session {
   authenticated: boolean
@@ -66,8 +69,15 @@ export default function App() {
           path="/perfil"
           element={<ProfilePage session={session} />}
         />
+        <Route path="/perfil-demo" element={<DemoProfilePage />} />
         <Route path="/verificar" element={<VerifyEmailPage />} />
         <Route path="/restablecer" element={<ResetPasswordPage />} />
+        <Route path="/vuelos/buscar" element={<FlightSearchPage />} />
+        <Route path="/vuelos/catalogo" element={<FlightCatalogPage />} />
+        <Route path="/admin/vuelos/nuevo" element={<ScheduleFlightPage />} />
+        <Route path="/billetera" element={<WalletPage />} />
+        <Route path="/reservas/nueva" element={<ReservationPage />} />
+        <Route path="/compras/nueva" element={<PurchasePage />} />
       </Routes>
     </div>
   )
