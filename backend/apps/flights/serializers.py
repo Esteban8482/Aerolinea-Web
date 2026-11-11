@@ -184,3 +184,8 @@ class FlightSearchResultSerializer(serializers.Serializer):
     vuelos_ida = VueloListSerializer(many=True)
     vuelos_regreso = VueloListSerializer(many=True)
 
+class CrearRutaSerializer(serializers.Serializer):
+    origen_id = serializers.IntegerField(min_value=1)
+    destino_id = serializers.IntegerField(min_value=1)
+    tipo_vuelo = serializers.ChoiceField(choices=TipoVuelo.choices)
+    duracion_min = serializers.IntegerField(min_value=15, max_value=1200)

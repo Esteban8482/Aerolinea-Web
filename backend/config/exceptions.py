@@ -73,6 +73,7 @@ def api_exception_handler(exc, context):
                 "La fecha y hora de salida deben ser posteriores al momento actual."
             ),
             "unauthorized_route": "Ruta no autorizada para este tipo de vuelo.",
+            "duplicate_route": "Ya existe una ruta registrada entre estas ciudades.",
             "same_origin_destination": "El origen y el destino deben ser diferentes.",
             "flight_code_exhausted": (
                 "Se ha agotado el rango de códigos de vuelo disponibles (máximo 9999)."

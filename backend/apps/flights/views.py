@@ -14,6 +14,7 @@ from .models import Ciudad, EstadoVuelo, Ruta, Vuelo
 from .serializers import (
     CancelarVueloSerializer,
     CiudadSerializer,
+    CrearRutaSerializer,
     EditarVueloSerializer,
     FlightSearchRequestSerializer,
     FlightSearchResultSerializer,
@@ -22,7 +23,7 @@ from .serializers import (
     VueloDetalleSerializer,
     VueloListSerializer,
 )
-from .services import cancelar_vuelo, editar_vuelo, programar_vuelo
+from .services import cancelar_vuelo, crear_ruta, editar_vuelo, programar_vuelo
 
 
 class CitiesView(APIView):
@@ -35,7 +36,10 @@ class CitiesView(APIView):
 
 
 class RoutesView(APIView):
-    permission_classes = [AllowAny]
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated(), IsAdministrator()]
+        return [AllowAny()]
 
     @extend_schema(responses={200: RutaSerializer(many=True)})
     def get(self, request):
@@ -45,6 +49,13 @@ class RoutesView(APIView):
             .order_by("origen__nombre", "destino__nombre")
         )
         return Response(RutaSerializer(rutas, many=True).data)
+
+    @extend_schema(request=CrearRutaSerializer, responses={201: RutaSerializer})
+    def post(self, request):
+        serializer = CrearRutaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ruta = crear_ruta(**serializer.validated_data)
+        return Response(RutaSerializer(ruta).data, status=status.HTTP_201_CREATED)
 
 
 class FlightsView(APIView):

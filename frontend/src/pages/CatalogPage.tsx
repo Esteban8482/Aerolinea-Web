@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
+import ColumnFilter from '../components/ColumnFilter'
 import type { Ciudad, Ruta } from '../types/flight'
 
 interface CatalogPageProps {
@@ -23,9 +24,10 @@ export default function CatalogPage({ session }: CatalogPageProps) {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   // Filtros
-  const [searchTerm, setSearchTerm] = useState('')
   const [filterTipo, setFilterTipo] = useState('')
   const [filterEstado, setFilterEstado] = useState('')
+  const [filterOrigenId, setFilterOrigenId] = useState<number>(0)
+  const [filterDestinoId, setFilterDestinoId] = useState<number>(0)
 
   // Formulario creación de ruta
   const [showCreate, setShowCreate] = useState(false)
@@ -36,6 +38,26 @@ export default function CatalogPage({ session }: CatalogPageProps) {
   const [createActiva, setCreateActiva] = useState<boolean>(true)
   const [createBusy, setCreateBusy] = useState(false)
   const [createError, setCreateError] = useState('')
+
+  // Ciudades elegibles según el tipo de vuelo (regla del catálogo)
+  const ciudadesOrigen = useMemo(
+    () =>
+      cities.filter((c) =>
+        createTipo === 'NACIONAL'
+          ? c.codigo_pais === 'CO' && c.es_capital_principal
+          : c.origen_internacional,
+      ),
+    [cities, createTipo],
+  )
+  const ciudadesDestino = useMemo(
+    () =>
+      cities.filter((c) =>
+        createTipo === 'NACIONAL'
+          ? c.codigo_pais === 'CO' && c.es_capital_principal
+          : c.destino_internacional,
+      ),
+    [cities, createTipo],
+  )
 
   // Edición rápida de duración
   const [editingRouteId, setEditingRouteId] = useState<number | null>(null)
@@ -60,10 +82,8 @@ export default function CatalogPage({ session }: CatalogPageProps) {
   }, [])
 
   useEffect(() => {
-    if (isAuthorized) {
-      loadData()
-    }
-  }, [isAuthorized, loadData])
+    loadData()
+  }, [loadData])
 
   // Filtrado de rutas en tabla
   const filteredRoutes = useMemo(() => {
@@ -71,15 +91,11 @@ export default function CatalogPage({ session }: CatalogPageProps) {
       if (filterTipo && r.tipo_vuelo !== filterTipo) return false
       if (filterEstado === 'activa' && !r.activa) return false
       if (filterEstado === 'inactiva' && r.activa) return false
-      if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase().trim()
-        const matchOrigen = r.origen.nombre.toLowerCase().includes(term)
-        const matchDestino = r.destino.nombre.toLowerCase().includes(term)
-        return matchOrigen || matchDestino
-      }
+      if (filterOrigenId && r.origen.id !== filterOrigenId) return false
+      if (filterDestinoId && r.destino.id !== filterDestinoId) return false
       return true
     })
-  }, [routes, filterTipo, filterEstado, searchTerm])
+  }, [routes, filterTipo, filterEstado, filterOrigenId, filterDestinoId])
 
   // Alternar estado activo / inactivo
   const handleToggleActive = async (route: Ruta) => {
@@ -148,11 +164,10 @@ export default function CatalogPage({ session }: CatalogPageProps) {
     setCreateError('')
     try {
       const created: Ruta = await api.post('/flights/routes/', {
-        origen: createOrigenId,
-        destino: createDestinoId,
+        origen_id: createOrigenId,
+        destino_id: createDestinoId,
         tipo_vuelo: createTipo,
         duracion_min: createDuracion,
-        activa: createActiva,
       })
       setRoutes((prev) => [...prev, created])
       setShowCreate(false)
@@ -171,26 +186,6 @@ export default function CatalogPage({ session }: CatalogPageProps) {
     }
   }
 
-  if (!isAuthorized) {
-    return (
-      <div className="page-shell">
-        <div className="page-card" style={{ maxWidth: '640px', margin: '3rem auto' }}>
-          <header className="page-card__header">
-            <h1 className="page-card__title">Acceso restringido</h1>
-          </header>
-          <div className="alert alert--error" style={{ marginBottom: '1.5rem' }}>
-            Solo el personal con rol <strong>Administrador</strong> o <strong>ROOT</strong> tiene
-            autorización para gestionar el catálogo de rutas. Su rol actual es{' '}
-            <strong>{session.role || 'Visitante'}</strong>.
-          </div>
-          <Link to="/" className="btn btn--secondary">
-            Volver al inicio
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="page-shell">
       <div className="page-card" style={{ maxWidth: '1100px' }}>
@@ -199,19 +194,23 @@ export default function CatalogPage({ session }: CatalogPageProps) {
             <div>
               <h1 className="page-card__title">Catálogo de Rutas</h1>
               <p className="page-card__subtitle">
-                Gestión de rutas activas e itinerarios base para vuelos comerciales.
+                {isAuthorized
+                  ? 'Gestión de rutas activas e itinerarios base para vuelos comerciales.'
+                  : 'Rutas e itinerarios base disponibles para vuelos comerciales.'}
               </p>
             </div>
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={() => {
-                setShowCreate(!showCreate)
-                setCreateError('')
-              }}
-            >
-              {showCreate ? 'Cerrar formulario' : '+ Nueva ruta'}
-            </button>
+            {isAuthorized && (
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => {
+                  setShowCreate(!showCreate)
+                  setCreateError('')
+                }}
+              >
+                {showCreate ? 'Cerrar formulario' : '+ Nueva ruta'}
+              </button>
+            )}
           </div>
         </header>
 
@@ -232,7 +231,7 @@ export default function CatalogPage({ session }: CatalogPageProps) {
         )}
 
         {/* Formulario desplegable para agregar nueva ruta */}
-        {showCreate && (
+        {showCreate && isAuthorized && (
           <div className="admin-card-panel" style={{ marginBottom: '2rem', border: '2px solid var(--color-primary)' }}>
             <h2 className="form-section__title" style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>
               Registrar nueva ruta en el catálogo
@@ -252,7 +251,11 @@ export default function CatalogPage({ session }: CatalogPageProps) {
                     id="new-route-tipo"
                     className="form-select"
                     value={createTipo}
-                    onChange={(e) => setCreateTipo(e.target.value as 'NACIONAL' | 'INTERNACIONAL')}
+                    onChange={(e) => {
+                      setCreateTipo(e.target.value as 'NACIONAL' | 'INTERNACIONAL')
+                      setCreateOrigenId(0)
+                      setCreateDestinoId(0)
+                    }}
                   >
                     <option value="NACIONAL">Nacional</option>
                     <option value="INTERNACIONAL">Internacional</option>
@@ -287,7 +290,7 @@ export default function CatalogPage({ session }: CatalogPageProps) {
                     required
                   >
                     <option value="">Seleccione ciudad de origen...</option>
-                    {cities.map((c) => (
+                    {ciudadesOrigen.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.nombre} ({c.codigo_pais})
                       </option>
@@ -307,7 +310,7 @@ export default function CatalogPage({ session }: CatalogPageProps) {
                     required
                   >
                     <option value="">Seleccione ciudad de destino...</option>
-                    {cities
+                    {ciudadesDestino
                       .filter((c) => c.id !== createOrigenId)
                       .map((c) => (
                         <option key={c.id} value={c.id}>
@@ -343,60 +346,6 @@ export default function CatalogPage({ session }: CatalogPageProps) {
           </div>
         )}
 
-        {/* Filtros de catálogo */}
-        <div className="flight-controls-bar" style={{ alignItems: 'flex-end', marginBottom: '1.5rem' }}>
-          <div className="flight-filters" style={{ alignItems: 'flex-end' }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label htmlFor="search-route" className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                Buscar ciudad
-              </label>
-              <input
-                id="search-route"
-                type="text"
-                className="form-input"
-                style={{ width: '220px', padding: '0.5rem 0.75rem' }}
-                placeholder="Origen o destino..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <div className="form-group" style={{ margin: 0 }}>
-              <label htmlFor="filter-route-tipo" className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                Tipo de ruta
-              </label>
-              <select
-                id="filter-route-tipo"
-                className="form-select"
-                style={{ width: '160px', padding: '0.5rem 0.75rem' }}
-                value={filterTipo}
-                onChange={(e) => setFilterTipo(e.target.value)}
-              >
-                <option value="">Todas</option>
-                <option value="NACIONAL">Nacional</option>
-                <option value="INTERNACIONAL">Internacional</option>
-              </select>
-            </div>
-
-            <div className="form-group" style={{ margin: 0 }}>
-              <label htmlFor="filter-route-estado" className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                Estado
-              </label>
-              <select
-                id="filter-route-estado"
-                className="form-select"
-                style={{ width: '160px', padding: '0.5rem 0.75rem' }}
-                value={filterEstado}
-                onChange={(e) => setFilterEstado(e.target.value)}
-              >
-                <option value="">Todas</option>
-                <option value="activa">Activas</option>
-                <option value="inactiva">Inactivas</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         {/* Tabla de rutas */}
         {loading ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
@@ -412,17 +361,67 @@ export default function CatalogPage({ session }: CatalogPageProps) {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Tipo</th>
-                  <th>Origen</th>
-                  <th>Destino</th>
+                  <ColumnFilter label="Tipo" active={Boolean(filterTipo)}>
+                    <select
+                      className="form-select"
+                      style={{ width: '100%' }}
+                      value={filterTipo}
+                      onChange={(e) => setFilterTipo(e.target.value)}
+                    >
+                      <option value="">Todas</option>
+                      <option value="NACIONAL">Nacional</option>
+                      <option value="INTERNACIONAL">Internacional</option>
+                    </select>
+                  </ColumnFilter>
+                  <ColumnFilter label="Origen" active={Boolean(filterOrigenId)}>
+                    <select
+                      className="form-select"
+                      style={{ width: '100%' }}
+                      value={filterOrigenId || ''}
+                      onChange={(e) => setFilterOrigenId(Number(e.target.value))}
+                    >
+                      <option value="">Todas</option>
+                      {cities.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre} ({c.codigo_pais})
+                        </option>
+                      ))}
+                    </select>
+                  </ColumnFilter>
+                  <ColumnFilter label="Destino" active={Boolean(filterDestinoId)}>
+                    <select
+                      className="form-select"
+                      style={{ width: '100%' }}
+                      value={filterDestinoId || ''}
+                      onChange={(e) => setFilterDestinoId(Number(e.target.value))}
+                    >
+                      <option value="">Todas</option>
+                      {cities.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre} ({c.codigo_pais})
+                        </option>
+                      ))}
+                    </select>
+                  </ColumnFilter>
                   <th>Duración estimada</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
+                  <ColumnFilter label="Estado" active={Boolean(filterEstado)}>
+                    <select
+                      className="form-select"
+                      style={{ width: '100%' }}
+                      value={filterEstado}
+                      onChange={(e) => setFilterEstado(e.target.value)}
+                    >
+                      <option value="">Todas</option>
+                      <option value="activa">Activas</option>
+                      <option value="inactiva">Inactivas</option>
+                    </select>
+                  </ColumnFilter>
+                  {isAuthorized && <th>Acciones</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredRoutes.map((r) => {
-                  const isEditing = editingRouteId === r.id
+                  const isEditing = isAuthorized && editingRouteId === r.id
                   return (
                     <tr key={r.id}>
                       <td>#{r.id}</td>
@@ -474,33 +473,35 @@ export default function CatalogPage({ session }: CatalogPageProps) {
                           {r.activa ? 'Activa' : 'Inactiva'}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button
-                            type="button"
-                            className={`btn ${r.activa ? 'btn--secondary' : 'btn--primary'}`}
-                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}
-                            onClick={() => handleToggleActive(r)}
-                            disabled={actionBusy}
-                          >
-                            {r.activa ? 'Desactivar' : 'Activar'}
-                          </button>
-                          {!isEditing && (
+                      {isAuthorized && (
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
                               type="button"
-                              className="btn btn--secondary"
+                              className={`btn ${r.activa ? 'btn--secondary' : 'btn--primary'}`}
                               style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}
-                              onClick={() => {
-                                setEditingRouteId(r.id)
-                                setEditDuracion(r.duracion_min)
-                              }}
+                              onClick={() => handleToggleActive(r)}
                               disabled={actionBusy}
                             >
-                              Editar duración
+                              {r.activa ? 'Desactivar' : 'Activar'}
                             </button>
-                          )}
-                        </div>
-                      </td>
+                            {!isEditing && (
+                              <button
+                                type="button"
+                                className="btn btn--secondary"
+                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}
+                                onClick={() => {
+                                  setEditingRouteId(r.id)
+                                  setEditDuracion(r.duracion_min)
+                                }}
+                                disabled={actionBusy}
+                              >
+                                Editar duración
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}

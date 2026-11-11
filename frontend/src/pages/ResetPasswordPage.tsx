@@ -21,11 +21,6 @@ export default function ResetPasswordPage() {
     const match = window.location.hash.match(/token=([^&]+)/)
     if (match) {
       setToken(decodeURIComponent(match[1]))
-      window.history.replaceState(
-        null,
-        '',
-        window.location.pathname + window.location.search,
-      )
     } else {
       setNoToken(true)
     }

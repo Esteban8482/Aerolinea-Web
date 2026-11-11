@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError, toFormData } from '../api'
+import { MUNICIPIOS } from '../data/municipios'
 
 interface Policy {
   reference: string
@@ -434,18 +435,24 @@ export default function RegisterPage() {
                 {fieldError('birth_date')}
               </div>
 
-              <div className="form-group">
+                            <div className="form-group">
                 <label className="form-label" htmlFor="reg-bplace">
-                  Lugar de nacimiento
+                  Ciudad de nacimiento
                   <span className="form-label__required">*</span>
                 </label>
-                <input
+                <select
                   id="reg-bplace"
-                  className={`form-input ${fieldErrors.birth_place ? 'form-input--error' : ''}`}
+                  className={`form-select ${fieldErrors.birth_place ? 'form-input--error' : ''}`}
                   value={form.birth_place}
                   onChange={(e) => update('birth_place', e.target.value)}
-                  placeholder="Ej. Bogotá"
-                />
+                >
+                  <option value="">Seleccione su ciudad de nacimiento</option>
+                  {MUNICIPIOS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
                 {fieldError('birth_place')}
               </div>
 

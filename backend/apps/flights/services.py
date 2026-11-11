@@ -16,6 +16,7 @@ from .errors import (
     InvalidFlightCost,
     SameOriginDestination,
     UnauthorizedRoute,
+    DuplicateRoute,
 )
 from .models import (
     BitacoraVuelo,
@@ -349,3 +350,33 @@ def cancelar_vuelo(
     )
 
     return vuelo
+
+@transaction.atomic
+def crear_ruta(*, origen_id: int, destino_id: int, tipo_vuelo: str, duracion_min: int) -> Ruta:
+    """Registra una ruta en el catálogo validando las reglas de autorización."""
+    if origen_id == destino_id:
+        raise SameOriginDestination()
+
+    try:
+        origen = Ciudad.objects.get(pk=origen_id, activa=True)
+        destino = Ciudad.objects.get(pk=destino_id, activa=True)
+    except Ciudad.DoesNotExist:
+        raise UnauthorizedRoute() from None
+
+    if tipo_vuelo == TipoVuelo.NACIONAL:
+        if not (
+            origen.codigo_pais == "CO" and origen.es_capital_principal
+            and destino.codigo_pais == "CO" and destino.es_capital_principal
+        ):
+            raise UnauthorizedRoute()
+    else:  # INTERNACIONAL
+        if not origen.origen_internacional or not destino.destino_internacional:
+            raise UnauthorizedRoute()
+
+    if Ruta.objects.filter(origen=origen, destino=destino).exists():
+        raise DuplicateRoute()
+
+    return Ruta.objects.create(
+        origen=origen, destino=destino,
+        tipo_vuelo=tipo_vuelo, duracion_min=duracion_min,
+    )
