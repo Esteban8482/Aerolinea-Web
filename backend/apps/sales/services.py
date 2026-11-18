@@ -4,6 +4,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.flights.models import ClaseTiquete, EstadoSilla, EstadoVuelo, Silla, TipoVuelo, Vuelo
@@ -192,6 +193,27 @@ def crear_reserva(
 
     if not al_menos_un_adulto:
         raise AdultPassengerRequired()
+
+    # Ninguna persona puede figurar dos veces como viajero en el mismo vuelo:
+    # tampoco en otra reserva vigente ni en un tiquete activo de ese vuelo
+    vuelos_ids = [vuelo.pk]
+    if vuelo_regreso:
+        vuelos_ids.append(vuelo_regreso.pk)
+    duplicado_en_reserva = (
+        ReservaViajero.objects.filter(
+            reserva__estado=EstadoReserva.VIGENTE,
+            viajero__documento__in=documentos_vistos,
+        )
+        .filter(Q(reserva__vuelo_id__in=vuelos_ids) | Q(reserva__vuelo_regreso_id__in=vuelos_ids))
+        .exists()
+    )
+    duplicado_en_tiquete = Tiquete.objects.filter(
+        vuelo_id__in=vuelos_ids,
+        estado=EstadoTiquete.ACTIVO,
+        viajero__documento__in=documentos_vistos,
+    ).exists()
+    if duplicado_en_reserva or duplicado_en_tiquete:
+        raise DuplicatePassengerInFlight()
 
     reserva = Reserva.objects.create(
         cliente=cliente,
