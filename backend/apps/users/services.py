@@ -101,6 +101,10 @@ def register_customer(*, data):
         }:
             raise EmailAlreadyRegistered() from None
         raise
+    
+    from .mail import process_verification_emails
+    transaction.on_commit(lambda: process_verification_emails(batch_size=1))
+    
     return user
 
 

@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.wallets",
     "apps.flights",
+    "apps.sales",
 ]
 
 MIDDLEWARE = [
@@ -129,7 +130,15 @@ SPECTACULAR_SETTINGS = {
     "SWAGGER_UI_SETTINGS": {"persistAuthorization": False},
     "SWAGGER_UI_DIST": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.9",
     "SWAGGER_UI_FAVICON_HREF": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.9/favicon-32x32.png",
-    "ENUM_NAME_OVERRIDES": {"HealthStatusEnum": ["ok", "unavailable"]},
+    "ENUM_NAME_OVERRIDES": {
+        "HealthStatusEnum": ["ok", "unavailable"],
+        "EstadoReservaEnum": "apps.sales.models.EstadoReserva",
+        "EstadoCompraEnum": "apps.sales.models.EstadoCompra",
+        "EstadoTiqueteEnum": "apps.sales.models.EstadoTiquete",
+        "EstadoCheckinEnum": "apps.sales.models.EstadoCheckin",
+        "EstadoVueloEnum": "apps.flights.models.EstadoVuelo",
+        "TipoTrayectoEnum": "apps.sales.models.TipoTrayecto",
+    },
     "COMPONENT_SPLIT_REQUEST": True,
 }
 

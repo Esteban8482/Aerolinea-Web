@@ -1,3 +1,5 @@
+from django.db.models import Q
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -7,20 +9,22 @@ from rest_framework.views import APIView
 from apps.users.limits import request_origin
 from apps.users.permissions import IsAdminOrRoot
 
-from .errors import FlightNotFound
-from .models import Ciudad, Ruta, Vuelo
+from .errors import DuplicateRoute, FlightNotFound
+from .models import Ciudad, EstadoVuelo, Ruta, Vuelo
 from .serializers import (
     CancelarVueloSerializer,
     CiudadSerializer,
+    CrearRutaSerializer,
     EditarVueloSerializer,
+    FlightSearchRequestSerializer,
+    FlightSearchResultSerializer,
     ProgramarVueloSerializer,
     RutaSerializer,
     RutaUpdateSerializer,
-    RutaWriteSerializer,
     VueloDetalleSerializer,
     VueloListSerializer,
 )
-from .services import cancelar_vuelo, editar_vuelo, programar_vuelo
+from .services import cancelar_vuelo, crear_ruta, editar_vuelo, programar_vuelo
 
 
 class CitiesView(APIView):
@@ -53,35 +57,34 @@ class RoutesView(APIView):
             queryset = queryset.filter(activa=True)
         return Response(RutaSerializer(queryset, many=True).data)
 
-    @extend_schema(request=RutaWriteSerializer, responses={201: RutaSerializer})
+    @extend_schema(request=CrearRutaSerializer, responses={201: RutaSerializer})
     def post(self, request):
-        serializer = RutaWriteSerializer(data=request.data)
+        serializer = CrearRutaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         origen_id = serializer.validated_data["origen_id"]
         destino_id = serializer.validated_data["destino_id"]
+        tipo_vuelo = serializer.validated_data["tipo_vuelo"]
+        duracion_min = serializer.validated_data["duracion_min"]
+        activa = serializer.validated_data.get("activa", True)
 
         try:
-            origen = Ciudad.objects.get(pk=origen_id)
-            destino = Ciudad.objects.get(pk=destino_id)
-        except Ciudad.DoesNotExist:
-            return Response(
-                {"code": "city_not_found", "message": "Ciudad de origen o destino no encontrada."},
-                status=status.HTTP_404_NOT_FOUND,
+            ruta = crear_ruta(
+                origen_id=origen_id,
+                destino_id=destino_id,
+                tipo_vuelo=tipo_vuelo,
+                duracion_min=duracion_min,
             )
-
-        ruta, created = Ruta.objects.update_or_create(
-            origen=origen,
-            destino=destino,
-            defaults={
-                "tipo_vuelo": serializer.validated_data["tipo_vuelo"],
-                "duracion_min": serializer.validated_data["duracion_min"],
-                "activa": serializer.validated_data.get("activa", True),
-            },
-        )
-        return Response(
-            RutaSerializer(ruta).data,
-            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
-        )
+            if not activa:
+                ruta.activa = False
+                ruta.save(update_fields=["activa"])
+            return Response(RutaSerializer(ruta).data, status=status.HTTP_201_CREATED)
+        except DuplicateRoute:
+            ruta = Ruta.objects.get(origen_id=origen_id, destino_id=destino_id)
+            ruta.tipo_vuelo = tipo_vuelo
+            ruta.duracion_min = duracion_min
+            ruta.activa = activa
+            ruta.save()
+            return Response(RutaSerializer(ruta).data, status=status.HTTP_200_OK)
 
 
 class RouteDetailView(APIView):
@@ -208,3 +211,125 @@ class FlightCancelView(APIView):
             ip_origen=request_origin(request),
         )
         return Response(VueloDetalleSerializer(vuelo).data, status=status.HTTP_200_OK)
+
+
+class FlightSearchView(APIView):
+    permission_classes = [AllowAny]
+
+    def _execute_search(self, request, params):
+        serializer = FlightSearchRequestSerializer(data=params)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        now = timezone.now()
+        base_qs = Vuelo.objects.filter(
+            estado=EstadoVuelo.PROGRAMADO,
+            salida_utc__gt=now,
+        ).select_related("ruta__origen", "ruta__destino")
+
+        pasajeros = data.get("pasajeros", 1)
+        clase = data.get("clase", "")
+        tipo_vuelo = data.get("tipo_vuelo", "")
+        precio_max = data.get("precio_max")
+
+        def filtrar_qs(qs, orig_id, orig_str, dest_id, dest_str, f_salida):
+            if orig_id:
+                qs = qs.filter(ruta__origen_id=orig_id)
+            elif orig_str:
+                qs = qs.filter(ruta__origen__nombre__icontains=orig_str)
+
+            if dest_id:
+                qs = qs.filter(ruta__destino_id=dest_id)
+            elif dest_str:
+                qs = qs.filter(ruta__destino__nombre__icontains=dest_str)
+
+            if f_salida:
+                qs = qs.filter(fecha_salida=f_salida)
+
+            if tipo_vuelo:
+                qs = qs.filter(tipo_vuelo=tipo_vuelo)
+
+            if clase == "PRIMERA_CLASE":
+                qs = qs.filter(cupos_disponibles_primera__gte=pasajeros)
+                if precio_max:
+                    qs = qs.filter(costo_persona_primera__lte=precio_max)
+            elif clase == "ECONOMICA":
+                qs = qs.filter(cupos_disponibles_economica__gte=pasajeros)
+                if precio_max:
+                    qs = qs.filter(costo_persona_economica__lte=precio_max)
+            else:
+                qs = qs.filter(
+                    Q(cupos_disponibles_economica__gte=pasajeros)
+                    | Q(cupos_disponibles_primera__gte=pasajeros)
+                )
+                if precio_max:
+                    qs = qs.filter(
+                        Q(costo_persona_economica__lte=precio_max)
+                        | Q(costo_persona_primera__lte=precio_max)
+                    )
+            return qs.order_by("salida_utc")
+
+        vuelos_ida = filtrar_qs(
+            base_qs,
+            orig_id=data.get("origen_id"),
+            orig_str=data.get("origen"),
+            dest_id=data.get("destino_id"),
+            dest_str=data.get("destino"),
+            f_salida=data.get("fecha_salida"),
+        )
+
+        vuelos_regreso = []
+        tipo_trayecto = data.get("tipo_trayecto", "UNICO")
+        if tipo_trayecto == "COMPLETO":
+            vuelos_regreso = filtrar_qs(
+                base_qs,
+                orig_id=data.get("destino_id"),
+                orig_str=data.get("destino"),
+                dest_id=data.get("origen_id"),
+                dest_str=data.get("origen"),
+                f_salida=data.get("fecha_regreso"),
+            )
+
+        # Historial de búsqueda si autenticado (RF-BSQ-09)
+        if request.user.is_authenticated:
+            try:
+                from apps.sales.models import HistorialBusqueda
+
+                HistorialBusqueda.objects.create(
+                    usuario=request.user,
+                    origen=str(data.get("origen") or data.get("origen_id") or ""),
+                    destino=str(data.get("destino") or data.get("destino_id") or ""),
+                    tipo_trayecto=tipo_trayecto,
+                    fecha_salida=data.get("fecha_salida"),
+                    fecha_regreso=data.get("fecha_regreso"),
+                    pasajeros=pasajeros,
+                    clase=clase,
+                )
+            except Exception:
+                pass
+
+        return Response(
+            {
+                "tipo_trayecto": tipo_trayecto,
+                "pasajeros": pasajeros,
+                "clase": clase,
+                "vuelos_ida": VueloListSerializer(vuelos_ida, many=True).data,
+                "vuelos_regreso": (
+                    VueloListSerializer(vuelos_regreso, many=True).data
+                    if tipo_trayecto == "COMPLETO"
+                    else []
+                ),
+            }
+        )
+
+    @extend_schema(
+        request=FlightSearchRequestSerializer,
+        responses={200: FlightSearchResultSerializer},
+    )
+    def post(self, request):
+        return self._execute_search(request, request.data)
+
+    @extend_schema(responses={200: FlightSearchResultSerializer})
+    def get(self, request):
+        return self._execute_search(request, request.query_params)
+

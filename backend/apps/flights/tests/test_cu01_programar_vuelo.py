@@ -225,14 +225,19 @@ def test_consultar_catalogos_y_listar_vuelos(catalogo, admin_client, anon_client
     assert detalle["capacidad_total"] == 150
 
 
-
 @pytest.mark.django_db
 def test_programar_vuelo_campos_obligatorios_faltantes(catalogo, admin_client):
     response = admin_client.post("/api/v1/flights/", {}, format="json")
     assert response.status_code == 400
     resp = response.json()
     assert "details" in resp
-    for campo in ["origen_id", "destino_id", "fecha_salida", "hora_salida", "costo_persona_economica"]:
+    for campo in [
+        "origen_id",
+        "destino_id",
+        "fecha_salida",
+        "hora_salida",
+        "costo_persona_economica",
+    ]:
         assert campo in resp["details"]
 
 

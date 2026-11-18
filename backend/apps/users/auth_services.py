@@ -160,7 +160,8 @@ def request_recovery(*, email, origin):
             next_attempt_at=now,
         )
         audit(AuthenticationEvent.Kind.RECOVERY_REQUESTED, user=user, recovery=job, origin=origin)
-
+    from .recovery_mail import process_recovery_emails
+    transaction.on_commit(lambda: process_recovery_emails(batch_size=1))
 
 def _recovery_ids(token):
     try:

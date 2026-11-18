@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import type { Ciudad, Ruta, Vuelo, VueloDetalle } from '../types/flight'
+import ColumnFilter from '../components/ColumnFilter'
+import CatalogPage from './CatalogPage'
 
 interface FlightsPageProps {
   session: {
@@ -28,6 +30,10 @@ export default function FlightsPage({ session }: FlightsPageProps) {
 
   // Modos de vista
   const [view, setView] = useState<'LIST' | 'CREATE' | 'EDIT'>('LIST')
+  // Pestañas de la ventana unificada: 'PUBLIC' (lo que ve el cliente) y
+  // 'ADMIN' (gestión: programar, editar, cancelar y catálogo de rutas).
+  const [tab, setTab] = useState<'PUBLIC' | 'ADMIN'>('PUBLIC')
+  const effectiveTab = isAdmin ? tab : 'PUBLIC'
   const [selectedFlight, setSelectedFlight] = useState<VueloDetalle | null>(null)
   const [flightToCancel, setFlightToCancel] = useState<Vuelo | null>(null)
 
@@ -56,11 +62,18 @@ export default function FlightsPage({ session }: FlightsPageProps) {
   const [cancelBusy, setCancelBusy] = useState(false)
   const [cancelError, setCancelError] = useState('')
 
-  // Cargar catálogos
-  useEffect(() => {
+  // Cargar catálogos: al montar y cada vez que la ventana recupera el foco,
+  // para que las rutas creadas en el Catálogo aparezcan sin recargar a mano.
+  const loadCatalogos = useCallback(() => {
     api.get('/flights/cities/').then(setCities).catch(() => {})
     api.get('/flights/routes/').then(setRoutes).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    loadCatalogos()
+    window.addEventListener('focus', loadCatalogos)
+    return () => window.removeEventListener('focus', loadCatalogos)
+  }, [loadCatalogos])
 
   // Cargar vuelos
   const loadFlights = useCallback(async () => {
@@ -82,7 +95,20 @@ export default function FlightsPage({ session }: FlightsPageProps) {
 
   useEffect(() => {
     loadFlights()
+    window.addEventListener('focus', loadFlights)
+    return () => window.removeEventListener('focus', loadFlights)
   }, [loadFlights])
+
+  // Lo que ve el visitante (y el admin en la pestaña "Disponibles"):
+  // solo vuelos programados con salida futura (HU-005/HU-006).
+  // La pestaña "Gestión" muestra el listado completo para poder administrarlo.
+  const displayFlights = useMemo(() => {
+    if (effectiveTab === 'ADMIN') return flights
+    const now = new Date()
+    return flights.filter(
+      (v) => v.estado === 'PROGRAMADO' && new Date(v.salida_utc) > now,
+    )
+  }, [flights, effectiveTab])
 
   // Catálogo de rutas activas
   const activeRoutes = useMemo(() => routes.filter((r) => r.activa !== false), [routes])
@@ -131,15 +157,15 @@ export default function FlightsPage({ session }: FlightsPageProps) {
 
   // Filtrado en memoria por búsqueda libre de origen/destino
   const filteredFlights = useMemo(() => {
-    if (!searchTerm.trim()) return flights
+    if (!searchTerm.trim()) return displayFlights
     const term = searchTerm.toLowerCase().trim()
-    return flights.filter(
+    return displayFlights.filter(
       (f) =>
         f.codigo_vuelo.toLowerCase().includes(term) ||
         f.origen.toLowerCase().includes(term) ||
         f.destino.toLowerCase().includes(term),
     )
-  }, [flights, searchTerm])
+  }, [displayFlights, searchTerm])
 
   // Manejo de: Programar Vuelo
   const handleCreateSubmit = async (e: FormEvent) => {
@@ -272,7 +298,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
               ? 'Programar nuevo vuelo'
               : view === 'EDIT'
                 ? `Editar vuelo ${selectedFlight?.codigo_vuelo}`
-                : 'Vuelos y Rutas'}
+                : 'Vuelos'}
           </h1>
           <p className="page-card__subtitle">
             {view === 'CREATE'
@@ -643,68 +669,56 @@ export default function FlightsPage({ session }: FlightsPageProps) {
         {/* ============================================================
             VISTA: LISTA DE VUELOS (PÚBLICO + ACCIONES ADMIN)
             ============================================================ */}
+        {/* Barra de pestañas: solo la ven los administradores.
+            Los clientes y visitantes ven directamente la pestaña pública. */}
+        {view === 'LIST' && isAdmin && (
+          <div
+            role="tablist"
+            style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '2px solid var(--color-border, #ddd)' }}
+          >
+            {(
+              [
+                ['PUBLIC', 'Disponibles'],
+                ['ADMIN', 'Gestión'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={effectiveTab === key}
+                onClick={() => setTab(key)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: effectiveTab === key ? '3px solid var(--color-primary, #4b0082)' : '3px solid transparent',
+                  padding: '0.5rem 1rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  color: effectiveTab === key ? 'var(--color-primary, #4b0082)' : 'inherit',
+                  marginBottom: '-2px',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {view === 'LIST' && effectiveTab === 'ADMIN' && isAdmin && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => setView('CREATE')}
+            >
+              + Programar nuevo vuelo
+            </button>
+          </div>
+        )}
+
         {view === 'LIST' && (
           <>
-            <div className="flight-controls-bar" style={{ alignItems: 'flex-end' }}>
-              <div className="flight-filters" style={{ alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label htmlFor="flight-search" className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                    Buscar ruta o código
-                  </label>
-                  <input
-                    id="flight-search"
-                    type="text"
-                    className="form-input"
-                    style={{ width: '220px', padding: '0.5rem 0.75rem' }}
-                    placeholder="Buscar origen o destino..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label htmlFor="filter-estado" className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                    Estado
-                  </label>
-                  <select
-                    id="filter-estado"
-                    className="form-select"
-                    style={{ width: '160px', padding: '0.5rem 0.75rem' }}
-                    value={filterEstado}
-                    onChange={(e) => setFilterEstado(e.target.value)}
-                  >
-                    <option value="">Todos</option>
-                    <option value="PROGRAMADO">Programado</option>
-                    <option value="REALIZADO">Realizado</option>
-                    <option value="CANCELADO">Cancelado</option>
-                  </select>
-                </div>
-
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label htmlFor="filter-tipo" className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                    Tipo de vuelo
-                  </label>
-                  <select
-                    id="filter-tipo"
-                    className="form-select"
-                    style={{ width: '160px', padding: '0.5rem 0.75rem' }}
-                    value={filterTipo}
-                    onChange={(e) => setFilterTipo(e.target.value)}
-                  >
-                    <option value="">Todos</option>
-                    <option value="NACIONAL">Nacional</option>
-                    <option value="INTERNACIONAL">Internacional</option>
-                  </select>
-                </div>
-              </div>
-
-              {isAdmin && (
-                <button type="button" className="btn btn--primary" onClick={() => setView('CREATE')}>
-                  + Programar nuevo vuelo
-                </button>
-              )}
-            </div>
-
             {loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                 Cargando itinerarios de vuelos...
@@ -718,15 +732,51 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>Código</th>
-                      <th>Tipo</th>
+                      <ColumnFilter label="Código" active={Boolean(searchTerm.trim())}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ width: '100%' }}
+                          placeholder="Buscar código, origen o destino..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                      </ColumnFilter>
+                      <ColumnFilter label="Tipo" active={Boolean(filterTipo)}>
+                        <select
+                          className="form-select"
+                          style={{ width: '100%' }}
+                          value={filterTipo}
+                          onChange={(e) => setFilterTipo(e.target.value)}
+                        >
+                          <option value="">Todos</option>
+                          <option value="NACIONAL">Nacional</option>
+                          <option value="INTERNACIONAL">Internacional</option>
+                        </select>
+                      </ColumnFilter>
                       <th>Ruta</th>
                       <th>Salida</th>
                       <th>Llegada</th>
-                      <th>Estado</th>
+                      {isAdmin && effectiveTab === 'ADMIN' ? (
+                        <ColumnFilter label="Estado" active={Boolean(filterEstado)}>
+                          <select
+                            className="form-select"
+                            style={{ width: '100%' }}
+                            value={filterEstado}
+                            onChange={(e) => setFilterEstado(e.target.value)}
+                          >
+                            <option value="">Todos</option>
+                            <option value="PROGRAMADO">Programado</option>
+                            <option value="REALIZADO">Realizado</option>
+                            <option value="CANCELADO">Cancelado</option>
+                          </select>
+                        </ColumnFilter>
+                      ) : (
+                        <th>Estado</th>
+                      )}
                       <th>Cupos</th>
                       <th>Tarifa Económica</th>
-                      {isAdmin && <th>Acciones</th>}
+                      {isAdmin && effectiveTab === 'ADMIN' && <th>Acciones</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -763,7 +813,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                             {f.cupos_disponibles_economica + f.cupos_disponibles_primera} / {f.capacidad_total}
                           </td>
                           <td>${Number(f.costo_persona_economica).toLocaleString('es-CO')}</td>
-                          {isAdmin && (
+                          {isAdmin && effectiveTab === 'ADMIN' && (
                             <td>
                               {isProgramado ? (
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -798,6 +848,14 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Catálogo de rutas: herramienta interna de gestión,
+                visible solo en la pestaña Gestión */}
+            {effectiveTab === 'ADMIN' && isAdmin && (
+              <div style={{ marginTop: '3rem' }}>
+                <CatalogPage session={session} />
               </div>
             )}
           </>

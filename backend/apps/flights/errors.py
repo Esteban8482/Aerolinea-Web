@@ -59,3 +59,8 @@ class RefundFailed(APIException):
     status_code = 500
     default_code = "refund_failed"
     default_detail = "Falla técnica durante el abono a las billeteras de los pasajeros afectados."
+
+class DuplicateRoute(APIException):
+    status_code = 400
+    default_code = "duplicate_route"
+    default_detail = "Ya existe una ruta registrada entre estas ciudades."
