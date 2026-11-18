@@ -2,6 +2,7 @@ from datetime import date
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from apps.flights.models import ClaseTiquete, Silla, Vuelo
 
@@ -188,6 +189,35 @@ class Tiquete(models.Model):
     def checkin_confirmado(self) -> bool:
         return self.estado_checkin == EstadoCheckin.CONFIRMADO
 
+
+class NotificacionCompra(models.Model):
+    """Outbox persistente del código de reserva enviado a cada viajero (HU-013).
+
+    Sigue el patrón de outbox con arrendamiento de users.EmailVerification: la
+    fila nace en la misma transacción de la compra y el envío SMTP lo procesa
+    después el comando `process_purchase_emails`, fuera de transacción.
+    """
+
+    tiquete = models.OneToOneField(
+        Tiquete, on_delete=models.PROTECT, related_name="notificacion_compra"
+    )
+    recipient = models.EmailField()
+    created_at = models.DateTimeField(default=timezone.now)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    lease_until = models.DateTimeField(null=True, blank=True)
+    lease_id = models.UUIDField(null=True, blank=True)
+    last_error = models.CharField(max_length=30, blank=True)
+
+    class Meta:
+        verbose_name = "Notificación de Compra"
+        verbose_name_plural = "Notificaciones de Compra"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        estado = "enviada" if self.sent_at else "pendiente"
+        return f"Notificación {self.tiquete.codigo_tiquete} -> {self.recipient} ({estado})"
 
 
 class HistorialBusqueda(models.Model):

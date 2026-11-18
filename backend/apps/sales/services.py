@@ -29,6 +29,7 @@ from .models import (
     EstadoCompra,
     EstadoReserva,
     EstadoTiquete,
+    NotificacionCompra,
     Reserva,
     ReservaViajero,
     TipoTrayecto,
@@ -68,6 +69,28 @@ def calcular_limite_vigencia_reserva(
     limite_por_salida = vuelo.salida_utc - timedelta(hours=margen_horas)
     vence_en = min(now + timedelta(hours=24), limite_por_salida)
     return limite_por_salida, vence_en
+
+
+def resolver_precio_vigente(vuelo: Vuelo, clase: str, fecha=None) -> Decimal:
+    """Punto único de consulta del precio por persona para búsqueda, carrito y compra (DEC-06).
+
+    Hoy retorna la tarifa base vigente del vuelo según la clase; `fecha` se acepta
+    ya para el contrato de promociones y por ahora no altera el resultado.
+
+    Contrato para HU-004 (promociones): HU-004 debe resolver aquí la promoción
+    activa aplicable a (vuelo, clase) en `fecha` y retornar el precio promocional
+    — positivo e inferior a la tarifa base (§6.3) — en lugar de la tarifa base.
+    La política de selección ante promociones superpuestas, la elegibilidad de
+    reservas previas y el significado de `cupos_afectados` siguen pendientes en
+    P-04: hasta resolverlos no se implementa ningún algoritmo de selección de
+    promociones. Búsqueda, carrito y compra deben obtener el precio solo desde
+    esta función, de modo que las promociones se apliquen automáticamente y de
+    forma consistente en los tres flujos. El `precio_pagado` de cada tiquete se
+    conserva con el valor resuelto al confirmar; nunca se recalcula (DEC-06).
+    """
+    if clase == ClaseTiquete.PRIMERA_CLASE:
+        return vuelo.costo_persona_primera
+    return vuelo.costo_persona_economica
 
 
 def contar_tiquetes_activos_cliente_en_vuelo(cliente, vuelo: Vuelo) -> int:
@@ -336,6 +359,11 @@ def comprar_tiquetes(
         if vuelo.estado != EstadoVuelo.PROGRAMADO or vuelo.salida_utc <= now:
             raise FlightNotAvailableForSale()
 
+        # Comprobar límite de 5 tiquetes activos por cliente en el vuelo
+        actuales = contar_tiquetes_activos_cliente_en_vuelo(cliente, vuelo)
+        if actuales + num_pasajeros > 5:
+            raise TicketLimitExceeded()
+
         # Verificar cupos
         if clase == ClaseTiquete.PRIMERA_CLASE:
             if vuelo.cupos_disponibles_primera < num_pasajeros:
@@ -379,19 +407,12 @@ def comprar_tiquetes(
         if not al_menos_un_adulto:
             raise AdultPassengerRequired()
 
-    # Cálculo de precios vigentes (DEC-06)
-    tarifa_vuelo = (
-        vuelo.costo_persona_primera
-        if clase == ClaseTiquete.PRIMERA_CLASE
-        else vuelo.costo_persona_economica
-    )
+    # Cálculo de precios vigentes (DEC-06) por el punto único de consulta
+    tarifa_vuelo = resolver_precio_vigente(vuelo, clase, now)
     total = tarifa_vuelo * num_pasajeros
+    tarifa_regreso = None
     if vuelo_regreso:
-        tarifa_regreso = (
-            vuelo_regreso.costo_persona_primera
-            if clase == ClaseTiquete.PRIMERA_CLASE
-            else vuelo_regreso.costo_persona_economica
-        )
+        tarifa_regreso = resolver_precio_vigente(vuelo_regreso, clase, now)
         total += tarifa_regreso * num_pasajeros
 
     # Débito atómico en billetera (DEC-03, DEC-09)
@@ -432,7 +453,7 @@ def comprar_tiquetes(
         silla.estado = EstadoSilla.OCUPADA
         silla.save(update_fields=["estado"])
 
-        Tiquete.objects.create(
+        tiquete = Tiquete.objects.create(
             compra=compra,
             vuelo=vuelo,
             viajero=viajero,
@@ -442,14 +463,12 @@ def comprar_tiquetes(
             codigo_tiquete=generar_codigo_tiquete(localizador, idx),
             estado=EstadoTiquete.ACTIVO,
         )
+        # Outbox: el código de reserva se envía al correo de cada viajero (HU-013);
+        # el envío SMTP lo procesa `process_purchase_emails` tras el commit.
+        NotificacionCompra.objects.create(tiquete=tiquete, recipient=viajero.correo)
 
     # Si hay regreso, asignar sillas en regreso
     if vuelo_regreso:
-        tarifa_reg = (
-            vuelo_regreso.costo_persona_primera
-            if clase == ClaseTiquete.PRIMERA_CLASE
-            else vuelo_regreso.costo_persona_economica
-        )
         sillas_libres_reg = list(
             Silla.objects.select_for_update()
             .filter(vuelo=vuelo_regreso, clase=clase, estado=EstadoSilla.DISPONIBLE)
@@ -464,16 +483,17 @@ def comprar_tiquetes(
             silla.estado = EstadoSilla.OCUPADA
             silla.save(update_fields=["estado"])
 
-            Tiquete.objects.create(
+            tiquete_regreso = Tiquete.objects.create(
                 compra=compra,
                 vuelo=vuelo_regreso,
                 viajero=viajero,
                 silla=silla,
                 clase=clase,
-                precio_pagado=tarifa_reg,
+                precio_pagado=tarifa_regreso,
                 codigo_tiquete=generar_codigo_tiquete(localizador, idx),
                 estado=EstadoTiquete.ACTIVO,
             )
+            NotificacionCompra.objects.create(tiquete=tiquete_regreso, recipient=viajero.correo)
 
     return compra
 
