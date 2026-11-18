@@ -22,7 +22,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
   const [depositMonto, setDepositMonto] = useState('500000')
   const [depositing, setDepositing] = useState(false)
 
-  // Estado para cambio de silla (CU-17)
+  // Estado para cambio de silla
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null)
   const [seatMap, setSeatMap] = useState<Silla[]>([])
   const [loadingSeatMap, setLoadingSeatMap] = useState(false)
@@ -201,7 +201,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
         </div>
       </div>
 
-      {/* SECCIÓN MIS COMPRAS (CU-13, CU-14, CU-17) */}
+      {/* SECCIÓN MIS COMPRAS */}
       <section style={{ marginBottom: '3rem' }}>
         <h2 style={{ fontSize: '1.5rem', color: '#0f172a', marginBottom: '1rem' }}>🛫 Mis Viajes Confirmados (Compras)</h2>
         {compras.length === 0 ? (
@@ -249,7 +249,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
                             className="btn btn--primary"
                             style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
                           >
-                            Cambiar Silla (CU-17)
+                            Cambiar Silla
                           </button>
                         )}
                         {t.numero_cambios_silla > 0 && (
@@ -265,7 +265,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
         )}
       </section>
 
-      {/* SECCIÓN MIS RESERVAS (CU-12, CU-13, CU-14) */}
+      {/* SECCIÓN MIS RESERVAS */}
       <section>
         <h2 style={{ fontSize: '1.5rem', color: '#0f172a', marginBottom: '1rem' }}>⏳ Mis Reservas Temporales</h2>
         {reservas.length === 0 ? (
@@ -297,7 +297,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
                         className="btn btn--primary"
                         style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
                       >
-                        💳 Pagar con Billetera (CU-13)
+                        💳 Pagar con Billetera
                       </button>
                       <button
                         type="button"
@@ -305,7 +305,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
                         className="btn btn--secondary"
                         style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem', color: '#dc2626' }}
                       >
-                        Liberar Reserva (CU-14)
+                        Liberar Reserva
                       </button>
                     </>
                   )}
@@ -316,7 +316,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
         )}
       </section>
 
-      {/* MODAL PARA CAMBIO DE SILLA (CU-17) */}
+      {/* MODAL PARA CAMBIO DE SILLA */}
       {selectedTicketId !== null && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: 'white', padding: '2rem', borderRadius: '1rem', maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>

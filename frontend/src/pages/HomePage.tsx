@@ -116,7 +116,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* MOTOR DE BÚSQUEDA INTERACTIVO (CU-05) */}
+      {/* MOTOR DE BÚSQUEDA INTERACTIVO */}
       <section className="home-section" style={{ paddingTop: '0.5rem', paddingBottom: '2.5rem' }}>
         <div className="home-section__heading">
           <div>
@@ -253,7 +253,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* RESULTADOS DE BÚSQUEDA (CU-05) */}
+      {/* RESULTADOS DE BÚSQUEDA */}
       {hasSearched && (
         <section className="home-section" style={{ background: '#f8fafc', padding: '2rem 1.5rem', borderRadius: '1rem', margin: '2rem 0' }}>
           <div className="home-section__heading">
