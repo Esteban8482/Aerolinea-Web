@@ -13,6 +13,8 @@ from apps.wallets.services import debitar_para_compra, reembolsar_a_billetera
 from .errors import (
     AdultPassengerRequired,
     CancellationWindowClosed,
+    CartEmpty,
+    CartItemNotFound,
     CheckinAlreadyConfirmed,
     DuplicatePassengerInFlight,
     FlightNotAvailableForSale,
@@ -25,10 +27,12 @@ from .errors import (
     TicketLimitExceeded,
 )
 from .models import (
+    Carrito,
     Compra,
     EstadoCompra,
     EstadoReserva,
     EstadoTiquete,
+    ItemCarrito,
     NotificacionCompra,
     Reserva,
     ReservaViajero,
@@ -317,19 +321,19 @@ def cancelar_reserva(reserva_id: int, cliente) -> Reserva:
     return reserva
 
 
-@transaction.atomic
-def comprar_tiquetes(
+def _preparar_compra(
     cliente,
     vuelo_id: int,
     clase: str,
-    viajeros_data: list[dict] = None,
-    reserva_id: int = None,
-    tipo_trayecto: str = TipoTrayecto.UNICO,
-    vuelo_regreso_id: int = None,
-) -> Compra:
-    """CU-13: Compra confirmada de tiquetes con débito en billetera y asignación
+    viajeros_data: list[dict],
+    reserva_id: int,
+    tipo_trayecto: str,
+    vuelo_regreso_id: int,
+) -> dict:
+    """Valida disponibilidad, descuenta cupos, procesa viajeros y liquida el total.
 
-    de sillas (DEC-02, DEC-06, DEC-08, DEC-09).
+    Es la lógica común de la compra directa y del checkout del carrito; no debita
+    ni crea la compra.
     """
     now = timezone.now()
     reserva = None
@@ -415,20 +419,39 @@ def comprar_tiquetes(
         tarifa_regreso = resolver_precio_vigente(vuelo_regreso, clase, now)
         total += tarifa_regreso * num_pasajeros
 
-    # Débito atómico en billetera (DEC-03, DEC-09)
-    wallet = cliente.wallet
-    localizador = generar_localizador()
-    debitar_para_compra(
-        wallet_id=wallet.pk,
-        monto=total,
-        referencia=f"Compra tiquetes localizador {localizador}",
-    )
+    return {
+        "reserva": reserva,
+        "vuelo": vuelo,
+        "vuelo_regreso": vuelo_regreso,
+        "clase": clase,
+        "tipo_trayecto": tipo_trayecto,
+        "viajeros": viajeros,
+        "num_pasajeros": num_pasajeros,
+        "tarifa_vuelo": tarifa_vuelo,
+        "tarifa_regreso": tarifa_regreso,
+        "total": total,
+    }
+
+
+def _materializar_compra(cliente, preparada: dict, localizador: str) -> Compra:
+    """Crea la compra, asigna sillas y registra las notificaciones a viajeros.
+
+    No debita la billetera: el débito lo hace el llamador antes de invocarla.
+    """
+    reserva = preparada["reserva"]
+    vuelo = preparada["vuelo"]
+    vuelo_regreso = preparada["vuelo_regreso"]
+    clase = preparada["clase"]
+    viajeros = preparada["viajeros"]
+    num_pasajeros = preparada["num_pasajeros"]
+    tarifa_vuelo = preparada["tarifa_vuelo"]
+    tarifa_regreso = preparada["tarifa_regreso"]
 
     compra = Compra.objects.create(
         cliente=cliente,
         localizador=localizador,
-        valor_pagado=total,
-        tipo_trayecto=tipo_trayecto,
+        valor_pagado=preparada["total"],
+        tipo_trayecto=preparada["tipo_trayecto"],
         estado=EstadoCompra.CONFIRMADA,
         reserva_origen=reserva,
     )
@@ -496,6 +519,217 @@ def comprar_tiquetes(
             NotificacionCompra.objects.create(tiquete=tiquete_regreso, recipient=viajero.correo)
 
     return compra
+
+
+@transaction.atomic
+def comprar_tiquetes(
+    cliente,
+    vuelo_id: int,
+    clase: str,
+    viajeros_data: list[dict] = None,
+    reserva_id: int = None,
+    tipo_trayecto: str = TipoTrayecto.UNICO,
+    vuelo_regreso_id: int = None,
+) -> Compra:
+    """CU-13: Compra confirmada de tiquetes con débito en billetera y asignación
+
+    de sillas (DEC-02, DEC-06, DEC-08, DEC-09).
+    """
+    preparada = _preparar_compra(
+        cliente, vuelo_id, clase, viajeros_data, reserva_id, tipo_trayecto, vuelo_regreso_id
+    )
+
+    # Débito atómico en billetera (DEC-03, DEC-09)
+    wallet = cliente.wallet
+    localizador = generar_localizador()
+    debitar_para_compra(
+        wallet_id=wallet.pk,
+        monto=preparada["total"],
+        referencia=f"Compra tiquetes localizador {localizador}",
+    )
+
+    return _materializar_compra(cliente, preparada, localizador)
+
+
+# ---------------------------------------------------------------------------
+# Carrito de compras
+# ---------------------------------------------------------------------------
+
+
+def obtener_carrito(cliente) -> Carrito:
+    """Retorna el carrito activo del cliente, creándolo si no existe."""
+    carrito, _ = Carrito.objects.get_or_create(cliente=cliente)
+    return carrito
+
+
+def _contar_pasajeros_carrito_en_vuelo(carrito: Carrito, vuelo_id: int, clase: str = None) -> int:
+    """Pasajeros que el carrito ya acumula sobre un vuelo, opcionalmente por clase."""
+    total = 0
+    for item in carrito.items.filter(vuelo_id=vuelo_id):
+        if clase is None or item.clase == clase:
+            total += item.num_pasajeros
+    return total
+
+
+def _cupos_disponibles_en_clase(vuelo: Vuelo, clase: str) -> int:
+    if clase == ClaseTiquete.PRIMERA_CLASE:
+        return vuelo.cupos_disponibles_primera
+    return vuelo.cupos_disponibles_economica
+
+
+@transaction.atomic
+def agregar_item_carrito(
+    cliente,
+    vuelo_id: int,
+    clase: str,
+    viajeros_data: list[dict],
+    tipo_trayecto: str = TipoTrayecto.UNICO,
+    vuelo_regreso_id: int = None,
+) -> ItemCarrito:
+    """Agrega un item al carrito validando vuelo disponible, cupos tentativos y el
+    límite de 5 tiquetes del cliente por vuelo (carrito + reservas + compras).
+
+    Los cupos no se descuentan aquí: se confirman en `checkout_carrito`.
+    """
+    if not viajeros_data:
+        raise InsufficientSeats()
+    num_pasajeros = len(viajeros_data)
+    if num_pasajeros > 5:
+        raise TicketLimitExceeded()
+
+    now = timezone.now()
+    vuelo = Vuelo.objects.get(pk=vuelo_id)
+    if vuelo.estado != EstadoVuelo.PROGRAMADO or vuelo.salida_utc <= now:
+        raise FlightNotAvailableForSale()
+
+    vuelo_regreso = None
+    if vuelo_regreso_id:
+        vuelo_regreso = Vuelo.objects.get(pk=vuelo_regreso_id)
+        if vuelo_regreso.estado != EstadoVuelo.PROGRAMADO or vuelo_regreso.salida_utc <= now:
+            raise FlightNotAvailableForSale()
+
+    carrito = obtener_carrito(cliente)
+
+    # Límite de 5 tiquetes del cliente por vuelo: carrito + reservas vigentes + compras
+    pax_carrito = _contar_pasajeros_carrito_en_vuelo(carrito, vuelo.pk)
+    actuales = contar_tiquetes_activos_cliente_en_vuelo(cliente, vuelo)
+    if actuales + pax_carrito + num_pasajeros > 5:
+        raise TicketLimitExceeded()
+
+    # Cupos tentativos en la clase, descontando lo que el carrito ya acumula
+    for trayecto in (vuelo, vuelo_regreso):
+        if trayecto is None:
+            continue
+        pax_en_clase = _contar_pasajeros_carrito_en_vuelo(carrito, trayecto.pk, clase)
+        if _cupos_disponibles_en_clase(trayecto, clase) < pax_en_clase + num_pasajeros:
+            raise InsufficientSeats()
+
+    return ItemCarrito.objects.create(
+        carrito=carrito,
+        vuelo=vuelo,
+        vuelo_regreso=vuelo_regreso,
+        clase=clase,
+        tipo_trayecto=tipo_trayecto,
+        viajeros=viajeros_data,
+    )
+
+
+def quitar_item_carrito(cliente, item_id: int) -> None:
+    """Elimina un item del carrito del cliente."""
+    eliminados, _ = ItemCarrito.objects.filter(pk=item_id, carrito__cliente=cliente).delete()
+    if not eliminados:
+        raise CartItemNotFound()
+
+
+def listar_carrito(cliente) -> dict:
+    """Liquida el carrito: precio unitario y subtotal por item con el precio
+    vigente (`resolver_precio_vigente`, DEC-06) y el total a pagar."""
+    carrito = obtener_carrito(cliente)
+    now = timezone.now()
+    items = []
+    total = Decimal("0.00")
+    for item in carrito.items.select_related(
+        "vuelo__ruta__origen",
+        "vuelo__ruta__destino",
+        "vuelo_regreso__ruta__origen",
+        "vuelo_regreso__ruta__destino",
+    ):
+        precio_unitario = resolver_precio_vigente(item.vuelo, item.clase, now)
+        subtotal = precio_unitario * item.num_pasajeros
+        if item.vuelo_regreso:
+            subtotal += (
+                resolver_precio_vigente(item.vuelo_regreso, item.clase, now) * item.num_pasajeros
+            )
+        items.append(
+            {
+                "item": item,
+                "num_pasajeros": item.num_pasajeros,
+                "precio_unitario": precio_unitario,
+                "subtotal": subtotal,
+            }
+        )
+        total += subtotal
+    return {"items": items, "total": total}
+
+
+@transaction.atomic
+def checkout_carrito(cliente) -> list[Compra]:
+    """Confirma todos los items del carrito en una sola transacción con un débito
+    único del total (DEC-06, DEC-09).
+
+    Si algo falla — saldo insuficiente, cupos agotados, límite de tiquetes — se
+    revierte todo: el carrito, los cupos y la billetera quedan intactos.
+    """
+    carrito = Carrito.objects.select_for_update().filter(cliente=cliente).first()
+    items = list(carrito.items.all()) if carrito else []
+    if not items:
+        raise CartEmpty()
+
+    preparadas = [
+        _preparar_compra(
+            cliente,
+            item.vuelo_id,
+            item.clase,
+            item.viajeros,
+            None,
+            item.tipo_trayecto,
+            item.vuelo_regreso_id,
+        )
+        for item in items
+    ]
+
+    # Límite de 5 tiquetes del cliente por vuelo acumulando todos los items
+    pax_por_vuelo = {}
+    for preparada in preparadas:
+        for trayecto in (preparada["vuelo"], preparada["vuelo_regreso"]):
+            if trayecto is None:
+                continue
+            pax_por_vuelo[trayecto.pk] = (
+                pax_por_vuelo.get(trayecto.pk, 0) + preparada["num_pasajeros"]
+            )
+    for vuelo_id, pax in pax_por_vuelo.items():
+        actuales = contar_tiquetes_activos_cliente_en_vuelo(
+            cliente, Vuelo.objects.get(pk=vuelo_id)
+        )
+        if actuales + pax > 5:
+            raise TicketLimitExceeded()
+
+    total = sum((preparada["total"] for preparada in preparadas), Decimal("0.00"))
+
+    # Débito único del total del carrito (DEC-03, DEC-09)
+    wallet = cliente.wallet
+    debitar_para_compra(
+        wallet_id=wallet.pk,
+        monto=total,
+        referencia=f"Checkout carrito ({len(preparadas)} compras)",
+    )
+
+    compras = [
+        _materializar_compra(cliente, preparada, generar_localizador())
+        for preparada in preparadas
+    ]
+    carrito.items.all().delete()
+    return compras
 
 
 @transaction.atomic

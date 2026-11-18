@@ -10,7 +10,7 @@ from apps.users.limits import request_origin
 from apps.users.permissions import IsAdministrator
 
 from .errors import FlightNotFound
-from .models import Ciudad, EstadoVuelo, Ruta, Vuelo
+from .models import Ciudad, EstadoVuelo, NoticiaVuelo, Ruta, Vuelo
 from .serializers import (
     CancelarVueloSerializer,
     CiudadSerializer,
@@ -18,6 +18,7 @@ from .serializers import (
     EditarVueloSerializer,
     FlightSearchRequestSerializer,
     FlightSearchResultSerializer,
+    NoticiaVueloSerializer,
     ProgramarVueloSerializer,
     RutaSerializer,
     VueloDetalleSerializer,
@@ -149,6 +150,19 @@ class FlightCancelView(APIView):
             ip_origen=request_origin(request),
         )
         return Response(VueloDetalleSerializer(vuelo).data, status=status.HTTP_200_OK)
+
+
+class FlightNewsView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(responses={200: NoticiaVueloSerializer(many=True)})
+    def get(self, request):
+        noticias = (
+            NoticiaVuelo.objects.filter(vigente=True, vuelo__estado=EstadoVuelo.PROGRAMADO)
+            .select_related("vuelo__ruta__origen", "vuelo__ruta__destino")
+            .order_by("-creada_en")
+        )
+        return Response(NoticiaVueloSerializer(noticias, many=True).data)
 
 
 class FlightSearchView(APIView):

@@ -9,14 +9,15 @@ from django.utils import timezone
 from .errors import (
     CancellationReasonRequired,
     DepartureInPast,
+    DuplicateRoute,
     FlightCodeExhausted,
+    FlightHasActiveTickets,
     FlightNotCancellable,
     FlightNotEditable,
     FlightNotFound,
     InvalidFlightCost,
     SameOriginDestination,
     UnauthorizedRoute,
-    DuplicateRoute,
 )
 from .models import (
     BitacoraVuelo,
@@ -228,6 +229,12 @@ def editar_vuelo(
 
     if vuelo.estado != EstadoVuelo.PROGRAMADO:
         raise FlightNotEditable()
+
+    # Un vuelo con tiquetes vendidos activos ya no admite edición (regla del cliente)
+    from apps.sales.models import EstadoTiquete, Tiquete
+
+    if Tiquete.objects.filter(vuelo_id=vuelo.pk, estado=EstadoTiquete.ACTIVO).exists():
+        raise FlightHasActiveTickets()
 
     cambios = {}
     nueva_fecha = fecha_salida or vuelo.fecha_salida

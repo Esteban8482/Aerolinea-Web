@@ -77,3 +77,15 @@ class PurchaseNotCancellable(APIException):
     status_code = 400
     default_code = "purchase_not_cancellable"
     default_detail = "La compra no se encuentra en estado cancelable."
+
+
+class CartEmpty(APIException):
+    status_code = 400
+    default_code = "cart_empty"
+    default_detail = "El carrito no tiene items para confirmar."
+
+
+class CartItemNotFound(APIException):
+    status_code = 404
+    default_code = "cart_item_not_found"
+    default_detail = "El item no existe en el carrito del cliente."

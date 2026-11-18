@@ -164,6 +164,39 @@ class CambiarSillaSerializer(serializers.Serializer):
     nueva_silla_id = serializers.IntegerField(min_value=1)
 
 
+class AgregarItemCarritoSerializer(serializers.Serializer):
+    vuelo_id = serializers.IntegerField(min_value=1)
+    clase = serializers.ChoiceField(choices=ClaseTiquete.choices, default=ClaseTiquete.ECONOMICA)
+    tipo_trayecto = serializers.ChoiceField(
+        choices=TipoTrayecto.choices, default=TipoTrayecto.UNICO
+    )
+    vuelo_regreso_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    viajeros = ViajeroInputSerializer(many=True)
+
+    def validate_viajeros(self, value):
+        if not (1 <= len(value) <= 5):
+            raise serializers.ValidationError("La cantidad de viajeros debe estar entre 1 y 5.")
+        return value
+
+
+class ItemCarritoLiquidadoSerializer(serializers.Serializer):
+    id = serializers.IntegerField(source="item.id")
+    vuelo = VueloListSerializer(source="item.vuelo", read_only=True)
+    vuelo_regreso = VueloListSerializer(source="item.vuelo_regreso", read_only=True)
+    clase = serializers.CharField(source="item.clase")
+    tipo_trayecto = serializers.CharField(source="item.tipo_trayecto")
+    viajeros = serializers.ListField(source="item.viajeros", child=serializers.DictField())
+    agregado_en = serializers.DateTimeField(source="item.agregado_en")
+    num_pasajeros = serializers.IntegerField()
+    precio_unitario = serializers.DecimalField(max_digits=12, decimal_places=2)
+    subtotal = serializers.DecimalField(max_digits=14, decimal_places=2)
+
+
+class CarritoLiquidadoSerializer(serializers.Serializer):
+    items = ItemCarritoLiquidadoSerializer(many=True)
+    total = serializers.DecimalField(max_digits=14, decimal_places=2)
+
+
 class HistorialBusquedaSerializer(serializers.ModelSerializer):
     class Meta:
         model = HistorialBusqueda

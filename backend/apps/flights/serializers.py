@@ -1,7 +1,7 @@
 
 from rest_framework import serializers
 
-from .models import Ciudad, ClaseTiquete, Ruta, Silla, TipoVuelo, Vuelo
+from .models import Ciudad, ClaseTiquete, NoticiaVuelo, Ruta, Silla, TipoVuelo, Vuelo
 
 
 class SillaSerializer(serializers.ModelSerializer):
@@ -96,6 +96,14 @@ class VueloListSerializer(serializers.ModelSerializer):
             "cupos_disponibles_economica",
             "estado",
         ]
+
+
+class NoticiaVueloSerializer(serializers.ModelSerializer):
+    vuelo = VueloListSerializer(read_only=True)
+
+    class Meta:
+        model = NoticiaVuelo
+        fields = ["id", "titulo", "contenido", "tipo", "creada_en", "vuelo"]
 
 
 class VueloDetalleSerializer(serializers.ModelSerializer):

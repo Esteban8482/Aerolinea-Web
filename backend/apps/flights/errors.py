@@ -64,3 +64,9 @@ class DuplicateRoute(APIException):
     status_code = 400
     default_code = "duplicate_route"
     default_detail = "Ya existe una ruta registrada entre estas ciudades."
+
+
+class FlightHasActiveTickets(APIException):
+    status_code = 400
+    default_code = "flight_has_active_tickets"
+    default_detail = "No es posible modificar el vuelo porque ya tiene tiquetes vendidos activos."

@@ -9,7 +9,9 @@ from apps.flights.serializers import SillaSerializer
 
 from .models import Compra, HistorialBusqueda, Reserva
 from .serializers import (
+    AgregarItemCarritoSerializer,
     CambiarSillaSerializer,
+    CarritoLiquidadoSerializer,
     CompraDetailSerializer,
     ComprarTiquetesSerializer,
     CrearReservaSerializer,
@@ -18,12 +20,16 @@ from .serializers import (
     TiqueteSerializer,
 )
 from .services import (
+    agregar_item_carrito,
     cambiar_silla_tiquete,
     cancelar_compra,
     cancelar_reserva,
+    checkout_carrito,
     comprar_tiquetes,
     crear_reserva,
     liberar_reserva_si_vencida,
+    listar_carrito,
+    quitar_item_carrito,
 )
 
 
@@ -172,6 +178,57 @@ class TicketSeatChangeView(APIView):
             actor=request.user,
         )
         return Response(TiqueteSerializer(tiquete).data, status=status.HTTP_200_OK)
+
+
+class CartView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: CarritoLiquidadoSerializer})
+    def get(self, request):
+        return Response(CarritoLiquidadoSerializer(listar_carrito(request.user)).data)
+
+
+class CartItemListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=AgregarItemCarritoSerializer, responses={201: CarritoLiquidadoSerializer}
+    )
+    def post(self, request):
+        serializer = AgregarItemCarritoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        agregar_item_carrito(
+            cliente=request.user,
+            vuelo_id=serializer.validated_data["vuelo_id"],
+            clase=serializer.validated_data["clase"],
+            viajeros_data=serializer.validated_data["viajeros"],
+            tipo_trayecto=serializer.validated_data.get("tipo_trayecto", "UNICO"),
+            vuelo_regreso_id=serializer.validated_data.get("vuelo_regreso_id"),
+        )
+        return Response(
+            CarritoLiquidadoSerializer(listar_carrito(request.user)).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CartItemDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=None, responses={204: None})
+    def delete(self, request, pk):
+        quitar_item_carrito(request.user, pk)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CartCheckoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=None, responses={201: CompraDetailSerializer(many=True)})
+    def post(self, request):
+        compras = checkout_carrito(request.user)
+        return Response(
+            CompraDetailSerializer(compras, many=True).data, status=status.HTTP_201_CREATED
+        )
 
 
 class SearchHistoryView(APIView):

@@ -5,6 +5,9 @@ import pytest
 
 from apps.flights.models import BitacoraVuelo, Ciudad, EstadoVuelo, NotificacionAfectacion
 from apps.flights.services import programar_vuelo
+from apps.sales.services import comprar_tiquetes
+from apps.wallets.models import Wallet
+from apps.wallets.services import depositar
 
 
 @pytest.fixture
@@ -210,3 +213,34 @@ def test_editar_vuelo_modificar_solo_hora_o_solo_fecha(vuelo_programado, admin_c
     resp_fecha = res_fecha.json()
     assert resp_fecha["fecha_salida"] == str(nueva_fecha)
     assert resp_fecha["hora_salida"] == "18:00:00"
+
+
+@pytest.mark.django_db
+def test_editar_vuelo_con_tiquetes_activos_rechazado(vuelo_programado, admin_client, client_user):
+    """Un vuelo con tiquetes vendidos activos ya no admite edición (regla del cliente)."""
+    wallet, _ = Wallet.objects.get_or_create(user=client_user)
+    depositar(wallet.pk, Decimal("1000000.00"), "Saldo inicial")
+
+    comprar_tiquetes(
+        cliente=client_user,
+        vuelo_id=vuelo_programado.pk,
+        clase="ECONOMICA",
+        viajeros_data=[
+            {
+                "documento": "9901",
+                "nombres": "Viajero",
+                "apellidos": "Con Tiquete",
+                "fecha_nacimiento": "1990-01-01",
+                "correo": "contiquete@example.com",
+            }
+        ],
+    )
+
+    url = f"/api/v1/flights/{vuelo_programado.pk}/"
+    response = admin_client.patch(url, {"costo_persona_economica": "180000.00"}, format="json")
+    assert response.status_code == 400
+    assert response.json()["code"] == "flight_has_active_tickets"
+
+    # La tarifa queda intacta tras el rechazo
+    vuelo_programado.refresh_from_db()
+    assert vuelo_programado.costo_persona_economica == Decimal("150000.00")

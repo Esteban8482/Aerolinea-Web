@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.conf import settings
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.utils import timezone
 
@@ -218,6 +219,55 @@ class NotificacionCompra(models.Model):
     def __str__(self):
         estado = "enviada" if self.sent_at else "pendiente"
         return f"Notificación {self.tiquete.codigo_tiquete} -> {self.recipient} ({estado})"
+
+
+class Carrito(models.Model):
+    """Carrito de compras del cliente: un carrito activo por cliente."""
+
+    cliente = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="carrito"
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Carrito"
+        verbose_name_plural = "Carritos"
+
+    def __str__(self):
+        return f"Carrito de {self.cliente.email}"
+
+
+class ItemCarrito(models.Model):
+    """Intención de compra pendiente de checkout.
+
+    Los cupos no se descuentan al agregar: se confirman en `checkout_carrito`.
+    `viajeros` conserva el mismo formato de `viajeros_data` de la compra directa.
+    """
+
+    carrito = models.ForeignKey(Carrito, on_delete=models.CASCADE, related_name="items")
+    vuelo = models.ForeignKey(Vuelo, on_delete=models.PROTECT, related_name="items_carrito_ida")
+    vuelo_regreso = models.ForeignKey(
+        Vuelo, on_delete=models.PROTECT, null=True, blank=True, related_name="items_carrito_regreso"
+    )
+    clase = models.CharField(max_length=20, choices=ClaseTiquete.choices)
+    tipo_trayecto = models.CharField(
+        max_length=20, choices=TipoTrayecto.choices, default=TipoTrayecto.UNICO
+    )
+    viajeros = models.JSONField(default=list, encoder=DjangoJSONEncoder)
+    agregado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Item de Carrito"
+        verbose_name_plural = "Items de Carrito"
+        ordering = ["agregado_en"]
+
+    @property
+    def num_pasajeros(self) -> int:
+        return len(self.viajeros)
+
+    def __str__(self):
+        return f"Item {self.pk} - {self.vuelo.codigo_vuelo} x{self.num_pasajeros} ({self.clase})"
 
 
 class HistorialBusqueda(models.Model):

@@ -1,6 +1,10 @@
 from django.urls import path
 
 from .views import (
+    CartCheckoutView,
+    CartItemDetailView,
+    CartItemListCreateView,
+    CartView,
     PurchaseCancelView,
     PurchaseDetailView,
     PurchaseListCreateView,
@@ -28,6 +32,14 @@ urlpatterns = [
         ReservationCancelView.as_view(),
         name="sales-reservations-cancel",
     ),
+    path("cart/", CartView.as_view(), name="sales-cart"),
+    path("cart/items/", CartItemListCreateView.as_view(), name="sales-cart-items"),
+    path(
+        "cart/items/<int:pk>/",
+        CartItemDetailView.as_view(),
+        name="sales-cart-item-detail",
+    ),
+    path("cart/checkout/", CartCheckoutView.as_view(), name="sales-cart-checkout"),
     path("purchases/", PurchaseListCreateView.as_view(), name="sales-purchases-list-create"),
     path("purchases/<int:pk>/", PurchaseDetailView.as_view(), name="sales-purchases-detail"),
     path(
