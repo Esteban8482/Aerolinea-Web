@@ -373,23 +373,34 @@ export default function FlightsPage({ session }: FlightsPageProps) {
   }
 
   return (
-    <div className="page-shell">
-      <div className="page-card" style={{ maxWidth: '1100px' }}>
-        <header className="page-card__header">
-          <h1 className="page-card__title">
-            {view === 'CREATE'
-              ? 'Programar nuevo vuelo'
-              : view === 'EDIT'
-                ? `Editar vuelo ${selectedFlight?.codigo_vuelo}`
-                : 'Vuelos'}
-          </h1>
-          <p className="page-card__subtitle">
-            {view === 'CREATE'
-              ? 'Configure los parámetros de la ruta, salida y tarifas para habilitar la venta de cupos.'
-              : view === 'EDIT'
-                ? 'Ajuste fechas, horarios y costos con recálculo automático de arribos.'
-                : 'Consulta de disponibilidad e itinerarios de vuelos comerciales.'}
-          </p>
+    <div className="page-shell flights-page">
+      <div className="page-card flights-page-card">
+        <header className="page-card__header flights-page-header">
+          <div className="flights-page-heading">
+            <h1 className="page-card__title">
+              {view === 'CREATE'
+                ? 'Programar nuevo vuelo'
+                : view === 'EDIT'
+                  ? `Editar vuelo ${selectedFlight?.codigo_vuelo}`
+                  : 'Vuelos'}
+            </h1>
+            <p className="page-card__subtitle">
+              {view === 'CREATE'
+                ? 'Configure los parámetros de la ruta, salida y tarifas para habilitar la venta de cupos.'
+                : view === 'EDIT'
+                  ? 'Ajuste fechas, horarios y costos con recálculo automático de arribos.'
+                  : 'Encuentra tu próximo destino, compara horarios y reserva en pocos pasos.'}
+            </p>
+          </div>
+          {view === 'LIST' && effectiveTab === 'PUBLIC' && (
+            <div className="flights-promo" aria-label="Beneficios de tu reserva">
+              <span className="flights-promo__icon">✈</span>
+              <div>
+                <strong>Viaja con tranquilidad</strong>
+                <span>Reserva temporal y pago seguro desde tu billetera.</span>
+              </div>
+            </div>
+          )}
         </header>
 
         {notification && (
@@ -1103,8 +1114,8 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                 No se encontraron vuelos que coincidan con los criterios seleccionados.
               </div>
             ) : (
-              <div className="table-wrap">
-                <table className="admin-table">
+              <div className="table-wrap flights-table-wrap">
+                <table className="admin-table flights-table">
                   <thead>
                     <tr>
                       <ColumnFilter label="Código" active={Boolean(searchTerm.trim())}>
@@ -1249,8 +1260,8 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                 <h3 style={{ fontSize: '1.25rem', color: 'var(--color-primary)', marginBottom: '0.75rem' }}>
                   🔄 Vuelos de Regreso Disponibles ({searchResults.vuelos_regreso.length})
                 </h3>
-                <div className="table-wrap">
-                  <table className="admin-table">
+                <div className="table-wrap flights-table-wrap">
+                  <table className="admin-table flights-table flights-table--return">
                     <thead>
                       <tr>
                         <th>Código</th>
@@ -1417,4 +1428,3 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     </div>
   )
 }
-

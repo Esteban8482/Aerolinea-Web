@@ -1047,3 +1047,212 @@ a:focus-visible {
 .flight-details-summary p {
   margin: 0.25rem 0;
 }
+
+/* ------------------------------------------------------------
+   16. Flight Search Experience
+   ------------------------------------------------------------ */
+
+.page-shell {
+  width: 100%;
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+}
+
+.page-card {
+  width: 100%;
+  min-width: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 1.5rem;
+  box-shadow: 0 8px 30px rgba(75, 0, 144, 0.07);
+}
+
+.flights-page-card {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.flights-page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.flights-page-heading {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+  width: 100%;
+}
+
+.page-card__title {
+  margin: 0 0 0.35rem;
+}
+
+.page-card__subtitle {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.flights-promo {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #4b0090 0%, #7415a8 100%);
+  color: #fff;
+  border: 1px solid #4b0090;
+  box-shadow: 0 8px 18px rgba(75, 0, 144, 0.16);
+}
+
+.flights-promo__icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 1.35rem;
+}
+
+.flights-promo strong,
+.flights-promo span {
+  display: block;
+}
+
+.flights-promo strong {
+  margin-bottom: 0.15rem;
+  font-size: 0.95rem;
+}
+
+.flights-promo div > span {
+  color: #f3e8ff;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.flights-table-wrap {
+  overflow-x: hidden;
+  border-width: 1px;
+  border-radius: 0.35rem;
+  box-shadow: 0 4px 14px rgba(26, 32, 44, 0.05);
+}
+
+.flights-table {
+  table-layout: fixed;
+  font-size: 0.82rem;
+}
+
+.flights-table th,
+.flights-table td {
+  padding: 0.68rem 0.55rem;
+  vertical-align: middle;
+  overflow-wrap: break-word;
+}
+
+.flights-table th {
+  text-align: center;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.flights-table td {
+  text-align: center;
+}
+
+.flights-table th:first-child,
+.flights-table td:first-child {
+  text-align: left;
+  width: 9%;
+}
+
+.flights-table th:nth-child(2),
+.flights-table td:nth-child(2) {
+  width: 9%;
+}
+
+.flights-table th:nth-child(3),
+.flights-table td:nth-child(3) {
+  width: 16%;
+}
+
+.flights-table th:nth-child(4),
+.flights-table td:nth-child(4),
+.flights-table th:nth-child(5),
+.flights-table td:nth-child(5) {
+  width: 12%;
+}
+
+.flights-table th:nth-child(6),
+.flights-table td:nth-child(6) {
+  width: 10%;
+}
+
+.flights-table th:nth-child(7),
+.flights-table td:nth-child(7) {
+  width: 11%;
+}
+
+.flights-table th:nth-child(8),
+.flights-table td:nth-child(8) {
+  width: 13%;
+}
+
+.flights-table th:last-child,
+.flights-table td:last-child {
+  width: 10%;
+  text-align: right;
+}
+
+.flights-table .btn {
+  min-height: 38px;
+  white-space: normal;
+  line-height: 1.15;
+}
+
+@media (max-width: 980px) {
+  .flights-page-header {
+    grid-template-columns: 1fr;
+  }
+
+  .flights-promo {
+    max-width: 420px;
+    width: 100%;
+    justify-self: center;
+  }
+
+  .flights-table-wrap {
+    overflow-x: auto;
+  }
+
+  .flights-table {
+    min-width: 900px;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-shell {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .page-card {
+    padding: 1rem;
+  }
+
+  .flights-page-heading {
+    text-align: left;
+  }
+
+  .flights-promo {
+    min-height: 70px;
+  }
+}
