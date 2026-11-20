@@ -15,6 +15,7 @@ interface Session {
   authenticated: boolean
   role: string | null
   is_email_verified: boolean
+  firstName: string | null
 }
 
 export default function App() {
@@ -22,18 +23,29 @@ export default function App() {
     authenticated: false,
     role: null,
     is_email_verified: false,
+    firstName: null,
   })
 
   const refreshSession = useCallback(async () => {
     try {
       const data = await api.get('/auth/session/')
+      let firstName: string | null = null
+      if (data.authenticated) {
+        try {
+          const profile = await api.get('/auth/profile/')
+          firstName = profile.first_name || null
+        } catch {
+          firstName = null
+        }
+      }
       setSession({
         authenticated: Boolean(data.authenticated),
         role: data.role ?? null,
         is_email_verified: Boolean(data.is_email_verified),
+        firstName,
       })
     } catch {
-      setSession({ authenticated: false, role: null, is_email_verified: false })
+      setSession({ authenticated: false, role: null, is_email_verified: false, firstName: null })
     }
   }, [])
 
@@ -47,7 +59,7 @@ export default function App() {
     } catch {
       // Si falla el logout, limpiamos el estado local de todas formas.
     }
-    setSession({ authenticated: false, role: null, is_email_verified: false })
+    setSession({ authenticated: false, role: null, is_email_verified: false, firstName: null })
   }
 
   return (
@@ -55,6 +67,7 @@ export default function App() {
       <Header
         authenticated={session.authenticated}
         role={session.role}
+        firstName={session.firstName}
         onLogout={handleLogout}
       />
       <Routes>

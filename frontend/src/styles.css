@@ -150,6 +150,19 @@ a:focus-visible {
   max-width: 500px;
 }
 
+/* Contenedor de página con tarjeta centrada (Vuelos, Catálogo, etc.) */
+.page-shell {
+  flex: 1;
+  width: 100%;
+  padding: 2rem;
+}
+
+.page-card {
+  width: 100%;
+  max-width: 1100px;
+  margin-inline: auto;
+}
+
 /* ------------------------------------------------------------
    5. Header  (.site-header)
    ------------------------------------------------------------ */
@@ -891,7 +904,7 @@ a:focus-visible {
 
 .admin-table th,
 .admin-table td {
-  padding: 0.85rem 1.15rem;
+  padding: 0.75rem 0.85rem;
   border-bottom: 1px solid var(--color-border);
 }
 

@@ -374,7 +374,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
 
   return (
     <div className="page-shell">
-      <div className="page-card" style={{ maxWidth: '1100px' }}>
+      <div className="page-card" style={{ maxWidth: '1400px' }}>
         <header className="page-card__header">
           <h1 className="page-card__title">
             {view === 'CREATE'
@@ -1220,7 +1220,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                               <button
                                 type="button"
                                 className="btn btn--primary"
-                                style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                                style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
                                 onClick={() => {
                                   setBookingFlight(f)
                                   setBookingClase(searchClase === 'PRIMERA_CLASE' ? 'PRIMERA_CLASE' : 'ECONOMICA')

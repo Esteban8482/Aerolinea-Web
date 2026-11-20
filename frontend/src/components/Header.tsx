@@ -3,11 +3,11 @@ import { Link, useLocation } from 'react-router-dom'
 interface HeaderProps {
   authenticated: boolean
   role: string | null
+  firstName?: string | null  
   onLogout: () => void
 }
 
-export default function Header({ authenticated, role, onLogout }: HeaderProps) {
-  const location = useLocation()
+export default function Header({ authenticated, role, firstName, onLogout }: HeaderProps) {
 
   const isActive = (path: string) =>
     location.pathname === path ? 'site-header__link site-header__link--active' : 'site-header__link'
@@ -33,11 +33,13 @@ export default function Header({ authenticated, role, onLogout }: HeaderProps) {
               👤 Mi perfil
             </Link>
             <span className="user-role-tag">
-              {role === 'ROOT'
-                ? 'ROOT'
-                : role === 'ADMINISTRADOR'
-                  ? 'Admin'
-                  : 'Cliente'}
+              {firstName
+                ? `Hola, ${firstName.split(' ')[0]}`
+                : role === 'ROOT'
+                  ? 'ROOT'
+                  : role === 'ADMINISTRADOR'
+                    ? 'Admin'
+                    : 'Cliente'}
             </span>
             <button className="btn--header" type="button" onClick={onLogout}>
               Cerrar sesión

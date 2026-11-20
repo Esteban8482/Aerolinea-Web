@@ -188,7 +188,7 @@ export default function CatalogPage({ session }: CatalogPageProps) {
 
   return (
     <div className="page-shell">
-      <div className="page-card" style={{ maxWidth: '1100px' }}>
+      <div className="page-card" style={{ maxWidth: '1400px' }}>
         <header className="page-card__header">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
