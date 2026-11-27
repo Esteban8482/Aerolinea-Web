@@ -7,6 +7,15 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+CLEAN=false
+RESET=false
+for arg in "$@"; do
+  case $arg in
+    --clean|-c) CLEAN=true ;;
+    --reset|-r) RESET=true ;;
+  esac
+done
+
 echo "=========================================================="
 echo "  Iniciando entorno de desarrollo: Alas Aerolinea"
 echo "=========================================================="
@@ -71,12 +80,24 @@ else
 fi
 
 # 3. Levantar backend con Docker Compose
+if [ "$RESET" = true ]; then
+  echo "==> [--reset] Deteniendo contenedores y eliminando volumenes..."
+  $COMPOSE_CMD down -v
+fi
+
 echo ""
 echo "==> [1/3] Levantando base de datos (PostgreSQL) y backend (Django)..."
 $COMPOSE_CMD up -d --wait backend
 
 echo "==> [2/3] Aplicando migraciones de base de datos..."
 $COMPOSE_CMD exec -T backend python manage.py migrate --noinput
+
+if [ "$CLEAN" = true ]; then
+  echo "==> [Modo Limpio (--clean)] Omitiendo la siembra de usuarios y vuelos de prueba."
+else
+  echo "==> Sembrando datos de prueba para desarrollo (usuarios y vuelos)..."
+  $COMPOSE_CMD exec -T backend python manage.py seed_dev_data
+fi
 
 echo "==> Comprobando estado del sistema Django..."
 $COMPOSE_CMD exec -T backend python manage.py check
@@ -98,6 +119,22 @@ if [ ! -d "node_modules" ]; then
   npm install
 fi
 
+echo ""
+echo "=========================================================="
+echo "  Servicios listos para desarrollo!"
+echo "  - Frontend (con recarga en vivo):  http://localhost:5173"
+echo "  - Backend API:                     http://127.0.0.1:8000/api/health/"
+echo "  - Documentacion Swagger API:       http://127.0.0.1:8000/api/docs/"
+if [ "$CLEAN" != true ]; then
+  echo "  - Cuentas de prueba preconfiguradas:"
+  echo "    * ROOT:          root / Root12345678!"
+  echo "    * Administrador: admin@alas.com / Admin12345!"
+  echo "    * Cliente:       cliente@alas.com / Cliente12345! (Billetera: $5.000.000 COP)"
+fi
+echo "=========================================================="
+echo "Presiona Ctrl+C en esta terminal para detener el Frontend."
+echo ""
+
 # 5. Trap para salida limpia
 cleanup() {
   echo ""
@@ -118,15 +155,5 @@ cleanup() {
 }
 
 trap cleanup INT TERM
-
-echo ""
-echo "=========================================================="
-echo "  Servicios listos para desarrollo!"
-echo "  - Frontend (con recarga en vivo):  http://localhost:5173"
-echo "  - Backend API:                     http://127.0.0.1:8000/api/health/"
-echo "  - Documentacion Swagger API:       http://127.0.0.1:8000/api/docs/"
-echo "=========================================================="
-echo "Presiona Ctrl+C en esta terminal para detener el Frontend."
-echo ""
 
 npm run dev

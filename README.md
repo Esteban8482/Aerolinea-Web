@@ -290,7 +290,65 @@ git status
 
 Quien ya tenga el clon debe trabajar dentro de esa raíz y conservar su rama y entorno existentes. No debe inicializar otro repositorio alrededor del clon.
 
-La preparación debe seguir este orden:
+### Inicio rápido del entorno de desarrollo
+
+El repositorio incluye scripts automatizados para levantar el backend (PostgreSQL + Django) y el frontend (Vite) de forma sincronizada:
+
+- **En Windows (PowerShell):**
+  ```powershell
+  # Iniciar entorno con datos de prueba (usuarios y vuelos precargados):
+  .\dev.ps1
+
+  # Iniciar con base de datos limpia (sin datos de prueba):
+  .\dev.ps1 -Clean
+
+  # Reiniciar contenedores desde cero (borra volumenes previos) y arrancar limpio:
+  .\dev.ps1 -Clean -ResetDatabase
+  ```
+
+- **En Linux / macOS / WSL (Bash):**
+  ```bash
+  # Iniciar con datos de prueba:
+  ./dev.sh
+
+  # Iniciar limpio sin datos de prueba:
+  ./dev.sh --clean
+
+  # Reiniciar volumenes desde cero:
+  ./dev.sh --clean --reset
+  ```
+
+### Datos de prueba preconfigurados para desarrollo
+
+Para facilitar las pruebas manuales y la navegación en desarrollo local, el comando `python manage.py seed_dev_data` genera de manera segura e idempotente las siguientes cuentas y vuelos:
+
+#### Cuentas de usuario de prueba
+
+| Rol | Identificador / Correo | Contraseña | Estado / Saldo Billetera |
+|---|---|---|---|
+| **ROOT** | `root` (correo: `root@alas.com`) | `Root12345678!` | Billetera activa (\$0.00 COP). Permite crear Administradores y cambiar su contraseña propia. |
+| **Administrador** | `admin@alas.com` | `Admin12345!` | Administrador activo (Carlos Administrador, CC 1000000001). Permite programar (CU-01), editar (CU-02) y cancelar (CU-03) vuelos. |
+| **Cliente** | `cliente@alas.com` | `Cliente12345!` | Correo verificado (Mariana Ríos, CC 1088123456). **Billetera con \$5.000.000 COP** disponible para compras y reservas. |
+
+#### Vuelos de prueba comerciales
+
+| Código | Tipo | Ruta | Horario Salida | Tarifa Económica | Tarifa Primera | Estado | Notas |
+|---|---|---|---|---|---|---|---|
+| **XX0001** | Nacional | Bogotá $\rightarrow$ Pereira | Salida en 2 días (09:00) | \$150.000 COP | \$225.000 COP | `PROGRAMADO` | 150 sillas generadas; noticia oficial activa. |
+| **XX0002** | Nacional | Pereira $\rightarrow$ Bogotá | Salida en 3 días (15:30) | \$155.000 COP | \$230.000 COP | `PROGRAMADO` | Ruta de regreso habilitada. |
+| **XX0003** | Internacional | Bogotá $\rightarrow$ Madrid | Salida en 5 días (20:00) | \$1.249.000 COP | \$1.990.000 COP | `PROGRAMADO` | 250 sillas generadas; llegada UTC calculada. |
+| **XX0004** | Internacional | Medellín $\rightarrow$ Miami | Salida en 7 días (11:00) | \$980.000 COP | \$1.470.000 COP | `PROGRAMADO` | Vuelo internacional directo. |
+| **XX0005** | Nacional | Cartagena $\rightarrow$ Bogotá | Salida en 4 días (18:00) | \$160.000 COP | \$240.000 COP | `CANCELADO` | Cupos disponibles en 0. Motivo: *Mantenimiento preventivo de aeronave*. |
+| **XX0006** | Nacional | Bogotá $\rightarrow$ Medellín | Salida hace 1 día (08:00) | \$140.000 COP | \$210.000 COP | `REALIZADO` | Vuelo histórico para pruebas de visualización. |
+
+Para sembrar o volver a generar estos datos manualmente en cualquier momento:
+```bash
+docker compose exec backend python manage.py seed_dev_data
+```
+
+### Preparación manual paso a paso
+
+La preparación tradicional sin los scripts asistentes sigue este orden:
 
 1. Leer la documentación y comprobar la rama, los cambios locales y las versiones fijadas.
 2. Conservar el `.env` local existente; para un clon nuevo, generar valores con la guía del backend. `.env.example` contiene secretos vacíos y no sirve directamente para arrancar.

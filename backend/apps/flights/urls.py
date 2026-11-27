@@ -6,6 +6,7 @@ from .views import (
     FlightDetailView,
     FlightSearchView,
     FlightsView,
+    RouteDetailView,
     RoutesView,
 )
 
@@ -16,4 +17,5 @@ urlpatterns = [
     path("<int:pk>/cancel/", FlightCancelView.as_view(), name="flights-cancel"),
     path("cities/", CitiesView.as_view(), name="flights-cities"),
     path("routes/", RoutesView.as_view(), name="flights-routes"),
+    path("routes/<int:pk>/", RouteDetailView.as_view(), name="flights-routes-detail"),
 ]

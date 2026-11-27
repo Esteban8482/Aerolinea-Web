@@ -125,4 +125,12 @@ export interface PerfilUsuario {
   wallet_balance: string
 }
 
+export interface FlightSearchResult {
+  tipo_trayecto: 'UNICO' | 'COMPLETO'
+  pasajeros: number
+  clase: string
+  vuelos_ida: Vuelo[]
+  vuelos_regreso: Vuelo[]
+}
+
 

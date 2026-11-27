@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
-import type { Ciudad, Ruta, Vuelo, VueloDetalle } from '../types/flight'
+import type { Ciudad, FlightSearchResult, Ruta, Vuelo, VueloDetalle } from '../types/flight'
 import ColumnFilter from '../components/ColumnFilter'
+import BookingModal from '../components/BookingModal'
 import CatalogPage from './CatalogPage'
 
 interface FlightsPageProps {
@@ -27,6 +28,25 @@ export default function FlightsPage({ session }: FlightsPageProps) {
   const [filterEstado, setFilterEstado] = useState<string>('')
   const [filterTipo, setFilterTipo] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState<string>('')
+
+  // Búsqueda interactiva (HU-005) y Catálogo por Ciudad (HU-006)
+  const [searchTipoTrayecto, setSearchTipoTrayecto] = useState<'UNICO' | 'COMPLETO'>('UNICO')
+  const [searchOrigenId, setSearchOrigenId] = useState<number | ''>('')
+  const [searchDestinoId, setSearchDestinoId] = useState<number | ''>('')
+  const [searchFechaSalida, setSearchFechaSalida] = useState('')
+  const [searchFechaRegreso, setSearchFechaRegreso] = useState('')
+  const [searchPasajeros, setSearchPasajeros] = useState<number>(1)
+  const [searchClase, setSearchClase] = useState<string>('')
+  const [searchMaxPrecio, setSearchMaxPrecio] = useState<string>('')
+  const [searchCityOriginId, setSearchCityOriginId] = useState<number | ''>('')
+  const [searchResults, setSearchResults] = useState<FlightSearchResult | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+
+  // Estado para BookingModal (HU-012, HU-013)
+  const [bookingFlight, setBookingFlight] = useState<Vuelo | null>(null)
+  const [bookingFlightRegreso, setBookingFlightRegreso] = useState<Vuelo | null>(null)
+  const [bookingClase, setBookingClase] = useState<'ECONOMICA' | 'PRIMERA_CLASE'>('ECONOMICA')
 
   // Modos de vista
   const [view, setView] = useState<'LIST' | 'CREATE' | 'EDIT'>('LIST')
@@ -166,6 +186,69 @@ export default function FlightsPage({ session }: FlightsPageProps) {
         f.destino.toLowerCase().includes(term),
     )
   }, [displayFlights, searchTerm])
+
+  // Ejecución de búsqueda de vuelos (HU-005)
+  const handleExecuteSearch = async (e?: FormEvent) => {
+    if (e) e.preventDefault()
+    if (searchOrigenId && searchDestinoId && searchOrigenId === searchDestinoId) {
+      setSearchError('El origen y el destino no pueden ser la misma ciudad.')
+      return
+    }
+
+    setSearching(true)
+    setSearchError('')
+    try {
+      const params = new URLSearchParams()
+      if (searchOrigenId) params.append('origen_id', String(searchOrigenId))
+      if (searchDestinoId) params.append('destino_id', String(searchDestinoId))
+      if (searchFechaSalida) params.append('fecha_salida', searchFechaSalida)
+      if (searchTipoTrayecto === 'COMPLETO' && searchFechaRegreso) {
+        params.append('fecha_regreso', searchFechaRegreso)
+      }
+      params.append('tipo_trayecto', searchTipoTrayecto)
+      params.append('pasajeros', String(searchPasajeros))
+      if (searchClase) params.append('clase', searchClase)
+      if (searchMaxPrecio) params.append('precio_max', searchMaxPrecio)
+
+      const data = await api.get(`/flights/search/?${params.toString()}`)
+      setSearchResults(data)
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Error al buscar vuelos.'
+      setSearchError(msg)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleClearSearch = () => {
+    setSearchOrigenId('')
+    setSearchDestinoId('')
+    setSearchFechaSalida('')
+    setSearchFechaRegreso('')
+    setSearchPasajeros(1)
+    setSearchClase('')
+    setSearchMaxPrecio('')
+    setSearchCityOriginId('')
+    setSearchResults(null)
+    setSearchError('')
+  }
+
+  // Lista visible: según búsqueda activa (HU-005), catálogo por ciudad (HU-006) o tabla general
+  const currentList = useMemo(() => {
+    if (effectiveTab === 'ADMIN') return filteredFlights
+
+    if (searchResults !== null) {
+      return searchResults.vuelos_ida
+    }
+
+    if (searchCityOriginId) {
+      const city = cities.find((c) => c.id === searchCityOriginId)
+      if (!city) return displayFlights
+      return displayFlights.filter((f) => f.origen === city.nombre)
+    }
+
+    return filteredFlights
+  }, [effectiveTab, filteredFlights, searchResults, searchCityOriginId, cities, displayFlights])
 
   // Manejo de: Programar Vuelo
   const handleCreateSubmit = async (e: FormEvent) => {
@@ -719,11 +802,303 @@ export default function FlightsPage({ session }: FlightsPageProps) {
 
         {view === 'LIST' && (
           <>
+            {/* PANEL DE BÚSQUEDA Y FILTRADO (HU-005) Y CATÁLOGO POR CIUDAD (HU-006) */}
+            {effectiveTab === 'PUBLIC' && (
+              <div
+                className="admin-card-panel"
+                style={{
+                  marginBottom: '2rem',
+                  background: '#fdf9fc',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '1rem',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                  }}
+                >
+                  <div>
+                    <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--color-primary)' }}>
+                      🔍 Encuentra tu próximo vuelo
+                    </h2>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+                      Consulta itinerarios, disponibilidad de cupos y tarifas en tiempo real.
+                    </p>
+                  </div>
+
+                  {/* Selector de trayecto: Solo ida / Ida y regreso */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '1rem',
+                      background: '#ffffff',
+                      padding: '0.35rem 0.8rem',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '0.25rem',
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="trayecto"
+                        checked={searchTipoTrayecto === 'UNICO'}
+                        onChange={() => setSearchTipoTrayecto('UNICO')}
+                      />
+                      Solo ida
+                    </label>
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="trayecto"
+                        checked={searchTipoTrayecto === 'COMPLETO'}
+                        onChange={() => setSearchTipoTrayecto('COMPLETO')}
+                      />
+                      Ida y regreso
+                    </label>
+                  </div>
+                </div>
+
+                {searchError && (
+                  <div className="alert alert--error" style={{ marginBottom: '1rem' }}>
+                    <span className="alert__body">{searchError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleExecuteSearch} noValidate>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                      gap: '1rem',
+                      marginBottom: '1rem',
+                    }}
+                  >
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                        Ciudad de Origen
+                      </label>
+                      <select
+                        className="form-select"
+                        value={searchOrigenId}
+                        onChange={(e) => setSearchOrigenId(e.target.value ? Number(e.target.value) : '')}
+                      >
+                        <option value="">Todas las ciudades</option>
+                        {cities.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre} ({c.codigo_pais})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                        Ciudad de Destino
+                      </label>
+                      <select
+                        className="form-select"
+                        value={searchDestinoId}
+                        onChange={(e) => setSearchDestinoId(e.target.value ? Number(e.target.value) : '')}
+                      >
+                        <option value="">Todos los destinos</option>
+                        {cities.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre} ({c.codigo_pais})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                        Fecha de ida
+                      </label>
+                      <input
+                        type="date"
+                        className="form-input"
+                        value={searchFechaSalida}
+                        onChange={(e) => setSearchFechaSalida(e.target.value)}
+                      />
+                    </div>
+
+                    {searchTipoTrayecto === 'COMPLETO' && (
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                          Fecha de regreso
+                        </label>
+                        <input
+                          type="date"
+                          className="form-input"
+                          value={searchFechaRegreso}
+                          min={searchFechaSalida || undefined}
+                          onChange={(e) => setSearchFechaRegreso(e.target.value)}
+                        />
+                      </div>
+                    )}
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                        Pasajeros (máx. 5)
+                      </label>
+                      <select
+                        className="form-select"
+                        value={searchPasajeros}
+                        onChange={(e) => setSearchPasajeros(Number(e.target.value))}
+                      >
+                        <option value={1}>1 pasajero</option>
+                        <option value={2}>2 pasajeros</option>
+                        <option value={3}>3 pasajeros</option>
+                        <option value={4}>4 pasajeros</option>
+                        <option value={5}>5 pasajeros</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                        Clase
+                      </label>
+                      <select
+                        className="form-select"
+                        value={searchClase}
+                        onChange={(e) => setSearchClase(e.target.value)}
+                      >
+                        <option value="">Cualquier clase</option>
+                        <option value="ECONOMICA">Económica</option>
+                        <option value="PRIMERA_CLASE">Primera Clase</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '1rem',
+                      paddingTop: '0.75rem',
+                      borderTop: '1px solid #e2e8f0',
+                    }}
+                  >
+                    {/* HU-006: Catálogo rápido por ciudad */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                        O consultar catálogo por ciudad:
+                      </span>
+                      <select
+                        className="form-select"
+                        style={{ width: 'auto', padding: '0.35rem 0.6rem', fontSize: '0.85rem' }}
+                        value={searchCityOriginId}
+                        onChange={(e) => {
+                          const val = e.target.value ? Number(e.target.value) : ''
+                          setSearchCityOriginId(val)
+                          if (val) setSearchResults(null)
+                        }}
+                      >
+                        <option value="">Todas las ciudades de salida</option>
+                        {cities.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      {(searchResults !== null ||
+                        searchCityOriginId ||
+                        searchOrigenId ||
+                        searchDestinoId ||
+                        searchFechaSalida) && (
+                        <button
+                          type="button"
+                          className="btn btn--secondary"
+                          style={{ padding: '0.45rem 0.9rem', fontSize: '0.9rem' }}
+                          onClick={handleClearSearch}
+                        >
+                          Limpiar búsqueda
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        className="btn btn--primary"
+                        style={{ padding: '0.45rem 1.25rem', fontSize: '0.9rem' }}
+                        disabled={searching}
+                      >
+                        {searching ? 'Buscando vuelos...' : '🔍 Buscar Vuelos'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* AVISO DE RESULTADOS DE BÚSQUEDA */}
+            {searchResults !== null && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1rem',
+                  padding: '0.75rem 1rem',
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '0.35rem',
+                }}
+              >
+                <span style={{ fontWeight: 600, color: '#166534', fontSize: '0.95rem' }}>
+                  ✓ {searchResults.vuelos_ida.length}{' '}
+                  {searchResults.vuelos_ida.length === 1 ? 'vuelo encontrado' : 'vuelos encontrados'}{' '}
+                  para tu búsqueda de ida
+                  {searchResults.tipo_trayecto === 'COMPLETO' &&
+                    ` (${searchResults.vuelos_regreso.length} de regreso)`}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#166534',
+                    textDecoration: 'underline',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  Ver todos los vuelos
+                </button>
+              </div>
+            )}
+
             {loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                 Cargando itinerarios de vuelos...
               </div>
-            ) : filteredFlights.length === 0 ? (
+            ) : currentList.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                 No se encontraron vuelos que coincidan con los criterios seleccionados.
               </div>
@@ -776,11 +1151,11 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                       )}
                       <th>Cupos</th>
                       <th>Tarifa Económica</th>
-                      {isAdmin && effectiveTab === 'ADMIN' && <th>Acciones</th>}
+                      <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredFlights.map((f) => {
+                    {currentList.map((f) => {
                       const isProgramado = f.estado === 'PROGRAMADO'
                       const badgeClass =
                         f.estado === 'PROGRAMADO'
@@ -813,9 +1188,9 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                             {f.cupos_disponibles_economica + f.cupos_disponibles_primera} / {f.capacidad_total}
                           </td>
                           <td>${Number(f.costo_persona_economica).toLocaleString('es-CO')}</td>
-                          {isAdmin && effectiveTab === 'ADMIN' && (
-                            <td>
-                              {isProgramado ? (
+                          <td>
+                            {isAdmin && effectiveTab === 'ADMIN' ? (
+                              isProgramado ? (
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                   <button
                                     type="button"
@@ -840,14 +1215,82 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                                 </div>
                               ) : (
                                 <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>—</span>
-                              )}
-                            </td>
-                          )}
+                              )
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn--primary"
+                                style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                                onClick={() => {
+                                  setBookingFlight(f)
+                                  setBookingClase(searchClase === 'PRIMERA_CLASE' ? 'PRIMERA_CLASE' : 'ECONOMICA')
+                                  if (searchResults && searchResults.vuelos_regreso.length > 0) {
+                                    setBookingFlightRegreso(searchResults.vuelos_regreso[0])
+                                  } else {
+                                    setBookingFlightRegreso(null)
+                                  }
+                                }}
+                              >
+                                ✈ Reservar / Comprar
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       )
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* SECCIÓN DE VUELOS DE REGRESO SI BÚSQUEDA COMPLETA (HU-005) */}
+            {searchResults && searchResults.tipo_trayecto === 'COMPLETO' && searchResults.vuelos_regreso.length > 0 && (
+              <div style={{ marginTop: '2.5rem' }}>
+                <h3 style={{ fontSize: '1.25rem', color: 'var(--color-primary)', marginBottom: '0.75rem' }}>
+                  🔄 Vuelos de Regreso Disponibles ({searchResults.vuelos_regreso.length})
+                </h3>
+                <div className="table-wrap">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Tipo</th>
+                        <th>Ruta</th>
+                        <th>Salida</th>
+                        <th>Llegada</th>
+                        <th>Cupos</th>
+                        <th>Tarifa Económica</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {searchResults.vuelos_regreso.map((rf) => (
+                        <tr key={rf.id}>
+                          <td><strong>{rf.codigo_vuelo}</strong></td>
+                          <td>{rf.tipo_vuelo}</td>
+                          <td><strong>{rf.origen}</strong> → <strong>{rf.destino}</strong></td>
+                          <td>{rf.fecha_salida} <br /><small style={{ color: 'var(--color-text-secondary)' }}>{rf.hora_salida}</small></td>
+                          <td>{rf.fecha_llegada} <br /><small style={{ color: 'var(--color-text-secondary)' }}>{rf.hora_llegada}</small></td>
+                          <td>{rf.cupos_disponibles_economica + rf.cupos_disponibles_primera} / {rf.capacidad_total}</td>
+                          <td>${Number(rf.costo_persona_economica).toLocaleString('es-CO')}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn--secondary"
+                              style={{ padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
+                              onClick={() => {
+                                setBookingFlightRegreso(rf)
+                                setNotification({ type: 'success', message: `Vuelo de regreso ${rf.codigo_vuelo} seleccionado.` })
+                              }}
+                            >
+                              {bookingFlightRegreso?.id === rf.id ? '✓ Seleccionado' : 'Seleccionar regreso'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
@@ -952,6 +1395,24 @@ export default function FlightsPage({ session }: FlightsPageProps) {
             </form>
           </div>
         </div>
+      )}
+      {/* MODAL DE RESERVA Y COMPRA (HU-012, HU-013) */}
+      {bookingFlight && (
+        <BookingModal
+          vuelo={bookingFlight}
+          vueloRegreso={bookingFlightRegreso}
+          session={session}
+          initialClase={bookingClase}
+          initialPasajeros={searchPasajeros}
+          onClose={() => {
+            setBookingFlight(null)
+            setBookingFlightRegreso(null)
+          }}
+          onSuccess={(msg) => {
+            setNotification({ type: 'success', message: msg })
+            loadFlights()
+          }}
+        />
       )}
     </div>
   )

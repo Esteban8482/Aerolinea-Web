@@ -10,7 +10,6 @@ class SillaSerializer(serializers.ModelSerializer):
         fields = ["id", "numero_silla", "clase", "estado", "espacio_extra"]
 
 
-
 class CiudadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ciudad
@@ -32,6 +31,26 @@ class RutaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ruta
         fields = ["id", "origen", "destino", "tipo_vuelo", "duracion_min", "activa"]
+
+
+class RutaWriteSerializer(serializers.Serializer):
+    origen_id = serializers.IntegerField(min_value=1)
+    destino_id = serializers.IntegerField(min_value=1)
+    duracion_min = serializers.IntegerField(min_value=1, max_value=2880)
+    tipo_vuelo = serializers.ChoiceField(choices=TipoVuelo.choices)
+    activa = serializers.BooleanField(default=True, required=False)
+
+    def validate(self, attrs):
+        origen_id = attrs.get("origen_id")
+        destino_id = attrs.get("destino_id")
+        if origen_id and destino_id and origen_id == destino_id:
+            raise serializers.ValidationError({"destino_id": "El origen y el destino no pueden ser iguales."})
+        return attrs
+
+
+class RutaUpdateSerializer(serializers.Serializer):
+    duracion_min = serializers.IntegerField(min_value=1, max_value=2880, required=False)
+    activa = serializers.BooleanField(required=False)
 
 
 class ProgramarVueloSerializer(serializers.Serializer):
@@ -185,7 +204,23 @@ class FlightSearchResultSerializer(serializers.Serializer):
     vuelos_regreso = VueloListSerializer(many=True)
 
 class CrearRutaSerializer(serializers.Serializer):
-    origen_id = serializers.IntegerField(min_value=1)
-    destino_id = serializers.IntegerField(min_value=1)
+    origen_id = serializers.IntegerField(min_value=1, required=False)
+    destino_id = serializers.IntegerField(min_value=1, required=False)
+    origen = serializers.IntegerField(min_value=1, required=False)
+    destino = serializers.IntegerField(min_value=1, required=False)
     tipo_vuelo = serializers.ChoiceField(choices=TipoVuelo.choices)
-    duracion_min = serializers.IntegerField(min_value=15, max_value=1200)
+    duracion_min = serializers.IntegerField(min_value=1, max_value=2880)
+    activa = serializers.BooleanField(required=False, default=True)
+
+    def validate(self, attrs):
+        origen_id = attrs.get("origen_id") or attrs.get("origen")
+        destino_id = attrs.get("destino_id") or attrs.get("destino")
+        if not origen_id:
+            raise serializers.ValidationError({"origen_id": "Este campo es requerido."})
+        if not destino_id:
+            raise serializers.ValidationError({"destino_id": "Este campo es requerido."})
+        if origen_id == destino_id:
+            raise serializers.ValidationError({"destino_id": "El origen y el destino no pueden ser iguales."})
+        attrs["origen_id"] = origen_id
+        attrs["destino_id"] = destino_id
+        return attrs
