@@ -27,8 +27,8 @@ def depositar(wallet_id: int, monto: Decimal, referencia: str = "") -> Movimient
         raise InvalidAmount()
 
     wallet = Wallet.objects.select_for_update(of=("self",)).select_related("user").get(pk=wallet_id)
-    if wallet.user.role == "ROOT":
-        raise PermissionDenied("ROOT no tiene acceso a operaciones financieras.")
+    if wallet.user.role != "CLIENTE":
+        raise PermissionDenied("Solo los clientes tienen acceso a operaciones financieras.")
     if wallet.balance + monto > Decimal("999999999999.99"):
         raise InvalidAmount("El saldo resultante excede la capacidad de la billetera.")
     wallet.balance += monto
@@ -54,8 +54,8 @@ def debitar_para_compra(
         raise InvalidAmount()
 
     wallet = Wallet.objects.select_for_update(of=("self",)).select_related("user").get(pk=wallet_id)
-    if wallet.user.role == "ROOT":
-        raise PermissionDenied("ROOT no tiene acceso a operaciones financieras.")
+    if wallet.user.role != "CLIENTE":
+        raise PermissionDenied("Solo los clientes tienen acceso a operaciones financieras.")
     if wallet.balance < monto:
         raise InsufficientBalance()
 
@@ -82,8 +82,8 @@ def reembolsar_a_billetera(
         raise InvalidAmount()
 
     wallet = Wallet.objects.select_for_update(of=("self",)).select_related("user").get(pk=wallet_id)
-    if wallet.user.role == "ROOT":
-        raise PermissionDenied("ROOT no tiene acceso a operaciones financieras.")
+    if wallet.user.role != "CLIENTE":
+        raise PermissionDenied("Solo los clientes tienen acceso a operaciones financieras.")
     if wallet.balance + monto > Decimal("999999999999.99"):
         raise InvalidAmount("El saldo resultante excede la capacidad de la billetera.")
     wallet.balance += monto

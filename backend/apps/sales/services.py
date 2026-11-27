@@ -325,7 +325,8 @@ def comprar_tiquetes(
 
 
 def _refund_ticket(ticket):
-    if ticket.estado != EstadoTiquete.ACTIVO:
+    pending_resolution = ticket.estado == EstadoTiquete.PENDIENTE_RESOLUCION
+    if ticket.estado not in (EstadoTiquete.ACTIVO, EstadoTiquete.PENDIENTE_RESOLUCION):
         return
     purchase = Compra.objects.select_for_update().get(pk=ticket.compra_id)
     debit = purchase.debit
@@ -365,8 +366,11 @@ def _refund_ticket(ticket):
     ticket.save(update_fields=["refund", "estado"])
     Silla.objects.filter(pk=ticket.silla_id).update(estado=EstadoSilla.DISPONIBLE)
     flight = Vuelo.objects.select_for_update().get(pk=ticket.vuelo_id)
-    _change_capacity(flight, ticket.clase, 1)
-    if not purchase.tiquetes.filter(estado=EstadoTiquete.ACTIVO).exists():
+    if not pending_resolution:
+        _change_capacity(flight, ticket.clase, 1)
+    if not purchase.tiquetes.filter(
+        estado__in=[EstadoTiquete.ACTIVO, EstadoTiquete.PENDIENTE_RESOLUCION]
+    ).exists():
         purchase.estado = EstadoCompra.CANCELADA
         purchase.fecha_cancelacion = timezone.now()
         purchase.save(update_fields=["estado", "fecha_cancelacion"])

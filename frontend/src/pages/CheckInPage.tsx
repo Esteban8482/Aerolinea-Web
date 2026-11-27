@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
+import SeatManager from '../components/SeatManager'
+import CatalogueSelect from '../components/CatalogueSelect'
 import type { Tiquete } from '../types/flight'
 
 interface CheckInPageProps {
@@ -21,7 +23,7 @@ interface GuestAccessForm {
 function isCheckInOpen(ticket: Tiquete) {
   const departure = new Date(ticket.vuelo.salida_utc).getTime()
   const now = Date.now()
-  return now >= departure - 24 * 60 * 60 * 1000 && now < departure
+  return ticket.estado === 'ACTIVO' && ticket.vuelo.estado === 'PROGRAMADO' && now >= departure - 24 * 60 * 60 * 1000 && now < departure
 }
 
 function formatDeparture(value: string) {
@@ -32,6 +34,7 @@ function formatDeparture(value: string) {
 }
 
 export default function CheckInPage({ session }: CheckInPageProps) {
+  const [group, setGroup] = useState('')
   const [tickets, setTickets] = useState<Tiquete[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [guestToken, setGuestToken] = useState('')
@@ -70,6 +73,7 @@ export default function CheckInPage({ session }: CheckInPageProps) {
         }
       }
       setTickets(allTickets)
+      setGroup(previous => allTickets.some(t => `${t.purchase_id}:${t.vuelo.id}` === previous) ? previous : allTickets.length ? `${allTickets[0].purchase_id}:${allTickets[0].vuelo.id}` : '')
       setSelectedIds([])
     } catch (error) {
       const message =
@@ -239,9 +243,10 @@ export default function CheckInPage({ session }: CheckInPageProps) {
             </div>
           ) : (
             <div className="journey-ticket-list">
-              {tickets.map((ticket) => {
+              <label>Compra y vuelo<select className="form-select" value={group} onChange={e => { setGroup(e.target.value); setSelectedIds([]) }}>{[...new Map(tickets.map(t => [`${t.purchase_id}:${t.vuelo.id}`, t])).entries()].map(([key, t]) => <option key={key} value={key}>{t.locator} · {t.vuelo.codigo_vuelo} · {formatDeparture(t.vuelo.salida_utc)}</option>)}</select></label>
+              {tickets.filter(t => `${t.purchase_id}:${t.vuelo.id}` === group).map((ticket) => {
                 const checkInOpen = isCheckInOpen(ticket)
-                const confirmed = ticket.estado_checkin === 'CONFIRMADO'
+                const confirmed = ticket.estado === 'ACTIVO' && ticket.vuelo.estado !== 'CANCELADO' && ticket.estado_checkin === 'CONFIRMADO'
                 const selectable = ticket.estado === 'ACTIVO' && checkInOpen && !confirmed
                 return (
                   <article className="journey-ticket" key={ticket.id}>
@@ -292,6 +297,7 @@ export default function CheckInPage({ session }: CheckInPageProps) {
                           El check-in se habilita 24 horas antes de la salida.
                         </p>
                       )}
+                      <SeatManager ticket={ticket} token={guestToken || undefined} onChanged={() => { loadTickets(guestToken || undefined) }} />
                       {confirmed && (
                         <button
                           type="button"
@@ -331,7 +337,7 @@ export default function CheckInPage({ session }: CheckInPageProps) {
             <h2>Consulta tus tiquetes desde tu sesión</h2>
             <p>También puedes acceder de forma segura con el enlace enviado al correo del viajero.</p>
           </div>
-          <Link to="/login" className="btn btn--primary">
+          <Link to="/login?next=/check-in" className="btn btn--primary">
             Iniciar sesión
           </Link>
         </section>
@@ -368,19 +374,7 @@ export default function CheckInPage({ session }: CheckInPageProps) {
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="guest-document-type">Tipo de documento</label>
-                <select
-                  id="guest-document-type"
-                  className="form-select"
-                  value={guestForm.document_type}
-                  onChange={(event) =>
-                    setGuestForm({ ...guestForm, document_type: event.target.value })
-                  }
-                >
-                  <option value="CC">Cédula de ciudadanía</option>
-                  <option value="CE">Cédula de extranjería</option>
-                  <option value="PASAPORTE">Pasaporte</option>
-                  <option value="TI">Tarjeta de identidad</option>
-                </select>
+                <CatalogueSelect category="document_type" label="Tipo de documento" value={guestForm.document_type} onChange={document_type => setGuestForm({ ...guestForm, document_type })} />
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="guest-document">Número de documento</label>

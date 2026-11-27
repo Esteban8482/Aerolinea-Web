@@ -1,6 +1,9 @@
+import CatalogueSelect from '../components/CatalogueSelect'
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
+import CancellationPanel from '../components/CancellationPanel'
+import FlightCitySelect from '../components/FlightCitySelect'
 import type { Ciudad, FlightSearchResult, Ruta, Vuelo, VueloDetalle } from '../types/flight'
 import ColumnFilter from '../components/ColumnFilter'
 import BookingModal from '../components/BookingModal'
@@ -15,9 +18,10 @@ interface FlightsPageProps {
 }
 
 export default function FlightsPage({ session }: FlightsPageProps) {
-  const isAdmin = session.authenticated && (session.role === 'ADMINISTRADOR' || session.role === 'ROOT')
+  const isAdmin = session.authenticated && session.role === 'ADMINISTRADOR'
 
   // Catálogos y datos
+  const [panelFlightId, setPanelFlightId] = useState<number | null>(null)
   const [cities, setCities] = useState<Ciudad[]>([])
   const [routes, setRoutes] = useState<Ruta[]>([])
   const [flights, setFlights] = useState<Vuelo[]>([])
@@ -364,18 +368,23 @@ export default function FlightsPage({ session }: FlightsPageProps) {
       return
     }
 
+    try {
+      const impact = await api.get(`/sales/flights/${flightToCancel.id}/cancellation-panel/`)
+      if (!window.confirm(`Primera confirmación: cancelar ${flightToCancel.codigo_vuelo}, ${flightToCancel.origen} → ${flightToCancel.destino}, salida ${new Date(flightToCancel.salida_utc).toLocaleString('es-CO')}. Afecta ${impact.passengers} pasajeros, ${impact.purchases} compras y ${impact.reservations} reservas. ¿Continuar?`)) return
+      if (!window.confirm('Confirmación final: se liberarán las reservas y se invalidarán los pasabordos. Cada comprador decidirá reubicación o reembolso. ¿Cancelar definitivamente el vuelo?')) return
+    } catch { setCancelError('No se pudo consultar el impacto. Reintenta.'); return }
     setCancelBusy(true)
     setCancelError('')
     try {
       await api.post(`/flights/${flightToCancel.id}/cancel/`, {
         motivo: cancelMotivo.trim(),
-        alternativa: 'REINTEGRO',
+        confirmed: true,
       })
       setFlightToCancel(null)
       setCancelMotivo('')
       setNotification({
         type: 'success',
-        message: '¡Vuelo cancelado exitosamente! Notificación oficial y reintegros procesados.',
+        message: 'Vuelo cancelado. Se notificó la gestión pendiente a los compradores; no se realizaron reembolsos automáticos.',
       })
       loadFlights()
     } catch (err) {
@@ -476,7 +485,8 @@ export default function FlightsPage({ session }: FlightsPageProps) {
           </div>
         )}
 
-        {/* ============================================================
+        {panelFlightId && isAdmin && <div className="form-container"><button type="button" onClick={() => setPanelFlightId(null)}>Cerrar consulta</button><CancellationPanel flightId={panelFlightId} /></div>}
+      {/* ============================================================
             VISTA: CREACIÓN
             ============================================================ */}
         {view === 'CREATE' && (
@@ -984,36 +994,14 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                       <label className="form-label" style={{ fontSize: '0.85rem' }}>
                         Ciudad de Origen
                       </label>
-                      <select
-                        className="form-select"
-                        value={searchOrigenId}
-                        onChange={(e) => setSearchOrigenId(e.target.value ? Number(e.target.value) : '')}
-                      >
-                        <option value="">Todas las ciudades</option>
-                        {cities.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre} ({c.codigo_pais})
-                          </option>
-                        ))}
-                      </select>
+                      <FlightCitySelect side="origin" value={searchOrigenId} opposite={searchDestinoId} date={searchFechaSalida} passengers={searchPasajeros} travelClass={searchClase} onChange={setSearchOrigenId} />
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontSize: '0.85rem' }}>
                         Ciudad de Destino
                       </label>
-                      <select
-                        className="form-select"
-                        value={searchDestinoId}
-                        onChange={(e) => setSearchDestinoId(e.target.value ? Number(e.target.value) : '')}
-                      >
-                        <option value="">Todos los destinos</option>
-                        {cities.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre} ({c.codigo_pais})
-                          </option>
-                        ))}
-                      </select>
+                      <FlightCitySelect side="destination" value={searchDestinoId} opposite={searchOrigenId} date={searchFechaSalida} passengers={searchPasajeros} travelClass={searchClase} onChange={setSearchDestinoId} />
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
@@ -1064,15 +1052,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                       <label className="form-label" style={{ fontSize: '0.85rem' }}>
                         Clase
                       </label>
-                      <select
-                        className="form-select"
-                        value={searchClase}
-                        onChange={(e) => setSearchClase(e.target.value)}
-                      >
-                        <option value="">Cualquier clase</option>
-                        <option value="ECONOMICA">Económica</option>
-                        <option value="PRIMERA_CLASE">Primera Clase</option>
-                      </select>
+                      <CatalogueSelect category="travel_class" label="Clase de viaje" value={searchClase} onChange={value => setSearchClase(value as string)} />
                     </div>
                   </div>
 
@@ -1092,23 +1072,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                       <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
                         O consultar catálogo por ciudad:
                       </span>
-                      <select
-                        className="form-select"
-                        style={{ width: 'auto', padding: '0.35rem 0.6rem', fontSize: '0.85rem' }}
-                        value={searchCityOriginId}
-                        onChange={(e) => {
-                          const val = e.target.value ? Number(e.target.value) : ''
-                          setSearchCityOriginId(val)
-                          if (val) setSearchResults(null)
-                        }}
-                      >
-                        <option value="">Todas las ciudades de salida</option>
-                        {cities.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre}
-                          </option>
-                        ))}
-                      </select>
+                      <FlightCitySelect side="origin" value={searchCityOriginId} opposite="" date="" passengers={1} travelClass="" onChange={setSearchCityOriginId} />
                     </div>
 
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -1202,16 +1166,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                         />
                       </ColumnFilter>
                       <ColumnFilter label="Tipo" active={Boolean(filterTipo)}>
-                        <select
-                          className="form-select"
-                          style={{ width: '100%' }}
-                          value={filterTipo}
-                          onChange={(e) => setFilterTipo(e.target.value)}
-                        >
-                          <option value="">Todos</option>
-                          <option value="NACIONAL">Nacional</option>
-                          <option value="INTERNACIONAL">Internacional</option>
-                        </select>
+                        <CatalogueSelect category="flight_type" label="Tipo de vuelo" value={filterTipo} onChange={value => setFilterTipo(value as string)} />
                       </ColumnFilter>
                       <th>Ruta</th>
                       <th>Salida</th>
@@ -1271,12 +1226,15 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                           <td>
                             {f.cupos_disponibles_economica + f.cupos_disponibles_primera} / {f.capacidad_total}
                           </td>
-                          <td>${Number(f.costo_persona_economica).toLocaleString('es-CO')}</td>
+                          <td>${Number(effectiveTab === 'ADMIN' ? f.costo_persona_economica : f.precio_vigente_economica).toLocaleString('es-CO')}</td>
                           <td>
+                            {isAdmin && effectiveTab === 'ADMIN' && <button type="button" className="btn btn--secondary btn--small" onClick={() => setPanelFlightId(f.id)}>Pasajeros / resolución</button>}
                             {isAdmin && effectiveTab === 'ADMIN' ? (
                               isProgramado ? (
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                  <button
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                  {new Date(f.salida_utc).getTime() <= Date.now() && <button type="button" className="btn btn--secondary" onClick={async () => { if (!window.confirm('¿Confirmas que este vuelo fue realizado?')) return; try { await api.post(`/sales/flights/${f.id}/performed/`, {}); loadFlights() } catch (e) { setNotification({ type: 'error', message: e instanceof ApiError ? e.message : 'No se confirmó la operación.' }) } }}>Confirmar realizado</button>}
+                                  
+                              <button
                                     type="button"
                                     className="btn btn--secondary"
                                     style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}
@@ -1372,7 +1330,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                           <td>{rf.fecha_salida} <br /><small style={{ color: 'var(--color-text-secondary)' }}>{rf.hora_salida}</small></td>
                           <td>{rf.fecha_llegada} <br /><small style={{ color: 'var(--color-text-secondary)' }}>{rf.hora_llegada}</small></td>
                           <td>{rf.cupos_disponibles_economica + rf.cupos_disponibles_primera} / {rf.capacidad_total}</td>
-                          <td>${Number(rf.costo_persona_economica).toLocaleString('es-CO')}</td>
+                          <td>${Number(rf.precio_vigente_economica).toLocaleString('es-CO')}</td>
                           <td>
                             <button
                               type="button"
@@ -1451,8 +1409,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
 
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                 <p className="journey-inline-note">
-                  Al confirmar, las compras activas asociadas se reembolsan al comprador según
-                  el flujo de cancelación. Las ofertas de reubicación se gestionan por separado.
+                  Al confirmar, se liberan las reservas impagadas. Cada comprador selecciona después reubicación o reembolso para sus tiquetes pagados.
                 </p>
               </div>
 
@@ -1493,17 +1450,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
               <div className="journey-form__grid">
                 <div className="form-group">
                   <label className="form-label" htmlFor="promotion-class">Clase</label>
-                  <select
-                    id="promotion-class"
-                    className="form-select"
-                    value={promotionClase}
-                    onChange={(event) =>
-                      setPromotionClase(event.target.value as 'ECONOMICA' | 'PRIMERA_CLASE')
-                    }
-                  >
-                    <option value="ECONOMICA">Económica</option>
-                    <option value="PRIMERA_CLASE">Primera clase</option>
-                  </select>
+                  <CatalogueSelect category="travel_class" label="Clase de promoción" value={promotionClase} onChange={value => setPromotionClase(value as 'ECONOMICA' | 'PRIMERA_CLASE')} />
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="promotion-price">Precio promocional (COP)</label>

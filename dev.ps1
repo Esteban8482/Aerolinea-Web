@@ -112,10 +112,10 @@ if ($ResetDatabase) {
 }
 
 Write-Host "`n==> [1/3] Levantando base de datos (PostgreSQL) y backend (Django)..." -ForegroundColor Yellow
-& docker compose up -d --wait backend
+& docker compose up -d --wait backend worker
 
 Write-Host "==> [2/3] Aplicando migraciones de base de datos..." -ForegroundColor Yellow
-& docker compose exec -T backend python manage.py migrate --noinput
+& docker compose exec -T backend python manage.py initialize_runtime
 
 if ($Clean) {
     Write-Host "==> [Modo Limpio (-Clean)] Omitiendo la siembra de usuarios y vuelos de prueba." -ForegroundColor Cyan
@@ -132,8 +132,8 @@ Write-Host "`n==> [3/3] Preparando Frontend..." -ForegroundColor Yellow
 Set-Location "$scriptDir\frontend"
 
 if (-not (Test-Path "node_modules")) {
-    Write-Host "==> Instalando dependencias de frontend (npm install)..." -ForegroundColor Yellow
-    npm install
+    Write-Host "==> Instalando dependencias de frontend (npm ci)..." -ForegroundColor Yellow
+    npm ci
 }
 
 Write-Host "`n==========================================================" -ForegroundColor Green

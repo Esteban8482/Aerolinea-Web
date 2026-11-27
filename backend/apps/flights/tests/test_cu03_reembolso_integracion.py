@@ -35,7 +35,7 @@ def cliente_comprador(db):
 
 
 @pytest.mark.django_db
-def test_cancelacion_administrativa_vuelo_reembolsa_automaticamente_compras(
+def test_cancelacion_administrativa_reembolsa_solo_tras_decision_del_comprador(
     catalogo, admin_user, cliente_comprador
 ):
     """CU-03 + CU-13 + DEC-09: Al cancelar un vuelo administrativo, todos los tiquetes vendidos
@@ -105,6 +105,14 @@ def test_cancelacion_administrativa_vuelo_reembolsa_automaticamente_compras(
     # 4. Verificar que el vuelo quedó CANCELADO
     vuelo.refresh_from_db()
     assert vuelo.estado == EstadoVuelo.CANCELADO
+
+    from apps.sales.cancellations import resolve
+    from apps.sales.models import CancellationResolution
+
+    assert all(t.estado == EstadoTiquete.PENDIENTE_RESOLUCION for t in compra.tiquetes.all())
+    cliente_comprador.wallet.refresh_from_db()
+    assert cliente_comprador.wallet.balance == saldo_tras_compra
+    resolve(cliente_comprador, CancellationResolution.objects.get(purchase=compra).pk, "REFUND")
 
     # 5. Verificar que los tiquetes del vuelo quedaron cancelados
     tiquetes = Tiquete.objects.filter(vuelo=vuelo)

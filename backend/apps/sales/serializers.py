@@ -119,6 +119,8 @@ class ComprarTiquetesSerializer(serializers.Serializer):
 
 
 class TiqueteSerializer(serializers.ModelSerializer):
+    purchase_id = serializers.IntegerField(source="compra_id", read_only=True)
+    locator = serializers.CharField(source="compra.localizador", read_only=True)
     vuelo = VueloListSerializer(read_only=True)
     viajero = ViajeroSerializer(read_only=True)
     silla = SillaSerializer(read_only=True)
@@ -128,6 +130,8 @@ class TiqueteSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "codigo_tiquete",
+            "purchase_id",
+            "locator",
             "vuelo",
             "viajero",
             "silla",

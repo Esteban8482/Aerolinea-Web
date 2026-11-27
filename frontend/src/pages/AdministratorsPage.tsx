@@ -116,12 +116,8 @@ export default function AdministratorsPage({ session }: AdministratorsPageProps)
       setFormError('La contraseña inicial es obligatoria.')
       return
     }
-    if (form.password.length < 8) {
-      setFormError('La contraseña inicial debe tener al menos 8 caracteres.')
-      return
-    }
-    if (!/\d/.test(form.password)) {
-      setFormError('La contraseña inicial debe contener al menos un número.')
+    if (form.password.length < 12) {
+      setFormError('La contraseña inicial debe tener al menos 12 caracteres.')
       return
     }
 
@@ -187,12 +183,8 @@ export default function AdministratorsPage({ session }: AdministratorsPageProps)
       setPwFormError('La nueva contraseña es obligatoria.')
       return
     }
-    if (pwPassword.length < 8) {
-      setPwFormError('La nueva contraseña debe tener al menos 8 caracteres.')
-      return
-    }
-    if (!/\d/.test(pwPassword)) {
-      setPwFormError('La nueva contraseña debe contener al menos un número.')
+    if (pwPassword.length < 12) {
+      setPwFormError('La nueva contraseña debe tener al menos 12 caracteres.')
       return
     }
     if (!pwConfirmPassword) {
@@ -403,7 +395,7 @@ export default function AdministratorsPage({ session }: AdministratorsPageProps)
                     value={form.password}
                     onChange={(e) => update('password', e.target.value)}
                     autoComplete="new-password"
-                    placeholder="Mínimo 8 caracteres y 1 número"
+                    placeholder="Mínimo 12 caracteres y 1 número"
                     required
                   />
                   <button
@@ -415,7 +407,7 @@ export default function AdministratorsPage({ session }: AdministratorsPageProps)
                     {showPassword ? 'Ocultar' : 'Ver'}
                   </button>
                 </div>
-                <span className="form-hint">Mínimo 8 caracteres e incluir al menos un número.</span>
+                <span className="form-hint">Mínimo 12 caracteres, no ser exclusivamente numérica, común ni similar a tus datos.</span>
               </div>
 
               <button type="submit" className="btn btn--primary btn--full" disabled={busy}>
@@ -488,7 +480,7 @@ export default function AdministratorsPage({ session }: AdministratorsPageProps)
                       setPwFormError('')
                     }}
                     autoComplete="new-password"
-                    placeholder="Mínimo 8 caracteres y 1 número"
+                    placeholder="Mínimo 12 caracteres y 1 número"
                     required
                   />
                   <button
@@ -500,7 +492,7 @@ export default function AdministratorsPage({ session }: AdministratorsPageProps)
                     {showPwPassword ? 'Ocultar' : 'Ver'}
                   </button>
                 </div>
-                <span className="form-hint">Mínimo 8 caracteres e incluir al menos un número.</span>
+                <span className="form-hint">Mínimo 12 caracteres, no ser exclusivamente numérica, común ni similar a tus datos.</span>
               </div>
 
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>

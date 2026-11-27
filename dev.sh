@@ -87,10 +87,10 @@ fi
 
 echo ""
 echo "==> [1/3] Levantando base de datos (PostgreSQL) y backend (Django)..."
-$COMPOSE_CMD up -d --wait backend
+$COMPOSE_CMD up -d --wait backend worker
 
 echo "==> [2/3] Aplicando migraciones de base de datos..."
-$COMPOSE_CMD exec -T backend python manage.py migrate --noinput
+$COMPOSE_CMD exec -T backend python manage.py initialize_runtime
 
 if [ "$CLEAN" = true ]; then
   echo "==> [Modo Limpio (--clean)] Omitiendo la siembra de usuarios y vuelos de prueba."
@@ -115,8 +115,8 @@ fi
 cd frontend
 
 if [ ! -d "node_modules" ]; then
-  echo "==> Instalando dependencias de frontend (npm install)..."
-  npm install
+  echo "==> Instalando dependencias de frontend (npm ci)..."
+  npm ci
 fi
 
 echo ""

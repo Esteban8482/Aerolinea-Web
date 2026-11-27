@@ -27,7 +27,7 @@ def test_cancelar_vuelo_programado_exitoso(vuelo_para_cancelar, admin_client):
     url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/cancel/"
     data = {
         "motivo": "Mantenimiento preventivo no programado de la aeronave.",
-        "alternativa": "REINTEGRO",
+        "confirmed": True,
     }
 
     response = admin_client.post(url, data, format="json")
@@ -37,8 +37,8 @@ def test_cancelar_vuelo_programado_exitoso(vuelo_para_cancelar, admin_client):
     assert resp["estado"] == "CANCELADO"
     assert resp["motivo_cancelacion"] == data["motivo"]
     assert resp["cancelado_en"] is not None
-    assert resp["cupos_disponibles_primera"] == 25
-    assert resp["cupos_disponibles_economica"] == 125
+    assert resp["cupos_disponibles_primera"] == 0
+    assert resp["cupos_disponibles_economica"] == 0
 
     vuelo_para_cancelar.refresh_from_db()
     assert vuelo_para_cancelar.estado == EstadoVuelo.CANCELADO
@@ -61,7 +61,7 @@ def test_cancelar_vuelo_programado_exitoso(vuelo_para_cancelar, admin_client):
 @pytest.mark.django_db
 def test_cancelar_vuelo_sin_motivo_rechazado(vuelo_para_cancelar, admin_client):
     url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/cancel/"
-    data = {"motivo": "   "}
+    data = {"motivo": "   ", "confirmed": True}
 
     response = admin_client.post(url, data, format="json")
     assert response.status_code == 400
@@ -73,7 +73,7 @@ def test_cancelar_vuelo_ya_cancelado_rechazado(vuelo_para_cancelar, admin_client
     vuelo_para_cancelar.save()
 
     url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/cancel/"
-    data = {"motivo": "Intento de cancelar vuelo cancelado."}
+    data = {"motivo": "Intento de cancelar vuelo cancelado.", "confirmed": True}
 
     response = admin_client.post(url, data, format="json")
     assert response.status_code == 200
@@ -84,7 +84,7 @@ def test_cancelar_vuelo_denegado_para_no_administrador(
     vuelo_para_cancelar, regular_client, anon_client
 ):
     url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/cancel/"
-    data = {"motivo": "Intento no autorizado."}
+    data = {"motivo": "Intento no autorizado.", "confirmed": True}
 
     # Cliente regular
     res = regular_client.post(url, data, format="json")
@@ -101,7 +101,7 @@ def test_cancelar_vuelo_en_estado_realizado_rechazado(vuelo_para_cancelar, admin
     vuelo_para_cancelar.save()
 
     url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/cancel/"
-    data = {"motivo": "Intento de cancelar vuelo ya realizado."}
+    data = {"motivo": "Intento de cancelar vuelo ya realizado.", "confirmed": True}
 
     response = admin_client.post(url, data, format="json")
     assert response.status_code == 400
@@ -111,7 +111,7 @@ def test_cancelar_vuelo_en_estado_realizado_rechazado(vuelo_para_cancelar, admin
 @pytest.mark.django_db
 def test_cancelar_vuelo_inexistente_retorna_404(catalogo, admin_client):
     url = "/api/v1/flights/999999/cancel/"
-    data = {"motivo": "Vuelo que no existe."}
+    data = {"motivo": "Vuelo que no existe.", "confirmed": True}
 
     response = admin_client.post(url, data, format="json")
     assert response.status_code == 404
@@ -123,7 +123,7 @@ def test_cancelar_vuelo_con_alternativa_reubicacion(vuelo_para_cancelar, admin_c
     url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/cancel/"
     data = {
         "motivo": "Cancelación por mal clima, reubicando pasajeros.",
-        "alternativa": "REUBICACION",
+        "confirmed": True,
     }
 
     response = admin_client.post(url, data, format="json")
@@ -138,7 +138,7 @@ def test_vuelo_cancelado_no_puede_ser_editado(vuelo_para_cancelar, admin_client)
     # Primero cancelamos el vuelo vía API
     cancel_url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/cancel/"
     res_cancel = admin_client.post(
-        cancel_url, {"motivo": "Cancelado antes de editar."}, format="json"
+        cancel_url, {"motivo": "Cancelado antes de editar.", "confirmed": True}, format="json"
     )
     assert res_cancel.status_code == 200
 
@@ -161,7 +161,7 @@ def test_vuelo_cancelado_excluido_de_busqueda_programados_pero_consultable_en_de
     # Cancelar el vuelo
     res_cancel = admin_client.post(
         f"/api/v1/flights/{vuelo_id}/cancel/",
-        {"motivo": "Cancelado para exclusión de búsqueda."},
+        {"motivo": "Cancelado para exclusión de búsqueda.", "confirmed": True},
         format="json",
     )
     assert res_cancel.status_code == 200
@@ -179,5 +179,5 @@ def test_vuelo_cancelado_excluido_de_busqueda_programados_pero_consultable_en_de
     assert detalle["id"] == vuelo_id
     assert detalle["estado"] == "CANCELADO"
     assert detalle["motivo_cancelacion"] == "Cancelado para exclusión de búsqueda."
-    assert detalle["cupos_disponibles_economica"] == 125
-    assert detalle["cupos_disponibles_primera"] == 25
+    assert detalle["cupos_disponibles_economica"] == 0
+    assert detalle["cupos_disponibles_primera"] == 0

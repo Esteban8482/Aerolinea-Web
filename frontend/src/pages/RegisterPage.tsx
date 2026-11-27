@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError, toFormData } from '../api'
-import { MUNICIPIOS } from '../data/municipios'
+import LocationFields from '../components/LocationFields'
+import CatalogueSelect from '../components/CatalogueSelect'
 
 interface Policy {
   reference: string
@@ -22,7 +23,9 @@ export default function RegisterPage() {
     last_name: '',
     phone: '',
     birth_date: '',
-    birth_place: '',
+    birth_city_id: '',
+    billing_city_id: '',
+    document_type: '',
     billing_address: '',
     gender: '',
     email: '',
@@ -178,8 +181,10 @@ export default function RegisterPage() {
       }
     }
 
-    if (!form.birth_place.trim())
-      errors.birth_place = ['Este campo es obligatorio.']
+    if (!form.birth_city_id)
+      errors.birth_city_id = ['Este campo es obligatorio.']
+    if (!form.billing_city_id) errors.billing_city_id = ['Selecciona la ciudad de facturación.']
+    if (!form.document_type) errors.document_type = ['Selecciona el tipo de documento.']
     if (!form.billing_address.trim())
       errors.billing_address = ['Este campo es obligatorio.']
     if (!form.gender) errors.gender = ['Seleccione una opción.']
@@ -189,13 +194,11 @@ export default function RegisterPage() {
     if (!form.username.trim())
       errors.username = ['Este campo es obligatorio.']
 
-    // Validación de contraseña (mínimo 8 caracteres y al menos un número)
+    // Validación de contraseña (mínimo 12 caracteres, no exclusivamente numérica)
     if (!form.password) {
       errors.password = ['Este campo es obligatorio.']
-    } else if (form.password.length < 8) {
-      errors.password = ['La contraseña debe tener al menos 8 caracteres.']
-    } else if (!/\d/.test(form.password)) {
-      errors.password = ['La contraseña debe contener al menos un número.']
+    } else if (form.password.length < 12) {
+      errors.password = ['La contraseña debe tener al menos 12 caracteres.']
     }
 
     // Confirmación de contraseña
@@ -233,7 +236,9 @@ export default function RegisterPage() {
       document_number: form.document_number,
       phone: form.phone.trim(),
       birth_date: isoDate,
-      birth_place: form.birth_place,
+      birth_city_id: form.birth_city_id,
+      billing_city_id: form.billing_city_id,
+      document_type: form.document_type,
       billing_address: form.billing_address,
       gender: form.gender,
       password: form.password,
@@ -435,44 +440,14 @@ export default function RegisterPage() {
                 {fieldError('birth_date')}
               </div>
 
-                            <div className="form-group">
-                <label className="form-label" htmlFor="reg-bplace">
-                  Ciudad de nacimiento
-                  <span className="form-label__required">*</span>
-                </label>
-                <select
-                  id="reg-bplace"
-                  className={`form-select ${fieldErrors.birth_place ? 'form-input--error' : ''}`}
-                  value={form.birth_place}
-                  onChange={(e) => update('birth_place', e.target.value)}
-                >
-                  <option value="">Seleccione su ciudad de nacimiento</option>
-                  {MUNICIPIOS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                {fieldError('birth_place')}
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="reg-gender">
-                  Género<span className="form-label__required">*</span>
-                </label>
-                <select
-                  id="reg-gender"
-                  className={`form-select ${fieldErrors.gender ? 'form-input--error' : ''}`}
-                  value={form.gender}
-                  onChange={(e) => update('gender', e.target.value)}
-                >
-                  <option value="">Seleccione su género</option>
-                  <option value="MASCULINO">Masculino</option>
-                  <option value="FEMENINO">Femenino</option>
-                  <option value="OTRO">Otro</option>
-                </select>
-                {fieldError('gender')}
-              </div>
+              <LocationFields label="Lugar de nacimiento" onChange={value => update('birth_city_id', value)} />
+              {fieldError('birth_city_id')}
+              <LocationFields label="Ubicación de facturación" onChange={value => update('billing_city_id', value)} />
+              {fieldError('billing_city_id')}
+              <CatalogueSelect category="document_type" label="Tipo de documento" value={form.document_type} onChange={value => update('document_type', value)} />
+              {fieldError('document_type')}
+              <CatalogueSelect category="gender" label="Género" value={form.gender} onChange={value => update('gender', value)} />
+              {fieldError('gender')}
             </div>
           </div>
 
@@ -579,7 +554,7 @@ export default function RegisterPage() {
                   </button>
                 </div>
                 <span className="form-hint">
-                  Mínimo 8 caracteres e incluir al menos un número.
+                  Mínimo 12 caracteres, no ser exclusivamente numérica, común ni similar a tus datos.
                 </span>
                 {fieldError('password')}
               </div>

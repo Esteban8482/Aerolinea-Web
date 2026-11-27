@@ -220,7 +220,11 @@ def test_hu002_edicion_rechaza_vuelos_no_programados_o_fechas_pasadas(
     # 1. Rechazo por fecha en el pasado
     res_pasado = admin_client.patch(
         url,
-        {"motivo": "Edición de prueba", "fecha_salida": "2020-01-01", "hora_salida": "10:00:00"},
+        {
+            "motivo": "Edición de prueba",
+            "fecha_salida": "2020-01-01",
+            "hora_salida": "10:00:00",
+        },
         format="json",
     )
     assert res_pasado.status_code == 400
@@ -265,7 +269,7 @@ def test_hu003_cancelacion_vuelo_motivo_noticias_y_notificacion(catalogo, admin_
 
     response = admin_client.post(
         url,
-        {"motivo": motivo, "alternativa": "REINTEGRO"},
+        {"motivo": motivo, "confirmed": True},
         format="json",
     )
     assert response.status_code == 200
@@ -274,8 +278,8 @@ def test_hu003_cancelacion_vuelo_motivo_noticias_y_notificacion(catalogo, admin_
     # Estado CANCELADO y cupos a 0
     assert data["estado"] == "CANCELADO"
     assert data["motivo_cancelacion"] == motivo
-    assert data["cupos_disponibles_primera"] == 25
-    assert data["cupos_disponibles_economica"] == 125
+    assert data["cupos_disponibles_primera"] == 0
+    assert data["cupos_disponibles_economica"] == 0
 
     # Las noticias asociadas dejan de estar vigentes
     vuelo.refresh_from_db()
@@ -283,8 +287,8 @@ def test_hu003_cancelacion_vuelo_motivo_noticias_y_notificacion(catalogo, admin_
 
     # No placeholder email for a flight without customers. The audit records the outcome.
     event = BitacoraVuelo.objects.get(vuelo=vuelo, tipo_evento=BitacoraVuelo.Evento.CANCELACION)
-    assert event.detalles["alternativa"] == "REINTEGRO"
-    res_recancel = admin_client.post(url, {"motivo": "Reintento"}, format="json")
+    assert event.detalles["resolucion"] == "COMPRADOR"
+    res_recancel = admin_client.post(url, {"motivo": "Reintento", "confirmed": True}, format="json")
     assert res_recancel.status_code == 200
     assert (
         BitacoraVuelo.objects.filter(

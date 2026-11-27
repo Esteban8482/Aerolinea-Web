@@ -63,3 +63,9 @@ class Option(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["category", "code"], name="reference_option_code")
         ]
+
+
+class CatalogueLoad(models.Model):
+    name = models.CharField(max_length=40, primary_key=True)
+    checksum = models.CharField(max_length=64)
+    loaded_at = models.DateTimeField(auto_now=True)

@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.flights.models import ClaseTiquete, Promotion
-from apps.flights.operations import create_promotion, offer_relocation, resolve_relocation
+from apps.flights.operations import create_promotion
 from apps.flights.serializers import VueloDetalleSerializer
 from apps.users.permissions import HasVerifiedEmail, IsAdministrator, IsClient
 
@@ -28,6 +28,15 @@ CHECKIN_TOKEN = OpenApiParameter(
     OpenApiParameter.HEADER,
     description="Traveler-scoped magic-link credential. Omit when using the buyer session.",
 )
+
+
+class GuestTicketSerializer(TiqueteSerializer):
+    class Meta(TiqueteSerializer.Meta):
+        fields = [field for field in TiqueteSerializer.Meta.fields if field != "precio_pagado"]
+
+
+def access_serializer(request):
+    return GuestTicketSerializer if guest_token(request) else TiqueteSerializer
 
 
 class CheckinInput(serializers.Serializer):
@@ -95,7 +104,7 @@ class CheckinView(APIView):
         tickets = confirm_checkin(
             data.validated_data["ticket_ids"], request.user, guest_token(request)
         )
-        return Response(TiqueteSerializer(tickets, many=True).data)
+        return Response(access_serializer(request)(tickets, many=True).data)
 
     @extend_schema(parameters=[CHECKIN_TOKEN], responses=TiqueteSerializer(many=True))
     def get(self, request):
@@ -108,7 +117,7 @@ class CheckinView(APIView):
 
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(tickets, request)
-        return paginator.get_paginated_response(TiqueteSerializer(page, many=True).data)
+        return paginator.get_paginated_response(access_serializer(request)(page, many=True).data)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -152,7 +161,7 @@ class GuestSeatView(APIView):
         if not token:
             raise PermissionDenied()
         ticket = guest_change_seat(pk, data.validated_data["seat_id"], token)
-        return Response(TiqueteSerializer(ticket).data)
+        return Response(GuestTicketSerializer(ticket).data)
 
 
 class BoardingPassView(APIView):
@@ -195,13 +204,15 @@ class RelocationOffersView(APIView):
     permission_classes = [IsAuthenticated, IsAdministrator]
 
     @extend_schema(
-        operation_id="create_relocation_offer", request=OfferInput, responses={201: OfferOutput}
+        operation_id="create_relocation_offer", request=OfferInput, responses={410: None}
     )
     def post(self, request):
-        data = OfferInput(data=request.data)
-        data.is_valid(raise_exception=True)
         return Response(
-            OfferOutput(offer_relocation(request.user, **data.validated_data)).data, status=201
+            {
+                "code": "workflow_retired",
+                "message": "Cancela el vuelo; el comprador seleccionará la resolución.",
+            },
+            status=410,
         )
 
 
@@ -209,13 +220,15 @@ class RelocationDecisionView(APIView):
     permission_classes = [IsAuthenticated, IsClient, HasVerifiedEmail]
 
     @extend_schema(
-        operation_id="resolve_relocation_offer", request=DecisionInput, responses=OfferOutput
+        operation_id="resolve_relocation_offer", request=DecisionInput, responses={410: None}
     )
     def post(self, request, pk):
-        data = DecisionInput(data=request.data)
-        data.is_valid(raise_exception=True)
         return Response(
-            OfferOutput(resolve_relocation(request.user, pk, **data.validated_data)).data
+            {
+                "code": "workflow_retired",
+                "message": "Consulta la gestión de cancelaciones de tu cuenta.",
+            },
+            status=410,
         )
 
     @extend_schema(responses=OfferOutput)

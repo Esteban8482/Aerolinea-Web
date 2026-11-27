@@ -13,7 +13,7 @@ services:
       timeout: 5s
       retries: 10
 
-  backend:
+  backend: &backend
     build:
       context: ./backend
       target: development
@@ -24,9 +24,10 @@ services:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
       DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
-      GUEST_CHECKIN_FRONTEND_URL: ${GUEST_CHECKIN_FRONTEND_URL:-}
-      PASSWORD_RECOVERY_FRONTEND_URL: ${PASSWORD_RECOVERY_FRONTEND_URL:-}
-      EMAIL_VERIFICATION_FRONTEND_URL: ${EMAIL_VERIFICATION_FRONTEND_URL:-}
+      GUEST_CHECKIN_FRONTEND_URL: ${GUEST_CHECKIN_FRONTEND_URL:-http://localhost:5173/check-in}
+      CANCELLATION_FRONTEND_URL: ${CANCELLATION_FRONTEND_URL:-http://localhost:5173/cancelaciones}
+      PASSWORD_RECOVERY_FRONTEND_URL: ${PASSWORD_RECOVERY_FRONTEND_URL:-http://localhost:5173/restablecer}
+      EMAIL_VERIFICATION_FRONTEND_URL: ${EMAIL_VERIFICATION_FRONTEND_URL:-http://localhost:5173/verificar}
       EMAIL_BACKEND: ${EMAIL_BACKEND:-}
       EMAIL_HOST: ${EMAIL_HOST:-}
       EMAIL_PORT: ${EMAIL_PORT:-587}
@@ -49,14 +50,32 @@ services:
       - ./backend:/app
       - private_media:/var/lib/aerolinea/private-media
     depends_on:
-      db:
-        condition: service_healthy
+      initializer:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/', timeout=5)"]
       interval: 10s
       timeout: 6s
       retries: 5
       start_period: 15s
+
+  initializer:
+    <<: *backend
+    command: python manage.py initialize_runtime
+    ports: []
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  worker:
+    <<: *backend
+    command: python manage.py run_background_tasks --interval 30
+    ports: []
+    restart: unless-stopped
+    healthcheck:
+      disable: true
 
 volumes:
   postgres_data:

@@ -189,8 +189,8 @@ class ProfileView(APIView):
     )
     def get(self, request):
         user = request.user
-        balance = None if user.role == "ROOT" else "0.00"
-        if user.role != "ROOT" and hasattr(user, "wallet"):
+        balance = None if user.role != "CLIENTE" else "0.00"
+        if user.role == "CLIENTE" and hasattr(user, "wallet"):
             balance = str(user.wallet.balance)
         return Response(
             {

@@ -30,6 +30,8 @@ export interface Vuelo {
   fecha_llegada: string
   hora_llegada: string
   llegada_utc: string
+  precio_vigente_economica: string
+  precio_vigente_primera: string
   costo_persona_economica: string
   costo_persona_primera: string
   capacidad_total: number
@@ -84,6 +86,8 @@ export interface Reserva {
 }
 
 export interface Tiquete {
+  purchase_id: number
+  locator: string
   id: number
   codigo_tiquete: string
   vuelo: Vuelo
@@ -94,7 +98,7 @@ export interface Tiquete {
   numero_cambios_silla: number
   estado_checkin: 'PENDIENTE' | 'CONFIRMADO'
   fecha_checkin?: string | null
-  estado: 'ACTIVO' | 'CANCELADO'
+  estado: 'ACTIVO' | 'CANCELADO' | 'PENDIENTE_RESOLUCION'
 }
 
 export interface Compra {
@@ -122,7 +126,7 @@ export interface PerfilUsuario {
   gender: string | null
   role: string
   is_email_verified: boolean
-  wallet_balance: string
+  wallet_balance: string | null
 }
 
 export interface FlightSearchResult {

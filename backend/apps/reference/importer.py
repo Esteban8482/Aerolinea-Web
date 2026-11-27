@@ -8,7 +8,7 @@ from pathlib import Path
 from django.db import transaction
 
 from .catalogue import normalized, seed_options
-from .models import Country, Locality, Subdivision
+from .models import CatalogueLoad, Country, Locality, Subdivision
 
 AIRLINE_LOCALITIES = {
     "Pereira": 21195,
@@ -119,6 +119,8 @@ def import_geography():
         Ciudad.objects.filter(
             nombre=name, codigo_pais=locality.country.code, locality__isnull=True
         ).update(locality_id=locality_id)
+    checksum = json.loads((Path(__file__).parent / "data" / "manifest.json").read_text())["sha256"]
+    CatalogueLoad.objects.update_or_create(name="geography", defaults={"checksum": checksum})
     return {
         "countries": len(data["countries"]),
         "subdivisions": len(data["subdivisions"]),

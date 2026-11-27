@@ -129,6 +129,7 @@ SPECTACULAR_SETTINGS = {
     "SWAGGER_UI_DIST": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.9",
     "SWAGGER_UI_FAVICON_HREF": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.9/favicon-32x32.png",
     "ENUM_NAME_OVERRIDES": {
+        "CancellationStatusEnum": "apps.sales.models.CancellationResolution.Status",
         "HealthStatusEnum": ["ok", "unavailable"],
         "EstadoReservaEnum": "apps.sales.models.EstadoReserva",
         "EstadoCompraEnum": "apps.sales.models.EstadoCompra",
@@ -162,3 +163,5 @@ AIRLINE_CODE_PREFIX = env("AIRLINE_CODE_PREFIX", default="XX")
 
 # Passwordless check-in frontend; fragment carries the traveler-scoped credential.
 GUEST_CHECKIN_FRONTEND_URL = env("GUEST_CHECKIN_FRONTEND_URL", default="")
+
+CANCELLATION_FRONTEND_URL = env("CANCELLATION_FRONTEND_URL", default="")

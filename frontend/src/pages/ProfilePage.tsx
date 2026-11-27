@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
+import WalletPanel from '../components/WalletPanel'
+import { useConfirmedPurchase } from '../operations'
 import type { Compra, PerfilUsuario, Reserva, Silla } from '../types/flight'
 
 interface ProfilePageProps {
@@ -18,9 +20,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
   const [loading, setLoading] = useState(true)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
-  // Estado para depósito
-  const [depositMonto, setDepositMonto] = useState('500000')
-  const [depositing, setDepositing] = useState(false)
+  const purchase = useConfirmedPurchase()
 
   // Estado para cambio de silla
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null)
@@ -32,14 +32,12 @@ export default function ProfilePage({ session }: ProfilePageProps) {
     if (!session.authenticated) return
     setLoading(true)
     try {
-      const [profData, comprasData, reservasData] = await Promise.all([
-        api.get('/auth/profile/'),
-        api.get('/sales/purchases/'),
-        api.get('/sales/reservations/'),
-      ])
+      const profData = await api.get('/auth/profile/')
       setProfile(profData)
-      setCompras(comprasData)
-      setReservas(reservasData)
+      if (session.role === 'CLIENTE' && session.is_email_verified) {
+        const [comprasData, reservasData] = await Promise.all([api.get('/sales/purchases/'), api.get('/sales/reservations/')])
+        setCompras(comprasData); setReservas(reservasData)
+      } else { setCompras([]); setReservas([]) }
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -49,26 +47,11 @@ export default function ProfilePage({ session }: ProfilePageProps) {
     } finally {
       setLoading(false)
     }
-  }, [session.authenticated])
+  }, [session.authenticated, session.role, session.is_email_verified])
 
   useEffect(() => {
     loadData()
   }, [loadData])
-
-  async function handleDeposit() {
-    setDepositing(true)
-    setNotification(null)
-    try {
-      await api.post('/sales/wallet/deposit/', { monto: depositMonto, referencia: 'Recarga de saldo en línea' })
-      setNotification({ type: 'success', message: '¡Recarga exitosa! Tu saldo ha sido actualizado.' })
-      await loadData()
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Error al realizar el depósito.'
-      setNotification({ type: 'error', message: msg })
-    } finally {
-      setDepositing(false)
-    }
-  }
 
   async function handleCancelPurchase(compraId: number) {
     if (!window.confirm('¿Deseas cancelar esta compra? El reembolso se calculará por tiquete y se abonará a la billetera del comprador.')) return
@@ -97,10 +80,10 @@ export default function ProfilePage({ session }: ProfilePageProps) {
   }
 
   async function handlePayReservation(reservaId: number) {
-    if (!window.confirm('¿Confirmas el pago de esta reserva con cargo al saldo de tu billetera?')) return
     setNotification(null)
     try {
-      const res = await api.post('/sales/purchases/', { reserva_id: reservaId })
+      const res = await purchase({ reserva_id: reservaId }, { reserva_id: reservaId })
+      if (!res) return
       setNotification({ type: 'success', message: `¡Compra confirmada! Código localizador: ${res.localizador}` })
       await loadData()
     } catch (err) {
@@ -124,6 +107,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
 
   async function handleChangeSeat(nuevaSillaId: number) {
     if (!selectedTicketId) return
+    if (!window.confirm('¿Confirmas el único cambio voluntario de silla antes del check-in?')) return
     setChangingSeat(true)
     try {
       await api.post(`/sales/tickets/${selectedTicketId}/change-seat/`, { nueva_silla_id: nuevaSillaId })
@@ -144,7 +128,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
         <div className="form-container">
           <h1 className="form-title">Sesión requerida</h1>
           <p className="form-subtitle">Debe iniciar sesión para poder visualizar los datos de su perfil.</p>
-          <Link to="/login" className="btn btn--primary btn--full">Iniciar sesión</Link>
+          <Link to="/login?next=/perfil" className="btn btn--primary btn--full">Iniciar sesión</Link>
         </div>
       </div>
     )
@@ -171,40 +155,10 @@ export default function ProfilePage({ session }: ProfilePageProps) {
           <div className="profile-item"><span className="profile-item__label">Estado</span><span className="profile-item__value">{profile?.is_email_verified ? 'Verificado' : 'Sin verificar'}</span></div>
         </div>
 
-        <div className="form-container" style={{ margin: 0, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-          <h2 className="form-title" style={{ fontSize: '1.4rem', color: '#0f172a' }}>💳 Billetera Virtual</h2>
-          <p className="form-subtitle">Saldo disponible para reservas y compras</p>
-
-          <div style={{ margin: '1.5rem 0', padding: '1.2rem', background: 'white', borderRadius: '0.75rem', border: '1px solid #cbd5e1' }}>
-            <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Saldo actual</span>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#16a34a' }}>
-              ${profile?.wallet_balance || '0.00'} COP
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <input
-              type="number"
-              className="form-control"
-              value={depositMonto}
-              onChange={(e) => setDepositMonto(e.target.value)}
-              step="50000"
-              min="50000"
-              style={{ padding: '0.6rem', borderRadius: '0.4rem', border: '1px solid #cbd5e1', width: '150px' }}
-            />
-            <button
-              type="button"
-              onClick={handleDeposit}
-              disabled={depositing}
-              className="btn btn--primary"
-              style={{ flex: 1, padding: '0.6rem' }}
-            >
-              {depositing ? 'Recargando...' : '➕ Recargar Billetera'}
-            </button>
-          </div>
-        </div>
+        {session.role === 'CLIENTE' && session.is_email_verified && <WalletPanel />}
       </div>
-
+      {session.role === 'CLIENTE' && <>
+        <Link className="btn btn--secondary" to="/cancelaciones">Gestionar vuelos cancelados por la aerolínea</Link>
       {/* SECCIÓN MIS COMPRAS */}
       <section style={{ marginBottom: '3rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -227,7 +181,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
                     <span style={{ padding: '0.2rem 0.6rem', borderRadius: '0.3rem', fontSize: '0.8rem', fontWeight: 600, background: compra.estado === 'CONFIRMADA' ? '#dcfce7' : '#fee2e2', color: compra.estado === 'CONFIRMADA' ? '#166534' : '#991b1b' }}>
                       {compra.estado}
                     </span>
-                    {compra.estado === 'CONFIRMADA' && (
+                    {compra.estado === 'CONFIRMADA' && compra.tiquetes.some(t => t.estado === 'ACTIVO') && compra.tiquetes.filter(t => t.estado === 'ACTIVO').every(t => t.vuelo.estado === 'PROGRAMADO' && Date.now() < new Date(t.vuelo.salida_utc).getTime() - (t.vuelo.tipo_vuelo === 'NACIONAL' ? 1 : 3) * 3600000) && (
                       <button
                         type="button"
                         onClick={() => handleCancelPurchase(compra.id)}
@@ -343,7 +297,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
                   Selecciona una silla en estado <strong>DISPONIBLE</strong> de la misma clase para reasignar tu tiquete (máximo 1 cambio permitido).
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0.5rem', maxHeight: '350px', overflowY: 'auto', padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}>
-                  {seatMap.map((s) => (
+                  {seatMap.filter(s => s.clase === compras.flatMap(c => c.tiquetes).find(t => t.id === selectedTicketId)?.clase).map((s) => (
                     <button
                       key={s.id}
                       type="button"
@@ -371,6 +325,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
           </div>
         </div>
       )}
+      </>}
     </div>
   )
 }

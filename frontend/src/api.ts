@@ -21,7 +21,9 @@ export class ApiError extends Error {
 
 async function parse(response: Response) {
   const text = await response.text()
-  const body = text ? JSON.parse(text) : {}
+  let body
+  try { body = text ? JSON.parse(text) : {} } catch { throw new ApiError(response.status, { message: 'El servidor no devolvió una respuesta válida. Intenta nuevamente.' }) }
+  if (['not_authenticated', 'session_invalidated'].includes(body.code)) window.dispatchEvent(new Event('session-expired'))
   if (!response.ok) throw new ApiError(response.status, body)
   return body
 }
@@ -91,6 +93,8 @@ export const api = {
     const csrfToken = await getCsrfToken()
     return request('POST', path, body ?? {}, csrfToken, headers)
   },
+
+  delete: async (path: string) => request('DELETE', path, undefined, await getCsrfToken()),
 
   patch: async (path: string, body: unknown) => {
     const csrfToken = await getCsrfToken()

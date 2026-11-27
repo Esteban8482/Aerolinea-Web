@@ -15,6 +15,7 @@ from .models import Ciudad, ClaseTiquete, EstadoVuelo, Vuelo
 
 class FlightCityQuery(serializers.Serializer):
     side = serializers.ChoiceField(choices=["origin", "destination"])
+    selected_id = serializers.IntegerField(min_value=1, required=False)
     origin_id = serializers.IntegerField(min_value=1, required=False)
     destination_id = serializers.IntegerField(min_value=1, required=False)
     q = serializers.CharField(max_length=100, required=False, allow_blank=True)
@@ -104,6 +105,8 @@ def available_city_options(params):
         .filter(Q(locality__subdivision__isnull=True) | Q(locality__subdivision__active=True))
         .select_related("locality__country", "locality__subdivision")
     )
+    if "selected_id" in params:
+        cities = cities.filter(pk=params["selected_id"])
     # Airline coverage is small. Python folding matches Spanish accents without requiring
     # an unaccent extension or altering the worldwide catalogue's search contract.
     tokens = normalized(params.get("q", "")).split()

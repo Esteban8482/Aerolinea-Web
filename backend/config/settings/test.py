@@ -14,3 +14,5 @@ DATABASES["default"]["TEST"] = {"NAME": "test_" + DATABASES["default"]["NAME"]}
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 DEFAULT_FROM_EMAIL = "no-reply@example.invalid"
 API_DOCUMENTATION_ENABLED = True
+
+CANCELLATION_FRONTEND_URL = "https://example.invalid/cancelaciones"

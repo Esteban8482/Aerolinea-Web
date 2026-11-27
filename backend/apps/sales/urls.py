@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .cancellation_views import CancellationPanelView, ResolutionsView, ResolutionView
 from .journey_views import (
     BoardingPassView,
     CheckinView,
@@ -77,4 +78,15 @@ urlpatterns += [
         "flights/<int:pk>/performed/", CompleteFlightView.as_view(), name="sales-flight-performed"
     ),
     path("flight-news/", FlightNewsView.as_view(), name="sales-flight-news"),
+]
+
+
+urlpatterns += [
+    path("cancellations/", ResolutionsView.as_view(), name="cancellation-list"),
+    path("cancellations/<int:pk>/", ResolutionView.as_view(), name="cancellation-detail"),
+    path(
+        "flights/<int:pk>/cancellation-panel/",
+        CancellationPanelView.as_view(),
+        name="cancellation-panel",
+    ),
 ]

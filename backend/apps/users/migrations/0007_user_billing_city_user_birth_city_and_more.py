@@ -5,26 +5,37 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('reference', '0001_initial'),
-        ('users', '0006_administrator_notification_and_audit'),
+        ("reference", "0001_initial"),
+        ("users", "0006_administrator_notification_and_audit"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='billing_city',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='billing_users', to='reference.locality'),
+            model_name="user",
+            name="billing_city",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="billing_users",
+                to="reference.locality",
+            ),
         ),
         migrations.AddField(
-            model_name='user',
-            name='birth_city',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='born_users', to='reference.locality'),
+            model_name="user",
+            name="birth_city",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="born_users",
+                to="reference.locality",
+            ),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='birth_place',
+            model_name="user",
+            name="birth_place",
             field=models.CharField(blank=True, max_length=300),
         ),
     ]

@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import CatalogueSelect from '../components/CatalogueSelect'
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
-import type { Ciudad, Vuelo } from '../types/flight'
+import FlightCitySelect from '../components/FlightCitySelect'
+import type { Vuelo } from '../types/flight'
 
 export default function HomePage() {
-  const [cities, setCities] = useState<Ciudad[]>([])
   const [tipoTrayecto, setTipoTrayecto] = useState<'UNICO' | 'COMPLETO'>('UNICO')
   const [origenId, setOrigenId] = useState<number>(0)
   const [destinoId, setDestinoId] = useState<number>(0)
@@ -19,9 +20,6 @@ export default function HomePage() {
   const [vuelosIda, setVuelosIda] = useState<Vuelo[]>([])
   const [vuelosRegreso, setVuelosRegreso] = useState<Vuelo[]>([])
 
-  useEffect(() => {
-    api.get('/flights/cities/').then(setCities).catch(() => {})
-  }, [])
 
   async function handleSearch(e: FormEvent) {
     e.preventDefault()
@@ -77,7 +75,7 @@ export default function HomePage() {
           </div>
           <div className="home-trust">
             <span className="home-trust__avatars" aria-hidden="true">✦ ✈ ●</span>
-            <span>Más de 2.000 viajeros ya vuelan con Alas</span>
+            <span>Gestiona tus viajes desde tu cuenta</span>
           </div>
         </div>
 
@@ -85,7 +83,7 @@ export default function HomePage() {
           <div className="home-route-card">
             <div className="home-route-card__top">
               <span>Ruta destacada</span>
-              <span className="home-route-card__status">● Disponible</span>
+              <span className="home-route-card__status">Consulta disponibilidad</span>
             </div>
             <div className="home-route">
               <div>
@@ -99,7 +97,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="home-route-card__bottom">
-              <span>Vuelo directo · 9h 35min</span>
+              <span>Consulta rutas y horarios disponibles</span>
               <Link to="/vuelos" style={{ color: '#ffe8f0', fontWeight: 700 }}>
                 Ver vuelos ↗
               </Link>
@@ -107,7 +105,7 @@ export default function HomePage() {
           </div>
           <div className="home-floating-card home-floating-card--top">
             <span className="home-floating-card__icon">↗</span>
-            <span><strong>12</strong> destinos por explorar</span>
+            <span>Destinos por explorar</span>
           </div>
           <div className="home-floating-card home-floating-card--bottom">
             <span className="home-floating-card__icon">✓</span>
@@ -151,36 +149,12 @@ export default function HomePage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.8rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Origen</label>
-                <select
-                  className="form-control"
-                  value={origenId}
-                  onChange={(e) => setOrigenId(Number(e.target.value))}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid #cbd5e1' }}
-                >
-                  <option value={0}>Todos los orígenes</option>
-                  {cities.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre} ({c.codigo_pais})
-                    </option>
-                  ))}
-                </select>
+                <FlightCitySelect side="origin" value={origenId} opposite={destinoId} date={fechaSalida} passengers={pasajeros} travelClass={clase} onChange={id => setOrigenId(id || 0)} />
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Destino</label>
-                <select
-                  className="form-control"
-                  value={destinoId}
-                  onChange={(e) => setDestinoId(Number(e.target.value))}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid #cbd5e1' }}
-                >
-                  <option value={0}>Todos los destinos</option>
-                  {cities.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre} ({c.codigo_pais})
-                    </option>
-                  ))}
-                </select>
+                <FlightCitySelect side="destination" value={destinoId} opposite={origenId} date={fechaSalida} passengers={pasajeros} travelClass={clase} onChange={id => setDestinoId(id || 0)} />
               </div>
 
               <div>
@@ -225,15 +199,7 @@ export default function HomePage() {
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Clase</label>
-                <select
-                  className="form-control"
-                  value={clase}
-                  onChange={(e) => setClase(e.target.value as 'ECONOMICA' | 'PRIMERA_CLASE')}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid #cbd5e1' }}
-                >
-                  <option value="ECONOMICA">Clase Económica</option>
-                  <option value="PRIMERA_CLASE">Primera Clase</option>
-                </select>
+                <CatalogueSelect category="travel_class" label="Clase de viaje" value={clase} onChange={value => setClase(value as 'ECONOMICA' | 'PRIMERA_CLASE')} />
               </div>
             </div>
 
@@ -291,7 +257,7 @@ export default function HomePage() {
                       <div>
                         <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Desde</span>
                         <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
-                          ${clase === 'PRIMERA_CLASE' ? v.costo_persona_primera : v.costo_persona_economica} COP
+                          ${clase === 'PRIMERA_CLASE' ? v.precio_vigente_primera : v.precio_vigente_economica} COP
                         </div>
                       </div>
                       <Link to="/vuelos" className="btn btn--primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
@@ -332,7 +298,7 @@ export default function HomePage() {
                           <div>
                             <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Desde</span>
                             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
-                              ${clase === 'PRIMERA_CLASE' ? v.costo_persona_primera : v.costo_persona_economica} COP
+                              ${clase === 'PRIMERA_CLASE' ? v.precio_vigente_primera : v.precio_vigente_economica} COP
                             </div>
                           </div>
                           <Link to="/vuelos" className="btn btn--primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>

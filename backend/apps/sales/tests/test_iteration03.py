@@ -164,8 +164,9 @@ def test_flight_cancel(cliente_con_billetera, vuelo_nacional, passenger, admin_u
     vuelo_nacional.refresh_from_db()
     assert reservation.estado == "CANCELADA"
     assert vuelo_nacional.estado == "CANCELADO"
-    assert vuelo_nacional.cupos_disponibles_economica == 125
-    assert purchase.tiquetes.get().refund_id
+    assert vuelo_nacional.cupos_disponibles_economica == 0
+    assert purchase.tiquetes.get().estado == "PENDIENTE_RESOLUCION"
+    assert purchase.tiquetes.get().refund_id is None
 
 
 def test_promotions_new_only(cliente_con_billetera, vuelo_nacional, passenger, admin_user):
@@ -351,6 +352,11 @@ def test_flight_cancellation_rolls_back_every_buyer(
         accepted_total=Decimal("300000"),
     )
     from apps.sales import services
+    from apps.sales.cancellations import resolve
+    from apps.sales.models import CancellationResolution
+
+    cancelar_vuelo(vuelo_nacional.pk, "Prueba de resolución", actor=admin_user)
+    resolution = CancellationResolution.objects.get(purchase=purchase)
 
     refund = services.reembolsar_a_billetera
     calls = 0
@@ -366,10 +372,10 @@ def test_flight_cancellation_rolls_back_every_buyer(
         patch("apps.sales.services.reembolsar_a_billetera", side_effect=fail_second),
         pytest.raises(RuntimeError),
     ):
-        cancelar_vuelo(vuelo_nacional.pk, "Prueba de rollback", actor=admin_user)
+        resolve(cliente_con_billetera, resolution.pk, "REFUND")
     vuelo_nacional.refresh_from_db()
-    assert vuelo_nacional.estado == "PROGRAMADO"
-    assert purchase.tiquetes.filter(estado="ACTIVO").count() == 2
+    assert vuelo_nacional.estado == "CANCELADO"
+    assert purchase.tiquetes.filter(estado="PENDIENTE_RESOLUCION").count() == 2
     assert not MovimientoBilletera.objects.filter(tipo="REEMBOLSO").exists()
 
 

@@ -24,7 +24,7 @@ def authorized_user(actor):
         and actor.is_authenticated
         and actor.is_active
         and actor.is_email_verified
-        and actor.role != "ROOT"
+        and actor.role == "CLIENTE"
     ):
         raise PermissionDenied("Se requiere una cuenta activa con correo verificado.")
 

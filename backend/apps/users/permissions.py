@@ -82,4 +82,4 @@ class CanUseWallet(HasVerifiedEmail):
     """ROOT has no financial access, regardless of technical privileges."""
 
     def has_permission(self, request, view):
-        return super().has_permission(request, view) and request.user.role != "ROOT"
+        return super().has_permission(request, view) and request.user.role == "CLIENTE"

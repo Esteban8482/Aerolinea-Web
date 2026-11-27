@@ -22,9 +22,9 @@ export default function Header({ authenticated, role, onLogout }: HeaderProps) {
         <Link to="/vuelos" className={isActive('/vuelos')}>
           ✈ Vuelos
         </Link>
-        <Link to="/check-in" className={isActive('/check-in')}>
+        {(!authenticated || role === 'CLIENTE') && <Link to="/check-in" className={isActive('/check-in')}>
           ✓ Check-in
-        </Link>
+        </Link>}
         {authenticated ? (
           <div className="site-header__user">
             {role === 'ROOT' && (

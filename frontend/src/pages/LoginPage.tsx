@@ -61,7 +61,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     try {
       await api.post('/auth/login/', credentials)
       onLoginSuccess()
-      navigate('/')
+      const intended = new URLSearchParams(window.location.search).get('next')
+      navigate(intended?.startsWith('/') && !intended.startsWith('//') ? intended : '/')
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 429) {
@@ -137,12 +138,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       setRecoverError('Ingrese la nueva contraseña.')
       return
     }
-    if (newPassword.length < 8) {
-      setRecoverError('La contraseña debe tener al menos 8 caracteres.')
-      return
-    }
-    if (!/\d/.test(newPassword)) {
-      setRecoverError('La contraseña debe contener al menos un número.')
+    if (newPassword.length < 12) {
+      setRecoverError('La contraseña debe tener al menos 12 caracteres.')
       return
     }
     if (newPassword !== newPasswordConfirm) {
@@ -417,7 +414,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {step === 'recover-password' && (
           <>
             <p className="form-subtitle">
-              Ingrese su nueva contraseña. Debe tener al menos 8 caracteres e incluir al menos un número.
+              Ingrese su nueva contraseña. Debe tener al menos 12 caracteres, no ser exclusivamente numérica, común ni similar a tus datos.
             </p>
             <form onSubmit={handlePasswordReset} noValidate>
               <div className="form-group mb-2">
@@ -446,7 +443,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     {showNewPassword ? 'Ocultar' : 'Ver'}
                   </button>
                 </div>
-                <span className="form-hint">Mínimo 8 caracteres e incluir al menos un número.</span>
+                <span className="form-hint">Mínimo 12 caracteres, no ser exclusivamente numérica, común ni similar a tus datos.</span>
               </div>
 
               <div className="form-group mb-2">

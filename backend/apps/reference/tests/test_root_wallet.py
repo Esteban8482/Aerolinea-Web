@@ -11,8 +11,13 @@ from apps.wallets.services import debitar_para_compra, depositar, reembolsar_a_b
 pytestmark = pytest.mark.django_db
 
 
-def test_root_cannot_access_any_wallet_endpoint_or_financial_service():
+@pytest.mark.parametrize("role", ["ROOT", "ADMINISTRADOR"])
+def test_non_client_cannot_access_any_wallet_endpoint_or_financial_service(role):
     root = User.objects.create_root(root_id="catalogue-root", password="test-password-long-2026")
+    if role == "ADMINISTRADOR":
+        root.role = role
+        root.root_id = None
+        root.email = "admin-wallet-test@example.invalid"
     root.is_email_verified = True
     root.is_staff = root.is_superuser = True
     root.save()

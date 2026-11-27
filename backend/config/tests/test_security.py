@@ -131,7 +131,7 @@ from django.test import Client
 from django.conf import settings
 issues = run_checks(include_deployment_checks=True)
 # Preload y todos los subdominios requieren una decisión real de despliegue.
-assert {issue.id for issue in issues} == {"security.W005", "security.W021"}
+assert {issue.id for issue in issues} == {"security.W005", "security.W021"}, issues
 call_command("check", deploy=True, fail_level="ERROR")
 client = Client(HTTP_HOST="api.example.invalid")
 assert client.get("/api/docs/", secure=True).status_code == 404

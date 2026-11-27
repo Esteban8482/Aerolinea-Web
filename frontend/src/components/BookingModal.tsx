@@ -1,6 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
+import { useConfirmedPurchase, useOperationKey } from '../operations'
+import WalletPanel from './WalletPanel'
+import CatalogueSelect from './CatalogueSelect'
 import type { PerfilUsuario, Vuelo } from '../types/flight'
 
 export interface ViajeroFormData {
@@ -54,6 +57,9 @@ export default function BookingModal({
   onClose,
   onSuccess,
 }: BookingModalProps) {
+  const purchase = useConfirmedPurchase()
+  const operationKey = useOperationKey()
+  const [showFunding, setShowFunding] = useState(false)
   const [clase, setClase] = useState<'ECONOMICA' | 'PRIMERA_CLASE'>(initialClase)
   const [numPasajeros, setNumPasajeros] = useState<number>(initialPasajeros)
   const [viajeros, setViajeros] = useState<ViajeroFormData[]>(() => {
@@ -125,13 +131,13 @@ export default function BookingModal({
   // Cálculos de tarifa
   const costoUnitarioIda =
     clase === 'ECONOMICA'
-      ? parseFloat(vuelo.costo_persona_economica)
-      : parseFloat(vuelo.costo_persona_primera)
+      ? parseFloat(vuelo.precio_vigente_economica)
+      : parseFloat(vuelo.precio_vigente_primera)
 
   const costoUnitarioRegreso = vueloRegreso
     ? clase === 'ECONOMICA'
-      ? parseFloat(vueloRegreso.costo_persona_economica)
-      : parseFloat(vueloRegreso.costo_persona_primera)
+      ? parseFloat(vueloRegreso.precio_vigente_economica)
+      : parseFloat(vueloRegreso.precio_vigente_primera)
     : 0
 
   const costoTotal = (costoUnitarioIda + costoUnitarioRegreso) * numPasajeros
@@ -147,17 +153,17 @@ export default function BookingModal({
     }
 
     // Unicidad de documentos
-    const docs = viajeros.map((v) => v.documento.trim())
+    const docs = viajeros.map((v) => `${v.tipo_documento}:${v.documento.trim().toUpperCase()}`)
     if (new Set(docs).size !== docs.length) {
       setErrorMsg('No puede haber pasajeros con el mismo número de documento en la reserva.')
       return false
     }
 
     // Al menos un adulto (>= 18 años)
-    const today = new Date()
+    const today = new Date(vuelo.fecha_salida + "T12:00:00")
     const hasAdult = viajeros.some((v) => {
       if (!v.fecha_nacimiento) return false
-      const birth = new Date(v.fecha_nacimiento)
+      const birth = new Date(v.fecha_nacimiento + "T12:00:00")
       let age = today.getFullYear() - birth.getFullYear()
       const m = today.getMonth() - birth.getMonth()
       if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
@@ -201,7 +207,8 @@ export default function BookingModal({
         })),
       }
 
-      const res = await api.post('/sales/reservations/', payload)
+      const res = await api.postWithHeaders('/sales/reservations/', payload, { 'Idempotency-Key': operationKey.forRequest({ action: 'reserve', ...payload }) })
+      operationKey.clear()
       setConfirmation({
         type: 'RESERVA',
         limiteVigencia: res.limite_vigencia,
@@ -219,15 +226,6 @@ export default function BookingModal({
   const handleComprar = async (e: FormEvent) => {
     e.preventDefault()
     if (!validarFormulario()) return
-
-    if (walletBalance !== null && walletBalance < costoTotal) {
-      setErrorMsg(
-        `Saldo insuficiente en tu billetera virtual. Saldo actual: $${walletBalance.toLocaleString(
-          'es-CO',
-        )} COP. Total requerido: $${costoTotal.toLocaleString('es-CO')} COP. Por favor recarga saldo en tu perfil.`,
-      )
-      return
-    }
 
     setBusy(true)
     setErrorMsg('')
@@ -251,13 +249,15 @@ export default function BookingModal({
         })),
       }
 
-      const res = await api.post('/sales/purchases/', payload)
+      const res = await purchase(payload, { vuelo_id: vuelo.id, vuelo_regreso_id: vueloRegreso?.id, clase, tipo_trayecto: payload.tipo_trayecto, passenger_count: viajeros.length })
+      if (!res) return
       setConfirmation({
         type: 'COMPRA',
         localizador: res.localizador,
       })
       onSuccess(`¡Compra exitosa! Código localizador: ${res.localizador}`)
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'insufficient_wallet_balance') setShowFunding(true)
       const msg = err instanceof ApiError ? err.message : 'Error al procesar la compra.'
       setErrorMsg(msg)
     } finally {
@@ -349,7 +349,9 @@ export default function BookingModal({
           </div>
         ) : (
           /* FORMULARIO DE RESERVA / COMPRA */
-          <form noValidate>
+          <> {showFunding && session.role === 'CLIENTE' && session.is_email_verified && <WalletPanel />}
+        <button type="button" className="btn btn--secondary" onClick={() => setShowFunding(!showFunding)}>Gestionar fondos sin perder viajeros</button>
+        <form noValidate>
             {errorMsg && (
               <div className="alert alert--error" style={{ marginBottom: '1.5rem' }}>
                 <span className="alert__body">{errorMsg}</span>
@@ -361,18 +363,7 @@ export default function BookingModal({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label">Clase de Cabina</label>
-                  <select
-                    className="form-select"
-                    value={clase}
-                    onChange={(e) => setClase(e.target.value as 'ECONOMICA' | 'PRIMERA_CLASE')}
-                  >
-                    <option value="ECONOMICA">
-                      Económica (${Number(vuelo.costo_persona_economica).toLocaleString('es-CO')} COP c/u)
-                    </option>
-                    <option value="PRIMERA_CLASE">
-                      Primera Clase (${Number(vuelo.costo_persona_primera).toLocaleString('es-CO')} COP c/u)
-                    </option>
-                  </select>
+                  <CatalogueSelect category="travel_class" label="Clase de viaje" value={clase} onChange={value => setClase(value as 'ECONOMICA' | 'PRIMERA_CLASE')} />
                 </div>
 
                 <div className="form-group" style={{ margin: 0 }}>
@@ -437,16 +428,7 @@ export default function BookingModal({
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.8rem' }}>Tipo Doc.</label>
-                        <select
-                          className="form-select"
-                          value={viajero.tipo_documento}
-                          onChange={(e) => updateViajero(idx, 'tipo_documento', e.target.value)}
-                        >
-                          <option value="CC">Cédula de Ciudadanía (CC)</option>
-                          <option value="CE">Cédula de Extranjería (CE)</option>
-                          <option value="TI">Tarjeta de Identidad (TI)</option>
-                          <option value="PA">Pasaporte</option>
-                        </select>
+                        <CatalogueSelect category="document_type" label="Tipo de documento" value={viajero.tipo_documento} onChange={value => updateViajero(idx, 'tipo_documento', value)} />
                       </div>
 
                       <div className="form-group" style={{ margin: 0 }}>
@@ -498,15 +480,7 @@ export default function BookingModal({
 
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.8rem' }}>Género</label>
-                        <select
-                          className="form-select"
-                          value={viajero.genero}
-                          onChange={(e) => updateViajero(idx, 'genero', e.target.value)}
-                        >
-                          <option value="M">Masculino</option>
-                          <option value="F">Femenino</option>
-                          <option value="OTRO">Otro</option>
-                        </select>
+                        <CatalogueSelect category="gender" label="Género" value={viajero.genero} onChange={value => updateViajero(idx, 'genero', value)} />
                       </div>
 
                       <div className="form-group" style={{ margin: 0 }}>
@@ -590,7 +564,7 @@ export default function BookingModal({
                 </button>
               </div>
             )}
-          </form>
+          </form></>
         )}
       </div>
     </div>

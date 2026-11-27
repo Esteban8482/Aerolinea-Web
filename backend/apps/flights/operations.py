@@ -24,8 +24,8 @@ from apps.sales.services import (
     calcular_limite_vigencia_reserva,
 )
 
-from .errors import FlightNotCancellable, FlightNotFound
-from .models import BitacoraVuelo, EstadoSilla, EstadoVuelo, NoticiaVuelo, Promotion, Silla, Vuelo
+from .errors import FlightNotFound
+from .models import EstadoSilla, EstadoVuelo, NoticiaVuelo, Promotion, Silla, Vuelo
 
 
 def propagate_edit(flight, changes, actor):
@@ -334,79 +334,10 @@ def _relocate(ticket, destination):
 
 
 def cancel_flight(flight_id, reason, alternative, actor, origin):
-    administrator_required(actor)
-    if not reason or not reason.strip():
-        raise ValidationError({"motivo": "Indica el motivo."})
-    flight = Vuelo.objects.select_for_update().filter(pk=flight_id).first()
-    if flight is None:
-        raise FlightNotFound()
-    if flight.estado == EstadoVuelo.CANCELADO:
-        return flight
-    if flight.estado != EstadoVuelo.PROGRAMADO or flight.salida_utc <= timezone.now():
-        raise FlightNotCancellable()
-    if alternative not in ("REINTEGRO", "REUBICACION"):
-        raise ValidationError("Alternativa inválida.")
-    if alternative == "REUBICACION":
-        candidates = (
-            Vuelo.objects.filter(
-                ruta=flight.ruta, estado=EstadoVuelo.PROGRAMADO, salida_utc__gt=timezone.now()
-            )
-            .exclude(pk=flight.pk)
-            .select_related("ruta")
-        )
-        pending = list(
-            Tiquete.objects.filter(vuelo=flight, estado=EstadoTiquete.ACTIVO).select_related(
-                "compra__cliente", "viajero", "vuelo"
-            )
-        )
-        available = False
-        for ticket in pending:
-            for candidate in candidates:
-                try:
-                    _eligible_destination(ticket, candidate)
-                    available = True
-                    break
-                except ValidationError:
-                    continue
-        if available:
-            raise ValidationError(
-                "Resuelve las propuestas con aceptación del comprador antes de cancelar; "
-                "también puede elegir reembolso."
-            )
-        # No eligible seats exist: the required fallback is refund, not a fictitious relocation.
-    for reservation in (
-        Reserva.objects.filter(estado=EstadoReserva.VIGENTE)
-        .filter(Q(vuelo=flight) | Q(vuelo_regreso=flight))
-        .select_related("cliente")
-    ):
-        _release(reservation, EstadoReserva.CANCELADA)
-        notify(
-            [
-                reservation.cliente.email,
-                *reservation.viajeros_reserva.values_list("viajero__correo", flat=True),
-            ],
-            "Reserva cancelada",
-            f"La reserva {reservation.pk} fue cancelada por cancelación del vuelo. Sin cobro.",
-        )
-    from apps.sales.services import reembolsar_tiquetes_por_cancelacion_vuelo
+    # Preserve the internal call signature for existing integrations; purchaser selects outcome.
+    from apps.sales.cancellations import cancel
 
-    reembolsar_tiquetes_por_cancelacion_vuelo(flight.pk)
-    flight.refresh_from_db()
-    flight.estado = EstadoVuelo.CANCELADO
-    flight.motivo_cancelacion = reason.strip()
-    flight.cancelado_en = timezone.now()
-    flight.cancelado_por = actor
-    flight.save()
-    flight.noticias.update(vigente=False)
-    flight.promotions.update(active=False, disabled_reason="flight_cancelled")
-    BitacoraVuelo.objects.create(
-        vuelo=flight,
-        actor=actor,
-        tipo_evento=BitacoraVuelo.Evento.CANCELACION,
-        ip_origen=origin,
-        detalles={"motivo": reason, "alternativa": "REINTEGRO"},
-    )
-    return flight
+    return cancel(actor, flight_id, reason, origin)
 
 
 @inventory_transaction

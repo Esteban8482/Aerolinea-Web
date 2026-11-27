@@ -5,16 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('flights', '0003_promotion'),
-        ('reference', '0001_initial'),
+        ("flights", "0003_promotion"),
+        ("reference", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='ciudad',
-            name='locality',
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='airline_city', to='reference.locality'),
+            model_name="ciudad",
+            name="locality",
+            field=models.OneToOneField(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="airline_city",
+                to="reference.locality",
+            ),
         ),
     ]

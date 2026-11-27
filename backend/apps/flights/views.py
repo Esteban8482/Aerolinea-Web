@@ -129,7 +129,13 @@ class FlightsView(APIView):
             "-salida_utc"
         )
         if not (request.user.is_authenticated and request.user.role == "ADMINISTRADOR"):
-            queryset = queryset.filter(estado=EstadoVuelo.PROGRAMADO, salida_utc__gt=timezone.now())
+            queryset = queryset.filter(
+                estado=EstadoVuelo.PROGRAMADO,
+                salida_utc__gt=timezone.now(),
+                ruta__activa=True,
+                ruta__origen__activa=True,
+                ruta__destino__activa=True,
+            ).filter(Q(cupos_disponibles_economica__gt=0) | Q(cupos_disponibles_primera__gt=0))
         estado = request.query_params.get("estado")
         if estado:
             queryset = queryset.filter(estado=estado.upper())
@@ -224,8 +230,10 @@ class FlightSearchView(APIView):
         now = timezone.now()
         base_qs = Vuelo.objects.filter(
             estado=EstadoVuelo.PROGRAMADO,
-            salida_utc__gt=now, ruta__activa=True,
-            ruta__origen__activa=True, ruta__destino__activa=True,
+            salida_utc__gt=now,
+            ruta__activa=True,
+            ruta__origen__activa=True,
+            ruta__destino__activa=True,
         ).select_related("ruta__origen", "ruta__destino")
 
         pasajeros = data.get("pasajeros", 1)

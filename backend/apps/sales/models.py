@@ -25,6 +25,7 @@ class EstadoCompra(models.TextChoices):
 
 
 class EstadoTiquete(models.TextChoices):
+    PENDIENTE_RESOLUCION = "PENDIENTE_RESOLUCION", "Pendiente de resolución"
     ACTIVO = "ACTIVO", "Activo"
     CANCELADO = "CANCELADO", "Cancelado"
 
@@ -144,7 +145,35 @@ class Compra(models.Model):
         return f"Compra {self.localizador} - {self.cliente.email} (${self.valor_pagado})"
 
 
+class CancellationResolution(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pendiente"
+        RELOCATED = "RELOCATED", "Reubicado"
+        REFUNDED = "REFUNDED", "Reembolsado"
+
+    purchase = models.ForeignKey(Compra, on_delete=models.PROTECT, related_name="cancellations")
+    flight = models.ForeignKey(
+        Vuelo, on_delete=models.PROTECT, related_name="cancellation_resolutions"
+    )
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    destination = models.ForeignKey(
+        Vuelo, null=True, on_delete=models.PROTECT, related_name="resolved_cancellations"
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    resolved_at = models.DateTimeField(null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["purchase", "flight"], name="cancellation_purchase_flight"
+            )
+        ]
+
+
 class Tiquete(models.Model):
+    cancellation_resolution = models.ForeignKey(
+        CancellationResolution, null=True, on_delete=models.PROTECT, related_name="tickets"
+    )
     refund = models.OneToOneField(
         "wallets.MovimientoBilletera",
         null=True,

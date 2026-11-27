@@ -90,9 +90,12 @@ class EditarVueloSerializer(serializers.Serializer):
 
 class CancelarVueloSerializer(serializers.Serializer):
     motivo = serializers.CharField(max_length=500, min_length=3, trim_whitespace=True)
-    alternativa = serializers.ChoiceField(
-        choices=["REINTEGRO", "REUBICACION"], default="REINTEGRO", required=False
-    )
+    confirmed = serializers.BooleanField()
+
+    def validate_confirmed(self, value):
+        if not value:
+            raise serializers.ValidationError("Confirma expresamente la cancelación.")
+        return value
 
 
 class EffectivePriceMixin:
