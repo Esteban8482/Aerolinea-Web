@@ -38,8 +38,9 @@ async function request(
   path: string,
   body?: unknown,
   csrfToken?: string,
+  extraHeaders: Record<string, string> = {},
 ) {
-  const headers: Record<string, string> = {}
+  const headers: Record<string, string> = { ...extraHeaders }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (csrfToken) headers['X-CSRFToken'] = csrfToken
   const response = await fetch(`${BASE}${path}`, {
@@ -64,11 +65,31 @@ export function toFormData(
 
 export const api = {
   get: (path: string) => request('GET', path),
+  getWithHeaders: (path: string, headers: Record<string, string>) =>
+    request('GET', path, undefined, undefined, headers),
+
+  getBlobWithHeaders: async (path: string, headers: Record<string, string> = {}) => {
+    const response = await fetch(`${BASE}${path}`, {
+      credentials: 'same-origin',
+      headers,
+    })
+    if (!response.ok) return parse(response)
+    return response.blob()
+  },
 
   // Todo POST del contrato exige CSRF; se obtiene uno nuevo en cada llamada.
   post: async (path: string, body: unknown) => {
     const csrfToken = await getCsrfToken()
     return request('POST', path, body ?? {}, csrfToken)
+  },
+
+  postWithHeaders: async (
+    path: string,
+    body: unknown,
+    headers: Record<string, string>,
+  ) => {
+    const csrfToken = await getCsrfToken()
+    return request('POST', path, body ?? {}, csrfToken, headers)
   },
 
   patch: async (path: string, body: unknown) => {
