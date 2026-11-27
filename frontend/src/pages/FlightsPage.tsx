@@ -73,14 +73,24 @@ export default function FlightsPage({ session }: FlightsPageProps) {
   const [editHoraSalida, setEditHoraSalida] = useState('')
   const [editCostoEconomica, setEditCostoEconomica] = useState('')
   const [editCostoPrimera, setEditCostoPrimera] = useState('')
+  const [editMotivo, setEditMotivo] = useState('')
   const [editBusy, setEditBusy] = useState(false)
   const [editError, setEditError] = useState('')
 
   // Estado modal cancelación
   const [cancelMotivo, setCancelMotivo] = useState('')
-  const [cancelAlternativa, setCancelAlternativa] = useState<'REINTEGRO' | 'REUBICACION'>('REINTEGRO')
   const [cancelBusy, setCancelBusy] = useState(false)
   const [cancelError, setCancelError] = useState('')
+
+  // Estado modal de promoción
+  const [promotionFlight, setPromotionFlight] = useState<Vuelo | null>(null)
+  const [promotionClase, setPromotionClase] = useState<'ECONOMICA' | 'PRIMERA_CLASE'>('ECONOMICA')
+  const [promotionPrice, setPromotionPrice] = useState('')
+  const [promotionStartsImmediately, setPromotionStartsImmediately] = useState(true)
+  const [promotionStartsAt, setPromotionStartsAt] = useState('')
+  const [promotionEndsAt, setPromotionEndsAt] = useState('')
+  const [promotionBusy, setPromotionBusy] = useState(false)
+  const [promotionError, setPromotionError] = useState('')
 
   // Cargar catálogos: al montar y cada vez que la ventana recupera el foco,
   // para que las rutas creadas en el Catálogo aparezcan sin recargar a mano.
@@ -299,6 +309,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
       setEditHoraSalida(detail.hora_salida.slice(0, 5))
       setEditCostoEconomica(detail.costo_persona_economica)
       setEditCostoPrimera(detail.costo_persona_primera)
+      setEditMotivo('')
       setEditError('')
       setView('EDIT')
     } catch (err) {
@@ -313,8 +324,14 @@ export default function FlightsPage({ session }: FlightsPageProps) {
 
     setEditBusy(true)
     setEditError('')
+    if (!editMotivo.trim()) {
+      setEditError('Debes indicar el motivo de la modificación.')
+      setEditBusy(false)
+      return
+    }
     try {
       await api.patch(`/flights/${selectedFlight.id}/`, {
+        motivo: editMotivo.trim(),
         fecha_salida: editFechaSalida,
         hora_salida: editHoraSalida.length === 5 ? `${editHoraSalida}:00` : editHoraSalida,
         costo_persona_economica: editCostoEconomica,
@@ -352,7 +369,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     try {
       await api.post(`/flights/${flightToCancel.id}/cancel/`, {
         motivo: cancelMotivo.trim(),
-        alternativa: cancelAlternativa,
+        alternativa: 'REINTEGRO',
       })
       setFlightToCancel(null)
       setCancelMotivo('')
@@ -369,6 +386,57 @@ export default function FlightsPage({ session }: FlightsPageProps) {
       }
     } finally {
       setCancelBusy(false)
+    }
+  }
+
+  const handlePromotionSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!promotionFlight) return
+
+    const basePrice =
+      promotionClase === 'ECONOMICA'
+        ? Number(promotionFlight.costo_persona_economica)
+        : Number(promotionFlight.costo_persona_primera)
+    const start = promotionStartsImmediately ? new Date() : new Date(promotionStartsAt)
+    const end = new Date(promotionEndsAt)
+    const departure = new Date(promotionFlight.salida_utc)
+
+    if (Number(promotionPrice) <= 0 || Number(promotionPrice) >= basePrice) {
+      setPromotionError('El precio promocional debe ser positivo y menor que la tarifa base.')
+      return
+    }
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime()) ||
+      (!promotionStartsImmediately && start <= new Date()) ||
+      end <= start ||
+      end > departure
+    ) {
+      setPromotionError('Indica un periodo futuro válido que finalice antes de la salida del vuelo.')
+      return
+    }
+
+    setPromotionBusy(true)
+    setPromotionError('')
+    try {
+      await api.post(`/sales/flights/${promotionFlight.id}/promotions/`, {
+        clase: promotionClase,
+        price: promotionPrice,
+        starts_at: start.toISOString(),
+        ends_at: end.toISOString(),
+      })
+      setPromotionFlight(null)
+      setNotification({
+        type: 'success',
+        message: `Promoción creada para el vuelo ${promotionFlight.codigo_vuelo}.`,
+      })
+      loadFlights()
+    } catch (err) {
+      setPromotionError(
+        err instanceof ApiError ? err.message : 'No fue posible crear la promoción.',
+      )
+    } finally {
+      setPromotionBusy(false)
     }
   }
 
@@ -724,6 +792,22 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="form-group" style={{ marginTop: '1rem' }}>
+              <label className="form-label" htmlFor="edit-motivo">
+                Motivo de la modificación<span className="form-label__required">*</span>
+              </label>
+              <textarea
+                id="edit-motivo"
+                className="form-input"
+                rows={3}
+                maxLength={500}
+                value={editMotivo}
+                onChange={(e) => setEditMotivo(e.target.value)}
+                placeholder="Explica el motivo del cambio de horario o tarifa..."
+                required
+              />
             </div>
 
             <p className="form-hint" style={{ margin: '1rem 0' }}>
@@ -1202,6 +1286,22 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                                   </button>
                                   <button
                                     type="button"
+                                    className="btn btn--secondary"
+                                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}
+                                    onClick={() => {
+                                      setPromotionFlight(f)
+                                      setPromotionClase('ECONOMICA')
+                                      setPromotionPrice('')
+                                      setPromotionStartsImmediately(true)
+                                      setPromotionStartsAt('')
+                                      setPromotionEndsAt('')
+                                      setPromotionError('')
+                                    }}
+                                  >
+                                    Promoción
+                                  </button>
+                                  <button
+                                    type="button"
                                     className="btn btn--danger"
                                     style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}
                                     onClick={() => {
@@ -1350,33 +1450,10 @@ export default function FlightsPage({ session }: FlightsPageProps) {
               </div>
 
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                <label className="form-label">Alternativa aplicable para los pasajeros afectados:</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="cancel-alternativa"
-                      value="REINTEGRO"
-                      checked={cancelAlternativa === 'REINTEGRO'}
-                      onChange={() => setCancelAlternativa('REINTEGRO')}
-                    />
-                    <span>
-                      <strong>Reintegro directo</strong> a la billetera virtual del comprador (Recomendado)
-                    </span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="cancel-alternativa"
-                      value="REUBICACION"
-                      checked={cancelAlternativa === 'REUBICACION'}
-                      onChange={() => setCancelAlternativa('REUBICACION')}
-                    />
-                    <span>
-                      <strong>Reubicación</strong> en el próximo vuelo disponible de la misma ruta (o reintegro si no hay cupos)
-                    </span>
-                  </label>
-                </div>
+                <p className="journey-inline-note">
+                  Al confirmar, las compras activas asociadas se reembolsan al comprador según
+                  el flujo de cancelación. Las ofertas de reubicación se gestionan por separado.
+                </p>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
@@ -1396,6 +1473,115 @@ export default function FlightsPage({ session }: FlightsPageProps) {
           </div>
         </div>
       )}
+
+      {promotionFlight && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="promotion-title">
+          <div className="modal-box">
+            <h2 className="modal-box__title" id="promotion-title">
+              Crear promoción · {promotionFlight.codigo_vuelo}
+            </h2>
+            <p className="form-subtitle">
+              Define un precio temporal para una clase. Solo aplica a nuevas reservas y compras
+              dentro del periodo indicado.
+            </p>
+            {promotionError && (
+              <div className="alert alert--error" role="alert">
+                <span className="alert__body">{promotionError}</span>
+              </div>
+            )}
+            <form onSubmit={handlePromotionSubmit}>
+              <div className="journey-form__grid">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="promotion-class">Clase</label>
+                  <select
+                    id="promotion-class"
+                    className="form-select"
+                    value={promotionClase}
+                    onChange={(event) =>
+                      setPromotionClase(event.target.value as 'ECONOMICA' | 'PRIMERA_CLASE')
+                    }
+                  >
+                    <option value="ECONOMICA">Económica</option>
+                    <option value="PRIMERA_CLASE">Primera clase</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="promotion-price">Precio promocional (COP)</label>
+                  <input
+                    id="promotion-price"
+                    className="form-input"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={promotionPrice}
+                    onChange={(event) => setPromotionPrice(event.target.value)}
+                    required
+                  />
+                  <span className="form-hint">
+                    Tarifa base:{' '}
+                    {promotionClase === 'ECONOMICA'
+                      ? promotionFlight.costo_persona_economica
+                      : promotionFlight.costo_persona_primera}{' '}
+                    COP
+                  </span>
+                </div>
+                <div className="form-group">
+                  <label className="form-checkbox" style={{ marginTop: '1.8rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={promotionStartsImmediately}
+                      onChange={(event) => setPromotionStartsImmediately(event.target.checked)}
+                    />
+                    <span className="form-checkbox__text">Iniciar inmediatamente</span>
+                  </label>
+                  {!promotionStartsImmediately && (
+                    <div style={{ marginTop: '.75rem' }}>
+                      <label className="form-label" htmlFor="promotion-start">Inicio (hora local del dispositivo)</label>
+                      <input
+                        id="promotion-start"
+                        className="form-input"
+                        type="datetime-local"
+                        value={promotionStartsAt}
+                        onChange={(event) => setPromotionStartsAt(event.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="promotion-end">Fin (hora local del dispositivo)</label>
+                  <input
+                    id="promotion-end"
+                    className="form-input"
+                    type="datetime-local"
+                    value={promotionEndsAt}
+                    onChange={(event) => setPromotionEndsAt(event.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <p className="form-hint">
+                La promoción puede iniciar ahora o programarse; no puede superar la tarifa base
+                y debe terminar antes de la salida. Los periodos de la misma clase no pueden cruzarse.
+              </p>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  onClick={() => setPromotionFlight(null)}
+                  disabled={promotionBusy}
+                >
+                  Volver
+                </button>
+                <button type="submit" className="btn btn--primary" disabled={promotionBusy}>
+                  {promotionBusy ? 'Guardando…' : 'Crear promoción'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE RESERVA Y COMPRA (HU-012, HU-013) */}
       {bookingFlight && (
         <BookingModal

@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage'
 import ProfilePage from './pages/ProfilePage'
 import AdministratorsPage from './pages/AdministratorsPage'
 import FlightsPage from './pages/FlightsPage'
+import CheckInPage from './pages/CheckInPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 
@@ -60,6 +61,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/vuelos" element={<FlightsPage session={session} />} />
+        <Route path="/check-in" element={<CheckInPage session={session} />} />
         <Route path="/catalogo" element={<Navigate to="/vuelos" replace />} />
         <Route path="/registro" element={<RegisterPage />} />
         <Route

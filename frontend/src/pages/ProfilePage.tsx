@@ -40,8 +40,12 @@ export default function ProfilePage({ session }: ProfilePageProps) {
       setProfile(profData)
       setCompras(comprasData)
       setReservas(reservasData)
-    } catch {
-      // Ignorar errores transitorios
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : 'No fue posible cargar el perfil, las reservas y las compras.'
+      setNotification({ type: 'error', message })
     } finally {
       setLoading(false)
     }
@@ -67,7 +71,7 @@ export default function ProfilePage({ session }: ProfilePageProps) {
   }
 
   async function handleCancelPurchase(compraId: number) {
-    if (!window.confirm('¿Estás seguro de cancelar esta compra? El valor pagado será reembolsado íntegramente a tu billetera.')) return
+    if (!window.confirm('¿Deseas cancelar esta compra? El reembolso se calculará por tiquete y se abonará a la billetera del comprador.')) return
     setNotification(null)
     try {
       await api.post(`/sales/purchases/${compraId}/cancel/`, {})
@@ -203,7 +207,10 @@ export default function ProfilePage({ session }: ProfilePageProps) {
 
       {/* SECCIÓN MIS COMPRAS */}
       <section style={{ marginBottom: '3rem' }}>
-        <h2 style={{ fontSize: '1.5rem', color: '#0f172a', marginBottom: '1rem' }}>🛫 Mis Viajes Confirmados (Compras)</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.5rem', color: 'var(--color-primary)', margin: 0 }}>🛫 Mis Viajes Confirmados (Compras)</h2>
+          <Link to="/check-in" className="btn btn--primary btn--small">Check-in y pasabordo</Link>
+        </div>
         {compras.length === 0 ? (
           <p style={{ color: '#64748b' }}>No tienes compras activas registradas.</p>
         ) : (
@@ -242,7 +249,10 @@ export default function ProfilePage({ session }: ProfilePageProps) {
                       <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Clase: {t.clase} · Pagado: ${t.precio_pagado} COP</div>
                       <div style={{ marginTop: '0.6rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontWeight: 700, color: '#0f172a' }}>💺 Silla #{t.silla.numero_silla}</span>
-                        {compra.estado === 'CONFIRMADA' && t.numero_cambios_silla === 0 && (
+                        {compra.estado === 'CONFIRMADA' &&
+                          t.numero_cambios_silla === 0 &&
+                          t.estado_checkin !== 'CONFIRMADO' &&
+                          t.estado === 'ACTIVO' && (
                           <button
                             type="button"
                             onClick={() => openSeatMap(t.vuelo.id, t.id)}
