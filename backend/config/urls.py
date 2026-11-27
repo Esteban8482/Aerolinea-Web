@@ -28,6 +28,7 @@ from apps.users.views import (
 from config.views import HealthCheckView
 
 urlpatterns = [
+    path("api/v1/reference/", include("apps.reference.urls")),
     path("api/v1/users/administrators/", AdministratorsView.as_view(), name="administrators"),
     path(
         "api/v1/users/administrators/password/",

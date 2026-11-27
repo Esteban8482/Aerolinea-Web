@@ -1,3 +1,11 @@
+# Cumulative backend delivery — Iterations 01–03
+
+Read [the consolidated delivery report](../docs/backend/consolidacion-iteraciones-01-03.md)
+for all 15 stories, HU-010 payment-method/deposit contracts, current verification and operational
+handoff. It supersedes historical scope exclusions below. Wallet deposits now require
+`medio_pago_id` and `Idempotency-Key`; the former arbitrary manual-deposit HTTP path is closed.
+Password breach-provider checks are retired; local Django password policy remains.
+
 # Iteration 03 backend update
 
 The current backend work extends flight/reservation/purchase workflows and adds promotions,
@@ -23,12 +31,10 @@ Base técnica del monolito Django/DRF con PostgreSQL. El estado y la evidencia d
 están en [la revisión técnica](../docs/BASE-01_VERIFICACION.md). Las reglas de negocio
 siguen en [el complemento](../docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md).
 HU-007 incorpora un núcleo de registro y verificación con correo persistente y pruebas.
-El registro en desarrollo admite una política identificada como prueba y requiere salida
-HTTPS a la API oficial de Pwned Passwords. El registro público en producción queda deshabilitado sin política
-real aprobada. Consulta [contrato, estado y evidencia de HU-007](../docs/backend/HU-007.md)
-y [comprobación de contraseñas](../docs/backend/HU-007_COMPROBACION_CONTRASENAS.md).
-La consulta tiene tres segundos de espera total y falla con 503 `password_check_unavailable`;
-no necesita API key, corpus, importador, volúmenes adicionales ni dependencias nuevas.
+El registro en desarrollo admite una política identificada como prueba. El registro público
+en producción queda deshabilitado sin política real aprobada. La política de contraseñas
+usa los validadores locales de Django y Argon2; DEC-27 elimina la consulta externa de
+contraseñas comprometidas y su anterior error 503. No requiere salida HTTPS a ese proveedor.
 La evidencia histórica del usuario y la nueva ejecución del agente se atribuyen en la guía.
 HU-008 incorpora login/logout, actividad explícita, bloqueo y recuperación; consulta
 [contratos y operación de HU-008](../docs/backend/HU-008.md). Ventas y operaciones de billetera
@@ -363,3 +369,10 @@ para sus errores. No sustituye la futura bitácora.
   propietario para esa operación. Revisar siempre el diff de las migraciones generadas.
 - PyPI/CDN inaccesible: comprobar conectividad. No fabricar locks, quitar hashes ni sustituir
   PostgreSQL por SQLite para aparentar una verificación exitosa.
+
+### Geography and controlled form options
+
+After migrations and airline catalogue initialization run `python manage.py load_reference_catalogues`.
+This imports the checked-in worldwide snapshot offline and links existing service cities.
+See [API contracts and frontend handoff](../docs/backend/catalogues-and-root.md).
+New registration requires catalogue city IDs; ROOT wallet access is disabled.

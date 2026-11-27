@@ -23,7 +23,6 @@ import django
 django.setup()
 
 from django.conf import settings  # noqa: E402
-from django.contrib.auth.password_validation import validate_password  # noqa: E402
 from django.core import mail  # noqa: E402
 from django.db import connection  # noqa: E402
 from django.test import override_settings  # noqa: E402
@@ -36,7 +35,6 @@ from apps.users.models import (  # noqa: E402
     RegistrationEvent,
     User,
 )
-from apps.users.password_check import is_compromised  # noqa: E402
 from apps.wallets.models import Wallet  # noqa: E402
 
 ORIGIN = "http://127.0.0.1:8000"
@@ -85,9 +83,11 @@ def run():
         "last_name": "Sintético",
         "document_number": "000TEST007",
         "birth_date": "1995-06-15",
-        "birth_place": "Lugar ficticio",
+        "birth_city_id": 21195,
+        "billing_city_id": 21195,
+        "document_type": "CC",
         "billing_address": "Dirección ficticia",
-        "gender": "prueba",
+        "gender": "F",
         "password": "HU007-" + secrets.token_urlsafe(30),
         "accepts_data_policy": True,
         "policy_reference": policy["reference"],
@@ -95,22 +95,12 @@ def run():
     }
     models = [User, Wallet, RegistrationConsent, EmailVerification, RegistrationEvent]
     baseline = [model.objects.count() for model in models]
-    compromised = None
-    for synthetic in ["CorrectHorseBatteryStaple!", "ThisIsAPassword123!", "qwertyuiop1234567890!"]:
-        try:
-            validate_password(synthetic, user=User(username=data["username"], email=data["email"]))
-        except django.core.exceptions.ValidationError:
-            continue
-        if is_compromised(synthetic):
-            compromised = synthetic
-            break
-    assert compromised is not None
-    status, error, _ = request(AUTH + "register/", {**data, "password": compromised})
+    status, error, _ = request(AUTH + "register/", {**data, "password": "short"})
     assert status == 400 and "password" in error["details"]
     assert [model.objects.count() for model in models] == baseline
     assert request(AUTH + "register/", {**data, "is_staff": True})[0] == 400
     assert request(AUTH + "register/", {**data, "policy_version": "obsolete-test"})[0] == 400
-    print("HTTP: contraseña comprometida 400, privilegios 400 y política obsoleta 400", flush=True)
+    print("HTTP: contraseña corta 400, privilegios 400 y política obsoleta 400", flush=True)
     status, body, _ = request(AUTH + "register/", data)
     assert status == 201 and body == {"status": "unverified", "delivery": "pending"}
     assert [model.objects.count() for model in models] == [count + 1 for count in baseline]

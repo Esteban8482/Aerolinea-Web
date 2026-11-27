@@ -26,7 +26,21 @@ class User(AbstractUser):
     document_type = models.CharField(max_length=20, blank=True)
     document_number = models.CharField(max_length=20, blank=True)
     birth_date = models.DateField(blank=True, null=True)
-    birth_place = models.CharField(max_length=100, blank=True)
+    birth_place = models.CharField(max_length=300, blank=True)
+    birth_city = models.ForeignKey(
+        "reference.Locality",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="born_users",
+    )
+    billing_city = models.ForeignKey(
+        "reference.Locality",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="billing_users",
+    )
     billing_address = models.CharField(max_length=200, blank=True)
     gender = models.CharField(max_length=20, blank=True)
     profile_image_url = models.URLField(max_length=255, blank=True)

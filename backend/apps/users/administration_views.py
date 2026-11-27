@@ -32,7 +32,7 @@ from .permissions import IsRoot
 from .serializers import RegistrationErrorSerializer
 from .views import CSRF_HEADER
 
-ERRORS = {code: RegistrationErrorSerializer for code in [400, 403, 409, 415, 429, 500, 503]}
+ERRORS = {code: RegistrationErrorSerializer for code in [400, 403, 409, 415, 429, 500]}
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -87,8 +87,7 @@ class AdministratorsView(GenericAPIView):
         "y 20/origen/hora; "
         "429 con Retry-After. Cuenta, billetera cero, aviso y auditoría atómicos. "
         "No envía la contraseña por correo ni marca el correo como verificado. "
-        "Correo duplicado: 409 email_already_registered; Pwned Passwords no disponible: "
-        "503 password_check_unavailable sin creación parcial.",
+        "Correo duplicado: 409 email_already_registered; contraseña inválida: 400 invalid.",
         examples=[
             OpenApiExample(
                 "Alta de prueba",
@@ -133,7 +132,7 @@ class RootPasswordView(APIView):
         "Exige clave actual, nueva y confirmación. Cinco fallos de clave actual/15 min "
         "bloquean los cambios 15 min sin bloquear login; 30 solicitudes/origen/15 min. "
         "401 current_password_invalid; 429 throttled y Retry-After. "
-        "503 password_check_unavailable conserva clave y sesiones. "
+        "La validación local fallida conserva clave y sesiones. "
         "Un cambio correcto invalida todas las sesiones de ROOT, incluida la actual, "
         "en su siguiente petición. Sin login automático. "
         "Carrera con otro cambio: 409 credentials_changed. No renueva actividad.",

@@ -27,6 +27,8 @@ class EstadoSilla(models.TextChoices):
 
 
 class Ciudad(models.Model):
+    locality = models.OneToOneField("reference.Locality", null=True, blank=True,
+                                    on_delete=models.PROTECT, related_name="airline_city")
     codigo_pais = models.CharField(max_length=2)
     nombre = models.CharField(max_length=80, unique=True)
     zona_horaria = models.CharField(max_length=64)

@@ -1,13 +1,15 @@
 from collections.abc import Mapping
 from datetime import date
 
-from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from apps.reference.models import Locality
+from apps.reference.serializers import CatalogueCodeField
+
 from .images import sanitize_profile_image
 from .models import User
-from .password_check import validate_registration_password
+from .password_check import validate_account_password
 from .policy import current_registration_policy
 
 DISPOSABLE_EMAIL_DOMAINS = {
@@ -42,11 +44,17 @@ class RegistrationSerializer(StrictSerializer):
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
     document_number = serializers.CharField(max_length=20)
-    document_type = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    document_type = CatalogueCodeField("document_type", max_length=20)
     birth_date = serializers.DateField()
-    birth_place = serializers.CharField(max_length=100)
+    birth_place = serializers.CharField(read_only=True)
+    birth_city_id = serializers.PrimaryKeyRelatedField(
+        source="birth_city", queryset=Locality.objects.filter(active=True, country__active=True)
+    )
+    billing_city_id = serializers.PrimaryKeyRelatedField(
+        source="billing_city", queryset=Locality.objects.filter(active=True, country__active=True)
+    )
     billing_address = serializers.CharField(max_length=200)
-    gender = serializers.CharField(max_length=20)
+    gender = CatalogueCodeField("gender", max_length=20)
     phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
     password = serializers.CharField(write_only=True, trim_whitespace=False)
     accepts_data_policy = serializers.BooleanField()
@@ -98,6 +106,13 @@ class RegistrationSerializer(StrictSerializer):
         return sanitize_profile_image(value)
 
     def validate(self, attrs):
+        for field in ("birth_city", "billing_city"):
+            place = attrs[field]
+            if place.subdivision_id and not place.subdivision.active:
+                raise serializers.ValidationError(
+                    {field + "_id": "La división territorial no está activa."}
+                )
+        attrs["birth_place"] = attrs["birth_city"].label
         profile = {
             k: v
             for k, v in attrs.items()
@@ -112,8 +127,7 @@ class RegistrationSerializer(StrictSerializer):
             }
         }
         try:
-            validate_password(attrs["password"], user=User(**profile))
-            validate_registration_password(attrs["password"])
+            validate_account_password(attrs["password"], user=User(**profile))
         except DjangoValidationError as exc:
             raise serializers.ValidationError({"password": exc.messages}) from None
         return attrs
@@ -174,4 +188,6 @@ class ProfileSerializer(serializers.Serializer):
     gender = serializers.CharField()
     role = serializers.CharField()
     is_email_verified = serializers.BooleanField()
-    wallet_balance = serializers.CharField()
+    wallet_balance = serializers.CharField(allow_null=True)
+    birth_city_id = serializers.IntegerField(allow_null=True)
+    billing_city_id = serializers.IntegerField(allow_null=True)

@@ -188,8 +188,6 @@ class VueloDetalleSerializer(EffectivePriceMixin, serializers.ModelSerializer):
 class FlightSearchRequestSerializer(serializers.Serializer):
     origen_id = serializers.IntegerField(required=False, allow_null=True)
     destino_id = serializers.IntegerField(required=False, allow_null=True)
-    origen = serializers.CharField(required=False, allow_blank=True)
-    destino = serializers.CharField(required=False, allow_blank=True)
     fecha_salida = serializers.DateField(required=False, allow_null=True)
     fecha_regreso = serializers.DateField(required=False, allow_null=True)
     tipo_trayecto = serializers.ChoiceField(
@@ -207,6 +205,17 @@ class FlightSearchRequestSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
+        if "origen" in self.initial_data or "destino" in self.initial_data:
+            raise serializers.ValidationError(
+                "Selecciona origen_id/destino_id del catálogo de vuelos."
+            )
+        for field in ("origen_id", "destino_id"):
+            if (
+                attrs.get(field) is not None
+                and not Ciudad.objects.filter(pk=attrs[field], activa=True).exists()
+            ):
+                raise serializers.ValidationError({field: "Selecciona una ciudad con cobertura."})
+
         tipo_trayecto = attrs.get("tipo_trayecto", "UNICO")
         fecha_salida = attrs.get("fecha_salida")
         fecha_regreso = attrs.get("fecha_regreso")

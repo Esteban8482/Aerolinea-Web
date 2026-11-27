@@ -2,11 +2,36 @@
 
 **Proyecto:** Sistema de Gestión de Compra y Reserva de Tiquetes Aéreos en Línea  
 **Asignatura:** Laboratorio de Software — Universidad Tecnológica de Pereira  
-**Versión:** 1.0.6
-**Fecha:** 2026-11-26
+**Versión:** 1.0.7
+**Fecha:** 2026-11-27
 **Ubicación propuesta:** `docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md`  
 **Destinatarios:** backend, frontend, integración/despliegue y herramientas de IA del equipo.  
 **Estado:** complemento consolidado para revisión e incorporación al repositorio mediante el flujo de trabajo del equipo. No acredita aprobación del profesor ni implementación del código.
+
+**Current cumulative delivery — 2026-11-27:** the user's consolidation request makes the
+current repository, recent reports and updated four-iteration story distribution the primary
+working references. Original ERS/use cases/diagrams are historical aids, not a mandate to
+restore obsolete behavior. This explicitly supersedes conflicting source-precedence text
+below for the cumulative backend task. Read [the consolidated delivery report](backend/consolidacion-iteraciones-01-03.md)
+for the current 15-story scope, contracts and evidence. No professor/team approval is inferred.
+
+**DEC-27 — explicit user instruction, 2026-11-27:** compromised-password database checks
+are no longer required. Remove the Pwned Passwords network client and its timeout/error
+contract from registration, recovery and administrator/password workflows. This supersedes
+only the password-provider parts of DEC-17 §9.4/9.5 and the references in §9.6/9.7.
+Django minimum 12, similarity, common-password and numeric validators, Argon2, verification,
+CSRF, login/recovery limits and session revocation remain. No password corpus or external
+provider needs provisioning. Earlier provider tests/results remain historical evidence only.
+
+**HU-010 implementation convention:** simulated methods retain only last four digits,
+owner-scoped HMAC fingerprint and descriptive/expiry metadata. Full numbers are discarded;
+CVV is rejected. This data-minimization choice replaces reversible encrypted-number storage
+for this simulation; it is not a real payment gateway token or a claim of PCI compliance.
+Deposits retain the existing API minimum 1000.00 COP, require an owned active unexpired
+method and `Idempotency-Key`, and cannot exceed the existing DecimalField balance capacity
+999999999999.99. No new discretionary banking ceiling, fees, withdrawals or second factor
+are introduced. P-05 remains open for a separately agreed business ceiling/withdrawals;
+it does not prevent the existing simulated deposits under their documented storage limits.
 
 **Índice de consulta**
 
@@ -455,7 +480,7 @@ Las sesiones persistidas permiten compartir el estado entre instancias: el requi
 - Implementar y probar cierre tras 30 minutos de inactividad; una duración absoluta de token no equivale por sí sola a ese comportamiento.
 - Revocar sesión al cerrar sesión. La actividad vigente de HU-008 se concreta en DEC-20 (§9.6): renovación explícita, excluyendo sondeos automáticos de fondo.
 - Configurar Argon2id mediante los mecanismos de Django; no implementar hashing propio ni almacenar contraseñas reversibles.
-- Aplicar la política de la ERS: mínimo 12 caracteres, control de contraseñas comprometidas y ausencia de expiración periódica obligatoria. Esa cifra se cita como requisito del proyecto; no demuestra por sí sola conformidad con una edición vigente de NIST.
+- Aplicar la política de la ERS: mínimo 12 caracteres, validadores locales de Django (DEC-27) y ausencia de expiración periódica obligatoria. Esa cifra se cita como requisito del proyecto; no demuestra por sí sola conformidad con una edición vigente de NIST.
 - Verificación de correo de un solo uso, con vigencia máxima de 24 horas. Una cuenta sin verificar puede iniciar sesión, pero no reservar, comprar ni operar su billetera.
 - Recuperación de contraseña mediante enlace de un solo uso y vigencia limitada.
 - Limitar intentos por cuenta y origen y aplicar bloqueo temporal; DEC-18/19 (§9.6) concretan los parámetros de HU-008 y P-05 mantiene los demás controles pendientes.
@@ -510,7 +535,7 @@ Los pendientes de intentos/bloqueo y recuperación de este acuerdo histórico se
 posteriormente en §9.6 para HU-008. P-05 mantiene abiertos otros controles sensibles,
 contratos de imágenes, segundo factor y operaciones financieras.
 
-### 9.5. Sustitución parcial de DEC-17 — contraseñas de HU-007
+### 9.5. Historical provider rule — superseded by DEC-27 (2026-11-27)
 
 **Fecha y procedencia:** 2026-10-20, autorización expresa del usuario en el encargo
 «Completa el backend de HU-007». Sustituye únicamente el acuerdo histórico de corpus
@@ -562,8 +587,8 @@ siguientes son decisiones vigentes limitadas a esta historia. No cierran P-05 gl
   procedimiento alternativo inventado. Restablecer no inicia sesión ni verifica correo;
   todas las sesiones previas, incluida la del solicitante, dejan de autenticar en su
   siguiente petición por el hash de autenticación de Django. No conservar ninguna con
-  `update_session_auth_hash`. La comprobación de Pwned Passwords conserva DEC-17 §9.5;
-  si falla, contraseña y token permanecen intactos. Red fuera de bloqueos; revalidación
+  `update_session_auth_hash`. La validación local conserva la política Django (DEC-27);
+  si falla, contraseña y token permanecen intactos. Revalidación
   atómica posterior de token, cuenta y contraseña vigente.
 - **DEC-20 — Inactividad:** login inicia los 30 minutos. Solo el POST autenticado
   `/api/v1/auth/session/activity/` renueva el plazo; frontend lo envía tras interacción
@@ -602,9 +627,8 @@ imágenes, segundo factor y operaciones financieras.
   mediante el hash de autenticación de Django, efectivo en su siguiente petición; no se
   inicia sesión automáticamente. Una petición ya autenticada y en curso no se deshace.
   Un fallo de validación, persistencia o del proveedor conserva contraseña y sesiones.
-- Se mantiene la política de contraseñas y API por rango de DEC-11/17: comprobación externa
-  fuera de transacciones/bloqueos; TLS, padding, presupuesto total 3 s y fallo cerrado
-  503 `password_check_unavailable`. Revalidar estado y credenciales antes del cambio atómico.
+- Se mantiene la política local de contraseñas Django (DEC-27), sin comprobación externa.
+  Revalidar estado y credenciales antes del cambio atómico.
 
 **Trazabilidad:** HU-009/CU-09, RF-USU-02/03/04/06/07/13/14/15, RN-01/02/03/19 y
 RNF-SEG-04/05/08/09/10; complementa DEC-03/10/11/13/15. Contratos, implementación y
@@ -903,6 +927,7 @@ Cada encargo debe indicar HU, alcance, decisiones aplicables, dependencias, crit
 
 | Versión | Fecha | Cambio |
 |---|---|---|
+| 1.0.7 | 2026-11-27 | User-authorized cumulative scope/source precedence; DEC-27 retires breach-provider checks; documents HU-010 simulation and inherited deposit minimum/storage limits. |
 | 1.0.6 | 2026-11-26 | Records user-approved DEC-23–26 for iteration 03, promotion eligibility, explicit operation, accepted relocation/refund and scoped magic-link access; preserves unrelated pending decisions. |
 | 1.0.5 | 2026-10-20 | Registra DEC-21/22 aprobadas para altas de administradores y cambio propio de contraseña ROOT, límites independientes y revocación de sesiones; conserva P-05 parcial. |
 | 1.0.4 | 2026-10-20 | Registra DEC-18/19/20 aprobadas para login, recuperación e inactividad de HU-008; P-05 continúa abierto para los demás controles. |
@@ -958,3 +983,14 @@ efca50a4dbf752c84c0f08ff40140b8a0bfd931d00210d2ebdd2b4ad405df1c4
 is714-laboratorio-de-software(1).pdf
 b664db5f0562b24fa6327b93a7cbba45937230030ae9724f3d3fbadd03555ebb
 ```
+
+### DEC-28 — Opciones controladas y alcance financiero de ROOT (2026-11-27)
+
+El usuario solicita catálogos persistidos y selectores buscables para datos enumerables,
+incluida geografía mundial dependiente país/división/localidad. La cobertura comercial es un
+catálogo distinto: los selectores de búsqueda de vuelos ofrecen conexiones directas disponibles,
+filtran ambos sentidos y devuelven vacío si no existen opciones. No admiten ciudades de texto libre.
+La aclaración posterior del usuario para ROOT es «remove wallet access, retain everything else»:
+se elimina únicamente el acceso financiero y se conservan sus funciones existentes de cuenta y
+seguridad de administradores. Contratos, migraciones y trazabilidad frontend:
+[catálogos y ROOT](backend/catalogues-and-root.md).

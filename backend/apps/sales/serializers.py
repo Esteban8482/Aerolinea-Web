@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from apps.flights.models import ClaseTiquete
 from apps.flights.serializers import SillaSerializer, VueloListSerializer
+from apps.reference.serializers import CatalogueCodeField
 
 from .models import (
     Compra,
@@ -16,11 +17,13 @@ from .models import (
 
 class ViajeroInputSerializer(serializers.Serializer):
     documento = serializers.CharField(max_length=30)
-    tipo_documento = serializers.CharField(max_length=20, default="CC", required=False)
+    tipo_documento = CatalogueCodeField(
+        "document_type", max_length=20, default="CC", required=False
+    )
     nombres = serializers.CharField(max_length=80)
     apellidos = serializers.CharField(max_length=80)
     fecha_nacimiento = serializers.DateField()
-    genero = serializers.CharField(max_length=20, default="OTRO", required=False)
+    genero = CatalogueCodeField("gender", max_length=20, default="OTRO", required=False)
     telefono = serializers.CharField(max_length=30)
     correo = serializers.EmailField()
     nombre_contacto = serializers.CharField(max_length=100)

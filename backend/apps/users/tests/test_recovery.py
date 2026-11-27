@@ -19,7 +19,6 @@ from apps.users.errors import (
 )
 from apps.users.models import AccountSession, AuthenticationEvent, PasswordRecovery, User
 from apps.users.recovery_mail import process_recovery_emails
-from apps.users.tests.conftest import range_body
 from apps.users.tests.test_authentication import (
     AUTH,
     PASSWORD,
@@ -41,7 +40,7 @@ NEW_PASSWORD = "nueva-clave-sintetica-distinta-para-pruebas-2026"
 
 
 @pytest.fixture
-def recovery_settings(settings, provider):
+def recovery_settings(settings):
     settings.PASSWORD_RECOVERY_FRONTEND_URL = "https://example.invalid/restablecer"
     return settings
 
@@ -228,28 +227,13 @@ def test_reset_consumes_token_once_and_keeps_mail_unverified(job, account, clien
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("failure", ["weak", "compromised", "provider"])
-def test_failed_password_check_keeps_old_password_and_unused_token(
-    job, account, client, provider, failure
-):
-    password = NEW_PASSWORD
-    if failure == "weak":
-        password = "short"
-    elif failure == "compromised":
-        import hashlib
-
-        value = hashlib.sha1(password.encode(), usedforsecurity=False).hexdigest().upper()
-        provider["body"] = range_body(suffix=value[5:])
-    else:
-        provider["error"] = TimeoutError("private-failure")
+def test_failed_local_password_check_keeps_old_password_and_unused_token(job, account, client):
     response = client.post(
         AUTH + "password-reset/",
-        {"token": recovery_token(job), "password": password, "password_confirmation": password},
+        {"token": recovery_token(job), "password": "short", "password_confirmation": "short"},
         format="json",
     )
-    assert response.status_code == (503 if failure == "provider" else 400)
-    if failure == "provider":
-        assert response.json()["code"] == "password_check_unavailable"
+    assert response.status_code == 400
     account.refresh_from_db()
     job.refresh_from_db()
     assert account.check_password(PASSWORD) and job.consumed_at is None
@@ -292,18 +276,18 @@ def test_reset_persistence_failure_rolls_back_password_token_and_audit(job, acco
 
 
 @pytest.mark.django_db(transaction=True)
-def test_concurrent_consumption_has_one_effect_and_external_check_holds_no_locks(
+def test_concurrent_consumption_has_one_effect_and_local_validation_holds_no_locks(
     job, account, monkeypatch
 ):
     barrier = Barrier(2)
-    original = auth_services.validate_registration_password
+    original = auth_services.validate_account_password
 
-    def checked(password):
+    def checked(password, user=None):
         assert not connection.in_atomic_block
         barrier.wait(timeout=15)
-        return original(password)
+        return original(password, user=user)
 
-    monkeypatch.setattr(auth_services, "validate_registration_password", checked)
+    monkeypatch.setattr(auth_services, "validate_account_password", checked)
 
     def run():
         try:
@@ -320,14 +304,14 @@ def test_concurrent_consumption_has_one_effect_and_external_check_holds_no_locks
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("change", ["inactive", "superseded", "email", "expired"])
-def test_token_and_account_are_revalidated_after_external_check(
+def test_token_and_account_are_revalidated_after_initial_validation(
     job, account, monkeypatch, clock, change
 ):
-    original = auth_services.validate_registration_password
+    original = auth_services.validate_account_password
 
-    def checked(password):
+    def checked(password, user=None):
         assert not connection.in_atomic_block
-        original(password)
+        original(password, user=user)
         if change == "inactive":
             User.objects.filter(pk=account.pk).update(is_active=False)
         elif change == "superseded":
@@ -337,7 +321,7 @@ def test_token_and_account_are_revalidated_after_external_check(
         else:
             clock.now = job.expires_at
 
-    monkeypatch.setattr(auth_services, "validate_registration_password", checked)
+    monkeypatch.setattr(auth_services, "validate_account_password", checked)
     with pytest.raises(ExpiredRecovery if change == "expired" else InvalidRecovery):
         reset_password(token=recovery_token(job), password=NEW_PASSWORD, origin="test")
     account.refresh_from_db()

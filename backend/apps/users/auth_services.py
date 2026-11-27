@@ -14,7 +14,7 @@ from rest_framework.exceptions import NotAuthenticated, Throttled, ValidationErr
 
 from .errors import ExpiredRecovery, InvalidCredentials, InvalidRecovery, UsedRecovery
 from .models import AccountSession, AuthenticationEvent, LoginGuard, PasswordRecovery, User
-from .password_check import validate_registration_password
+from .password_check import validate_account_password
 
 IDLE_SECONDS = 1800
 ACTIVITY_INTERVAL_SECONDS = 60
@@ -200,16 +200,14 @@ def reset_password(*, token, password, origin):
     job = PasswordRecovery.objects.filter(pk=job_id, user_id=user_id).first()
     _check_recovery(user, job)
     try:
-        validate_password(password, user=user)
-        # La única llamada externa ocurre sin atomic ni bloqueos; su fallo no consume el enlace.
-        validate_registration_password(password)
+        validate_account_password(password, user=user)
     except DjangoValidationError as exc:
         raise ValidationError({"password": exc.messages}) from None
     with transaction.atomic():
         user = User.objects.select_for_update().get(pk=user_id)
         job = PasswordRecovery.objects.select_for_update().get(pk=job_id, user=user)
         _check_recovery(user, job)
-        # Revalidar atributos de usuario que pudieron cambiar durante la consulta externa.
+        # Revalidar atributos de usuario que pudieron cambiar durante la validación inicial.
         try:
             validate_password(password, user=user)
         except DjangoValidationError as exc:

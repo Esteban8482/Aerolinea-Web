@@ -22,7 +22,7 @@ NEW_PASSWORD = "credencial-nueva-sintetica-iteracion-2026"
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("role", ["ROOT", "ADMINISTRADOR"])
-def test_login_rehash_cannot_overwrite_a_concurrent_password_reset(role, provider):
+def test_login_rehash_cannot_overwrite_a_concurrent_password_reset(role):
     if role == "ROOT":
         user = User.objects.create_root(
             root_id="iteration-root", email="root@example.invalid", password=PASSWORD
@@ -141,7 +141,7 @@ def test_customer_registration_recovery_and_verification_are_independent(data):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_root_password_change_invalidates_pending_recovery_and_session(settings, provider):
+def test_root_password_change_invalidates_pending_recovery_and_session(settings):
     from apps.users.recovery_mail import process_recovery_emails
     from apps.users.services import provision_root
 

@@ -1,5 +1,12 @@
 # Iteration 03 — backend diagnosis, implementation and handoff
 
+**Superseded scope/evidence notice (2026-11-27):** the
+[cumulative report](consolidacion-iteraciones-01-03.md) extends this delivery to all 15 stories
+of Iterations 01–03, including HU-010 payment methods/deposits, and retires the external
+password provider (DEC-27). Payment-method exclusions and the 455-test result below describe
+the earlier delivery at `319dac4`, not the current cumulative verification. Other approved
+iteration-03 business rules remain in effect.
+
 Date: 2026-11-26. Branch: `iteracion-03`. Integration baseline: `d52abe5`.
 
 **Delivery status: backend implemented and locally verified.** This document supersedes
@@ -358,3 +365,10 @@ No finite test suite proves every possible input or execution schedule.
   publish queryable news; subscriber-management infrastructure remains its own story.
 - A downloaded boarding pass cannot be recalled. The system invalidates its check-in and
   stops serving it through authorized APIs after the relevant change.
+
+## Catalogue and ROOT follow-up — 2026-11-27
+
+See [the catalogue/ROOT addendum](catalogues-and-root.md) for approved scope, migrations,
+new selectors, registration contract changes, dataset provenance and frontend handoff.
+The user's final ROOT clarification removes wallet access only; retain existing authentication,
+password and administrator-account security operations.

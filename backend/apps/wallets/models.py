@@ -4,6 +4,53 @@ from django.conf import settings
 from django.db import models
 
 
+class PaymentMethod(models.Model):
+    class Kind(models.TextChoices):
+        CARD = "TARJETA", "Tarjeta simulada"
+        BANK = "CUENTA_BANCARIA", "Cuenta bancaria simulada"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="payment_methods"
+    )
+    tipo = models.CharField(max_length=20, choices=Kind.choices)
+    alias = models.CharField(max_length=80)
+    titular = models.CharField(max_length=160)
+    entidad = models.CharField(max_length=100)
+    # Simulation never needs the original number again. Keep only a keyed fingerprint
+    # for deduplication and its last four digits; no PAN/account number or CVV at rest.
+    fingerprint = models.CharField(max_length=64, editable=False)
+    ultimos_cuatro = models.CharField(max_length=4, editable=False)
+    mes_vencimiento = models.PositiveSmallIntegerField(null=True, blank=True)
+    anio_vencimiento = models.PositiveSmallIntegerField(null=True, blank=True)
+    activo = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-creado_en", "-pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "tipo", "fingerprint"], name="unique_owner_payment_fingerprint"
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        tipo="CUENTA_BANCARIA",
+                        mes_vencimiento__isnull=True,
+                        anio_vencimiento__isnull=True,
+                    )
+                    | models.Q(
+                        tipo="TARJETA",
+                        mes_vencimiento__gte=1,
+                        mes_vencimiento__lte=12,
+                        mes_vencimiento__isnull=False,
+                        anio_vencimiento__isnull=False,
+                    )
+                ),
+                name="payment_method_valid_expiry",
+            ),
+        ]
+
+
 class Wallet(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="wallet"
@@ -33,6 +80,11 @@ class MovimientoBilletera(models.Model):
     valor = models.DecimalField(max_digits=14, decimal_places=2)
     saldo_resultante = models.DecimalField(max_digits=14, decimal_places=2)
     referencia = models.CharField(max_length=120, blank=True, default="")
+    medio_pago = models.ForeignKey(
+        PaymentMethod, null=True, blank=True, on_delete=models.PROTECT, related_name="movimientos"
+    )
+    idempotency_key = models.CharField(max_length=128, null=True, blank=True, editable=False)
+    request_fingerprint = models.CharField(max_length=64, blank=True, editable=False)
     creado_en = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -40,6 +92,9 @@ class MovimientoBilletera(models.Model):
         verbose_name_plural = "Movimientos de Billetera"
         ordering = ["-creado_en"]
         constraints = [
+            models.UniqueConstraint(
+                fields=["wallet", "idempotency_key"], name="unique_wallet_deposit_key"
+            ),
             models.CheckConstraint(condition=models.Q(valor__gt=0), name="movement_positive"),
             models.CheckConstraint(
                 condition=models.Q(saldo_resultante__gte=0), name="movement_balance_nonnegative"

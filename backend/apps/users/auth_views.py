@@ -180,7 +180,6 @@ class ResetPasswordView(APIView):
         responses={
             200: ResetPasswordResultSerializer,
             410: RegistrationErrorSerializer,
-            503: RegistrationErrorSerializer,
             **ERRORS,
         },
         auth=[],
@@ -188,7 +187,7 @@ class ResetPasswordView(APIView):
         tags=["Recuperación"],
         description="POST explícito: GET no consume. 400 recovery_invalid o invalid (campos); "
         "410 recovery_expired, 409 recovery_used. Reutiliza validadores de contraseña, "
-        "Argon2id y API por rango: fallo 503 password_check_unavailable conserva clave y token. "
+        "Argon2id; la validación local fallida conserva clave y token. "
         "Sin login automático ni verificación de correo. Todas las sesiones anteriores dejan "
         "de autenticar en su próxima petición, incluida la del solicitante.",
     )

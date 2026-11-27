@@ -26,7 +26,6 @@ from apps.users.models import (
 )
 from apps.users.permissions import HasVerifiedEmail, IsAdministrator, IsClient
 from apps.users.services import provision_root
-from apps.users.tests.conftest import range_body
 from apps.users.tests.test_authentication import (
     PASSWORD,
     csrf,
@@ -52,7 +51,7 @@ def root():
 
 
 @pytest.fixture
-def root_client(client, root, provider):
+def root_client(client, root):
     assert login(client, root).status_code == 200
     csrf(client)
     return client
@@ -122,7 +121,7 @@ def test_only_email_and_initial_password_are_required_for_later_profile_completi
 )
 @pytest.mark.parametrize("operation", ["create", "list", "password"])
 def test_other_roles_and_superusers_are_denied_and_audited(
-    client, data, role, technical, operation, provider
+    client, data, role, technical, operation
 ):
     if role:
         user = User(
@@ -144,7 +143,6 @@ def test_other_roles_and_superusers_are_denied_and_audited(
     assert response.status_code == 403
     assert User.objects.count() == before and not AdministratorNotification.objects.exists()
     assert AdministrationEvent.objects.filter(kind="access_denied").count() == 1
-    assert not provider["factory"].called
 
 
 @pytest.mark.django_db
@@ -223,26 +221,6 @@ def test_document_can_repeat_and_listing_contains_only_authorized_admin_fields(r
     assert root_client.get(URL + "1/").status_code == 404
     for method in ["put", "patch", "delete"]:
         assert getattr(root_client, method)(URL, {}, format="json").status_code == 405
-
-
-@pytest.mark.django_db
-@pytest.mark.parametrize("kind", ["provider", "compromised"])
-def test_compromised_password_or_provider_failure_has_no_partial_persistence(
-    root_client, data, provider, kind
-):
-    import hashlib
-
-    if kind == "provider":
-        provider["error"] = TimeoutError("private-provider-failure")
-    else:
-        value = hashlib.sha1(data["password"].encode(), usedforsecurity=False).hexdigest().upper()
-        provider["body"] = range_body(suffix=value[5:])
-    response = root_client.post(URL, data, format="json")
-    assert response.status_code == (503 if kind == "provider" else 400)
-    assert User.objects.count() == Wallet.objects.count() == 1
-    assert (
-        not AdministratorNotification.objects.exists() and not AdministrationEvent.objects.exists()
-    )
 
 
 @pytest.mark.django_db
@@ -332,8 +310,8 @@ def test_root_cannot_target_another_account_via_password_contract(root_client, f
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("failure", ["current", "weak", "confirmation", "provider"])
-def test_failed_password_change_keeps_password_and_session(root, root_client, provider, failure):
+@pytest.mark.parametrize("failure", ["current", "weak", "confirmation"])
+def test_failed_password_change_keeps_password_and_session(root, root_client, failure):
     data = password_data()
     if failure == "current":
         data["current_password"] = "wrong-password"
@@ -341,12 +319,8 @@ def test_failed_password_change_keeps_password_and_session(root, root_client, pr
         data["password"] = data["password_confirmation"] = "short"
     elif failure == "confirmation":
         data["password_confirmation"] = "different"
-    else:
-        provider["error"] = TimeoutError("private-provider-failure")
     response = root_client.post(PASSWORD_URL, data, format="json")
-    assert response.status_code == (
-        401 if failure == "current" else 503 if failure == "provider" else 400
-    )
+    assert response.status_code == (401 if failure == "current" else 400)
     root.refresh_from_db()
     assert root.check_password(PASSWORD)
     assert root_client.get("/api/v1/auth/session/").json()["authenticated"]
@@ -354,9 +328,7 @@ def test_failed_password_change_keeps_password_and_session(root, root_client, pr
 
 
 @pytest.mark.django_db
-def test_current_password_verification_never_rehashes_before_provider_success(
-    root, root_client, provider
-):
+def test_current_password_verification_never_rehashes_before_local_validation(root, root_client):
     root.password = make_password(PASSWORD, hasher="pbkdf2_sha256")
     root.save(update_fields=["password"])
     # Crear una sesión ligada al hash heredado, que el login podría actualizar por sí mismo.
@@ -366,8 +338,9 @@ def test_current_password_verification_never_rehashes_before_provider_success(
     session[HASH_SESSION_KEY] = root.get_session_auth_hash()
     session.save()
     old_hash = root.password
-    provider["error"] = TimeoutError()
-    assert root_client.post(PASSWORD_URL, password_data(), format="json").status_code == 503
+    invalid = password_data()
+    invalid["password"] = invalid["password_confirmation"] = "short"
+    assert root_client.post(PASSWORD_URL, invalid, format="json").status_code == 400
     root.refresh_from_db()
     assert root.password == old_hash
     assert root_client.get("/api/v1/auth/session/").json()["authenticated"]
@@ -443,7 +416,7 @@ def test_shared_role_permissions_enforce_rn02_and_rn03_even_for_technical_superu
 
 @pytest.mark.django_db(transaction=True)
 def test_concurrent_creation_with_same_email_has_one_account_wallet_and_notification(
-    root, data, provider, monkeypatch
+    root, data, monkeypatch
 ):
     barrier = Barrier(2)
     original = administration_services.check_new_password
@@ -471,7 +444,7 @@ def test_concurrent_creation_with_same_email_has_one_account_wallet_and_notifica
 
 
 @pytest.mark.django_db(transaction=True)
-def test_concurrent_root_password_changes_have_one_effect(root, provider, monkeypatch):
+def test_concurrent_root_password_changes_have_one_effect(root, monkeypatch):
     barrier = Barrier(2)
     original = administration_services.check_new_password
 
@@ -499,9 +472,7 @@ def test_concurrent_root_password_changes_have_one_effect(root, provider, monkey
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("operation", ["create", "password"])
-def test_permission_is_rechecked_after_provider_returns(
-    root, data, provider, monkeypatch, operation
-):
+def test_permission_is_rechecked_after_validation(root, data, monkeypatch, operation):
     original = administration_services.check_new_password
 
     def checked(*args):
@@ -524,7 +495,7 @@ def test_permission_is_rechecked_after_provider_returns(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_mail_retry_recovery_and_privacy(root, data, provider, clock, caplog):
+def test_mail_retry_recovery_and_privacy(root, data, clock, caplog):
     user = create_administrator(actor=root, data=data, origin="192.0.2.1")
     job = AdministratorNotification.objects.get()
 
@@ -553,9 +524,7 @@ def test_mail_retry_recovery_and_privacy(root, data, provider, clock, caplog):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_mail_processors_claim_one_notification_and_recover_abandoned_lease(
-    root, data, provider, clock
-):
+def test_mail_processors_claim_one_notification_and_recover_abandoned_lease(root, data, clock):
     create_administrator(actor=root, data=data, origin="test")
     job = AdministratorNotification.objects.get()
     job.lease_until = clock.now + timedelta(minutes=5)
@@ -587,7 +556,7 @@ def test_mail_processors_claim_one_notification_and_recover_abandoned_lease(
 
 
 @pytest.mark.django_db
-def test_mail_never_runs_inside_registration_transaction(root, data, provider):
+def test_mail_never_runs_inside_registration_transaction(root, data):
     create_administrator(actor=root, data=data, origin="test")
     with transaction.atomic():
         with pytest.raises(RuntimeError, match="commit"):
@@ -598,7 +567,7 @@ ADMIN_PASSWORD_URL = "/api/v1/users/administrators/password/"
 
 
 @pytest.mark.django_db
-def test_create_administrator_accepts_phone(root_client, data, provider):
+def test_create_administrator_accepts_phone(root_client, data):
     payload = {**data, "email": "admin_phone@example.invalid", "phone": "+57 300 1234567"}
     response = root_client.post(URL, payload, format="json")
     assert response.status_code == 201
@@ -607,7 +576,7 @@ def test_create_administrator_accepts_phone(root_client, data, provider):
 
 
 @pytest.mark.django_db
-def test_change_administrator_password_success(root, root_client, data, provider):
+def test_change_administrator_password_success(root, root_client, data):
     admin = create_administrator(actor=root, data=data, origin="test")
     new_admin_pass = "Credencial-Actualizada-2026!"
     payload = {
@@ -635,7 +604,7 @@ def test_change_administrator_password_success(root, root_client, data, provider
 
 
 @pytest.mark.django_db
-def test_change_administrator_password_requires_root(root, data, provider):
+def test_change_administrator_password_requires_root(root, data):
     admin = create_administrator(actor=root, data=data, origin="test")
     new_admin_pass = "Credencial-Actualizada-2026!"
     payload = {
@@ -673,7 +642,7 @@ def test_change_administrator_password_requires_root(root, data, provider):
 
 
 @pytest.mark.django_db
-def test_change_administrator_password_validations(root_client, root, data, provider):
+def test_change_administrator_password_validations(root_client, root, data):
     admin = create_administrator(actor=root, data=data, origin="test")
 
     # Contraseñas no coinciden

@@ -68,9 +68,8 @@ class RegisterView(APIView):
         "Obtén política vigente con GET /api/v1/auth/registration-policy/. "
         "JSON sin imagen o multipart/form-data con image opcional JPEG/PNG/WebP, "
         "hasta 2 MiB y 4096×4096. Producción requiere política aprobada. "
-        "Configuración ausente: 503 registration_unavailable. Comprobación HTTPS por rango "
-        "Pwned Passwords (3 s, sin reintentos): fallo 503 password_check_unavailable; "
-        "reintentar más tarde. Contraseña comprometida: 400 invalid. "
+        "Configuración ausente: 503 registration_unavailable. Contraseña inválida: 400 invalid. "
+        "Validación local de Django, sin servicio externo de contraseñas. "
         "Límite excedido: 429 con Retry-After.",
     )
     def post(self, request):
@@ -190,8 +189,8 @@ class ProfileView(APIView):
     )
     def get(self, request):
         user = request.user
-        balance = "0.00"
-        if hasattr(user, "wallet"):
+        balance = None if user.role == "ROOT" else "0.00"
+        if user.role != "ROOT" and hasattr(user, "wallet"):
             balance = str(user.wallet.balance)
         return Response(
             {
@@ -204,6 +203,8 @@ class ProfileView(APIView):
                 "document_type": user.document_type,
                 "birth_date": user.birth_date.isoformat() if user.birth_date else None,
                 "birth_place": user.birth_place,
+                "birth_city_id": user.birth_city_id,
+                "billing_city_id": user.billing_city_id,
                 "billing_address": user.billing_address,
                 "gender": user.gender,
                 "role": user.role,

@@ -1,4 +1,4 @@
-"""Operaciones de HU-009; las consultas externas preceden a los bloqueos de datos."""
+"""Operaciones de HU-009; validación local y revalidación bajo bloqueo."""
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -12,7 +12,7 @@ from .administration_serializers import AdministratorCreateSerializer
 from .auth_services import private_key
 from .errors import EmailAlreadyRegistered
 from .models import AdministrationEvent, AdministratorNotification, User
-from .password_check import validate_registration_password
+from .password_check import validate_account_password
 
 
 def administration_event(*, kind, action, actor=None, target=None, origin=""):
@@ -44,8 +44,7 @@ def deny_root_action(actor, *, action, origin):
 
 def check_new_password(password, user):
     try:
-        validate_password(password, user=user)
-        validate_registration_password(password)
+        validate_account_password(password, user=user)
     except DjangoValidationError as exc:
         raise ValidationError({"password": exc.messages}) from None
 
@@ -171,7 +170,7 @@ def change_root_password(*, actor, current_password, password, origin):
     if error:
         raise error
     previous_hash = root.password
-    # La consulta externa está fuera de ambas transacciones y no mantiene bloqueos.
+    # Validación local antes de adquirir nuevamente los bloqueos del cambio.
     check_new_password(password, root)
     with transaction.atomic():
         guard = LoginGuard.objects.select_for_update().get(key=key)

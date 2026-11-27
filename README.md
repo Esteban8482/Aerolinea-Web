@@ -23,6 +23,14 @@ verification status and frontend handoff are in
 [iteracion-03](docs/backend/iteracion-03.md). Earlier iteration-01 status statements below
 are historical; they do not describe the complete current branch.
 
+**Cumulative delivery update (2026-11-27):** Iterations 01–03 cover 15 backend stories,
+including HU-010 simulated payment methods and deposits. Current status, contracts, tests,
+frontend work and deployment limitations are in the
+[consolidated backend report](docs/backend/consolidacion-iteraciones-01-03.md).
+The [updated user stories](docs/Historias_Usuario_Sistema_Tiquetes_Aereos_Actualizadas.pdf)
+provide the four-iteration distribution. Breach-password provider checks have been retired
+by the user's current instruction (DEC-27); Django's local password policy remains.
+
 ## Contenido
 
 - [Contexto y objetivos](#contexto-y-objetivos)

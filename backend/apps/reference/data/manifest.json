@@ -1,0 +1,11 @@
+{
+  "source": "https://github.com/dr5hn/countries-states-cities-database/tree/9de04d85bdb305522141e2a139c86b3fdf1a51d5",
+  "revision": "9de04d85bdb305522141e2a139c86b3fdf1a51d5",
+  "sha256": "dbd1b15e137d46e5d1fe7f37f12d08df3540c8abfb86a02e61f7d091ef1250f1",
+  "countries": 250,
+  "subdivisions": 5327,
+  "cities": 172238,
+  "retrieved": "2026-11-27",
+  "license": "ODbL-1.0",
+  "local_supplement": "900000001: Buenos Aires, capital named in upstream country record; city-level option under Autonomous City of Buenos Aires, whose upstream locality list contains neighborhoods only."
+}

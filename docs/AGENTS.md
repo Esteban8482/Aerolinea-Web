@@ -2,6 +2,17 @@
 # Instrucciones para agentes de desarrollo
 Estas instrucciones aplican al repositorio Aerolínea Web. El encargo del usuario define la tarea y las acciones autorizadas. Este archivo establece las reglas comunes de trabajo; no autoriza por sí solo implementar todo el proyecto.
 
+## Current cumulative backend task (2026-11-27)
+
+Start with [the consolidated report](backend/consolidacion-iteraciones-01-03.md).
+For this authorized task, current code/recent documentation and the updated four-iteration
+HU PDF take precedence over original ERS/use cases/diagrams. Do not restore requirements
+only from those older sources. The user's explicit instruction retires compromised-password
+provider checks (DEC-27); retain local Django validators and all other authentication controls.
+HU-010 payment methods/deposits are now in scope; HU-011/015/018–021 remain iteration 04.
+The user authorized working on the current branch and isolated tests, without commits,
+merges, pushes, deployments, shared databases or real email. Preserve these limits.
+
 ## 1. Contexto y fuentes
 
 El proyecto es una aplicación web académica de gestión de vuelos, reservas, compras y check-in. El equipo tiene cuatro integrantes: dos de backend, uno de frontend y uno de integración/despliegue.

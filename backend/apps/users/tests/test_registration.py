@@ -38,7 +38,7 @@ PASSWORD = "prueba-larga-con-varias-palabras-2026"
 
 
 @pytest.fixture
-def registration_settings(settings, tmp_path, provider):
+def registration_settings(settings, tmp_path):
     settings.PRIVATE_MEDIA_ROOT = tmp_path / "private-media"
     settings.REGISTRATION_PRODUCTION = False
     settings.REGISTRATION_POLICY_IS_TEST = True
@@ -50,7 +50,7 @@ def registration_settings(settings, tmp_path, provider):
 
 
 @pytest.fixture
-def data(registration_settings):
+def data(registration_settings, reference_city):
     return {
         "email": "Persona@Example.invalid",
         "username": "viajero",
@@ -58,9 +58,11 @@ def data(registration_settings):
         "last_name": "De Prueba",
         "document_number": "00123456",
         "birth_date": "1995-06-15",
-        "birth_place": "Pereira",
+        "birth_city_id": reference_city.pk,
+        "billing_city_id": reference_city.pk,
+        "document_type": "CC",
         "billing_address": "Dirección ficticia",
-        "gender": "dato de prueba",
+        "gender": "F",
         "password": PASSWORD,
         "accepts_data_policy": True,
         "policy_reference": "synthetic-policy-test-v1",
@@ -105,7 +107,9 @@ def test_register_creates_client_consent_wallet_and_durable_delivery_together(da
         "last_name",
         "document_number",
         "birth_date",
-        "birth_place",
+        "birth_city_id",
+        "billing_city_id",
+        "document_type",
         "billing_address",
         "gender",
         "password",
@@ -146,9 +150,10 @@ def test_invalid_values_and_framework_password_validators(data, changes, field):
 
 
 @pytest.mark.django_db
-def test_document_type_is_optional_and_not_a_fabricated_catalog(data):
+def test_document_type_requires_catalogue_membership(data):
     data["document_type"] = "tipo de prueba"
-    assert register_customer(data=data).document_type == "tipo de prueba"
+    with pytest.raises(ValidationError):
+        register_customer(data=data)
 
 
 @pytest.mark.django_db

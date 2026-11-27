@@ -1,3 +1,8 @@
+> Current-reference notice — 2026-11-27: [the cumulative report](consolidacion-iteraciones-01-03.md)
+> supersedes earlier scope and verification totals. DEC-27 explicitly retires every Pwned
+> Passwords/corpus/provider-503 instruction below, including provisioning and old provider
+> tests. Remaining authentication controls continue; historical test evidence is not erased.
+
 # Iteración 1 — revisión conjunta del backend
 
 Revisión iniciada el 2026-10-20 y completada el **2026-10-21**, America/Bogota.

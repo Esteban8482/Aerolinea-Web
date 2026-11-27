@@ -79,7 +79,13 @@ def itinerary(flights, trip, now):
     if len({f.pk for f in flights}) != len(flights):
         raise ValidationError({"vuelo_regreso_id": "Ida y regreso deben ser vuelos distintos."})
     for flight in flights:
-        if flight.estado != EstadoVuelo.PROGRAMADO or flight.salida_utc <= now:
+        if (
+            flight.estado != EstadoVuelo.PROGRAMADO
+            or flight.salida_utc <= now
+            or not flight.ruta.activa
+            or not flight.ruta.origen.activa
+            or not flight.ruta.destino.activa
+        ):
             raise FlightNotAvailableForSale()
     if len(flights) == 2:
         a, b = flights
@@ -103,6 +109,10 @@ def travelers(data, flights, actor, now, exclude_reservation=None):
     if len(set(identities)) != len(identities):
         raise DuplicatePassengerInFlight()
     for item in data:
+        from apps.reference.catalogue import validate_option
+
+        validate_option("document_type", identity(item)[0], "tipo_documento")
+        validate_option("gender", item.get("genero"), "genero")
         required = [
             "documento",
             "nombres",

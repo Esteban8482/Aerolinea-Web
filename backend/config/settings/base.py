@@ -14,6 +14,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
+    "apps.reference",
     "apps.users",
     "apps.wallets",
     "apps.flights",
@@ -135,6 +136,8 @@ SPECTACULAR_SETTINGS = {
         "EstadoCheckinEnum": "apps.sales.models.EstadoCheckin",
         "EstadoVueloEnum": "apps.flights.models.EstadoVuelo",
         "TipoTrayectoEnum": "apps.sales.models.TipoTrayecto",
+        "PaymentMethodKindEnum": "apps.wallets.models.PaymentMethod.Kind",
+        "WalletMovementKindEnum": "apps.wallets.models.MovimientoBilletera.Tipo",
     },
     "COMPONENT_SPLIT_REQUEST": True,
 }
@@ -153,7 +156,6 @@ LOGGING = {
 }
 
 # API oficial fija; presupuesto total sin reintentos, incluido DNS.
-PWNED_PASSWORDS_TIMEOUT_SECONDS = 3
 
 PASSWORD_RECOVERY_FRONTEND_URL = env("PASSWORD_RECOVERY_FRONTEND_URL", default="")
 AIRLINE_CODE_PREFIX = env("AIRLINE_CODE_PREFIX", default="XX")

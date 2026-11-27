@@ -76,3 +76,10 @@ class IsClient(BasePermission):
         return bool(
             user and user.is_authenticated and user.is_active and user.role == User.Role.CLIENTE
         )
+
+
+class CanUseWallet(HasVerifiedEmail):
+    """ROOT has no financial access, regardless of technical privileges."""
+
+    def has_permission(self, request, view):
+        return super().has_permission(request, view) and request.user.role != "ROOT"

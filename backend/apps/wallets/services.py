@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, PermissionDenied
 
 from .models import MovimientoBilletera, Wallet
 
@@ -26,7 +26,11 @@ def depositar(wallet_id: int, monto: Decimal, referencia: str = "") -> Movimient
     if monto <= Decimal("0.00"):
         raise InvalidAmount()
 
-    wallet = Wallet.objects.select_for_update().get(pk=wallet_id)
+    wallet = Wallet.objects.select_for_update(of=("self",)).select_related("user").get(pk=wallet_id)
+    if wallet.user.role == "ROOT":
+        raise PermissionDenied("ROOT no tiene acceso a operaciones financieras.")
+    if wallet.balance + monto > Decimal("999999999999.99"):
+        raise InvalidAmount("El saldo resultante excede la capacidad de la billetera.")
     wallet.balance += monto
     wallet.save(update_fields=["balance"])
 
@@ -49,7 +53,9 @@ def debitar_para_compra(
     if monto <= Decimal("0.00"):
         raise InvalidAmount()
 
-    wallet = Wallet.objects.select_for_update().get(pk=wallet_id)
+    wallet = Wallet.objects.select_for_update(of=("self",)).select_related("user").get(pk=wallet_id)
+    if wallet.user.role == "ROOT":
+        raise PermissionDenied("ROOT no tiene acceso a operaciones financieras.")
     if wallet.balance < monto:
         raise InsufficientBalance()
 
@@ -75,7 +81,11 @@ def reembolsar_a_billetera(
     if monto <= Decimal("0.00"):
         raise InvalidAmount()
 
-    wallet = Wallet.objects.select_for_update().get(pk=wallet_id)
+    wallet = Wallet.objects.select_for_update(of=("self",)).select_related("user").get(pk=wallet_id)
+    if wallet.user.role == "ROOT":
+        raise PermissionDenied("ROOT no tiene acceso a operaciones financieras.")
+    if wallet.balance + monto > Decimal("999999999999.99"):
+        raise InvalidAmount("El saldo resultante excede la capacidad de la billetera.")
     wallet.balance += monto
     wallet.save(update_fields=["balance"])
 

@@ -62,7 +62,7 @@ La inicialización de la cuenta ROOT se realiza mediante el comando interactivo 
 Toda contraseña asignada a ROOT debe cumplir los validadores configurados en el sistema:
 * **Longitud mínima:** Al menos **8 caracteres**.
 * **Contenido:** Debe incluir **al menos un número** (`0-9`).
-* **Seguridad externa:** Se valida contra la API de *Pwned Passwords* mediante consulta por rango SHA-1 para asegurar que no sea una credencial públicamente comprometida.
+* **Política vigente (DEC-27):** validadores locales de Django; no se consulta Pwned Passwords. Se conservan Argon2, límites y revocación de sesiones.
 
 ---
 
@@ -138,3 +138,10 @@ En la suite de pruebas unitarias e integración (`tests/test_administration.py`)
 * **`root_id`:** `root-test`
 * **Contraseña:** `acceso-largo-sintetico-para-pruebas-2026`
 
+
+### Aclaración vigente (2026-11-27)
+
+Por instrucción explícita del usuario, ROOT no tiene acceso a billetera, movimientos, depósitos
+ni medios de pago; su perfil devuelve `wallet_balance: null`. Se conservan las demás funciones
+existentes de autenticación, sesiones, cambio/recuperación de contraseña y administración de
+cuentas de administradores. No se eliminan registros financieros históricos.

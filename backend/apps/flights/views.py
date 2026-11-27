@@ -1,7 +1,8 @@
 from django.db.models import Q
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -223,7 +224,8 @@ class FlightSearchView(APIView):
         now = timezone.now()
         base_qs = Vuelo.objects.filter(
             estado=EstadoVuelo.PROGRAMADO,
-            salida_utc__gt=now,
+            salida_utc__gt=now, ruta__activa=True,
+            ruta__origen__activa=True, ruta__destino__activa=True,
         ).select_related("ruta__origen", "ruta__destino")
 
         pasajeros = data.get("pasajeros", 1)
@@ -268,7 +270,16 @@ class FlightSearchView(APIView):
                 return [
                     flight
                     for flight in qs
-                    if any(resolver_precio_vigente(flight, c, now) <= precio_max for c in classes)
+                    if any(
+                        (
+                            flight.cupos_disponibles_primera
+                            if c == "PRIMERA_CLASE"
+                            else flight.cupos_disponibles_economica
+                        )
+                        >= pasajeros
+                        and resolver_precio_vigente(flight, c, now) <= precio_max
+                        for c in classes
+                    )
                 ]
             return qs
 
@@ -335,3 +346,39 @@ class FlightSearchView(APIView):
     @extend_schema(responses={200: FlightSearchResultSerializer})
     def get(self, request):
         return self._execute_search(request, request.query_params)
+
+
+class CatalogueCitiesView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(responses={200: CiudadSerializer(many=True)})
+    def get(self, request):
+        origins = Vuelo.objects.filter(
+            estado=EstadoVuelo.PROGRAMADO, salida_utc__gt=timezone.now()
+        ).values("ruta__origen_id")
+        cities = Ciudad.objects.filter(activa=True, pk__in=origins).order_by("nombre")
+        return Response(CiudadSerializer(cities, many=True).data)
+
+
+class FlightCatalogueView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        parameters=[OpenApiParameter("origen_id", int, required=True)],
+        responses={200: VueloListSerializer(many=True)},
+    )
+    def get(self, request):
+        try:
+            origin = int(request.query_params.get("origen_id", ""))
+            if origin < 1:
+                raise ValueError
+        except (ValueError, TypeError):
+            raise ValidationError({"origen_id": "Indica una ciudad válida."}) from None
+        flights = (
+            Vuelo.objects.filter(
+                ruta__origen_id=origin, estado=EstadoVuelo.PROGRAMADO, salida_utc__gt=timezone.now()
+            )
+            .select_related("ruta__origen", "ruta__destino")
+            .order_by("salida_utc", "pk")
+        )
+        return Response(VueloListSerializer(flights, many=True).data)
