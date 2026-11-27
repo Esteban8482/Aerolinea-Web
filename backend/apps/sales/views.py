@@ -1,4 +1,4 @@
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -194,7 +194,15 @@ class PurchaseDetailView(APIView):
 class PurchaseCancelView(APIView):
     permission_classes = [IsAuthenticated, IsClient, HasVerifiedEmail]
 
-    @extend_schema(request=None, responses={200: CompraDetailSerializer})
+    @extend_schema(
+        request=None,
+        responses={
+            200: CompraDetailSerializer,
+            409: OpenApiResponse(
+                description="Hay tiquetes pendientes de resolución por la aerolínea."
+            ),
+        },
+    )
     def post(self, request, pk):
         compra = cancelar_compra(compra_id=pk, cliente=request.user)
         return Response(CompraDetailSerializer(compra).data, status=status.HTTP_200_OK)

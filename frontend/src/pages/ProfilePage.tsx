@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import WalletPanel from '../components/WalletPanel'
 import { useConfirmedPurchase } from '../operations'
 import type { Compra, PerfilUsuario, Reserva, Silla } from '../types/flight'
 
 interface ProfilePageProps {
+  onPasswordChanged: () => void
   session: {
     authenticated: boolean
     role: string | null
@@ -13,7 +14,8 @@ interface ProfilePageProps {
   }
 }
 
-export default function ProfilePage({ session }: ProfilePageProps) {
+export default function ProfilePage({ session, onPasswordChanged }: ProfilePageProps) {
+  const navigate = useNavigate()
   const [profile, setProfile] = useState<PerfilUsuario | null>(null)
   const [compras, setCompras] = useState<Compra[]>([])
   const [reservas, setReservas] = useState<Reserva[]>([])
@@ -27,6 +29,69 @@ export default function ProfilePage({ session }: ProfilePageProps) {
   const [seatMap, setSeatMap] = useState<Silla[]>([])
   const [loadingSeatMap, setLoadingSeatMap] = useState(false)
   const [changingSeat, setChangingSeat] = useState(false)
+  const [rootPassword, setRootPassword] = useState({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+  })
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    current: false,
+    next: false,
+    confirmation: false,
+  })
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordBusy, setPasswordBusy] = useState(false)
+  const passwordSubmission = useRef(false)
+
+  function updateRootPassword(field: keyof typeof rootPassword, value: string) {
+    setRootPassword((current) => ({ ...current, [field]: value }))
+    setPasswordError('')
+  }
+
+  async function handleRootPasswordChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (passwordSubmission.current) return
+    setPasswordError('')
+    if (!rootPassword.current_password) {
+      setPasswordError('Ingresa tu contraseña actual.')
+      return
+    }
+    if (rootPassword.password.length < 12) {
+      setPasswordError('La nueva contraseña debe tener al menos 12 caracteres.')
+      return
+    }
+    if (rootPassword.password !== rootPassword.password_confirmation) {
+      setPasswordError('Las contraseñas nuevas no coinciden.')
+      return
+    }
+
+    passwordSubmission.current = true
+    setPasswordBusy(true)
+    try {
+      await api.post('/users/root/password/', rootPassword)
+      setRootPassword({ current_password: '', password: '', password_confirmation: '' })
+      onPasswordChanged()
+      navigate('/login', { replace: true })
+    } catch (error) {
+      if (error instanceof ApiError) {
+        if (error.status === 401 && error.code === 'current_password_invalid') {
+          setPasswordError('La contraseña actual no es correcta.')
+        } else if (error.status === 429) {
+          setPasswordError('Se alcanzó el límite temporal de intentos. Espera 15 minutos antes de volver a intentarlo.')
+        } else if (error.status === 400) {
+          const details = Object.values(error.details).flat().map(String).join(' ')
+          setPasswordError(details || error.message)
+        } else {
+          setPasswordError(error.message)
+        }
+      } else {
+        setPasswordError('No fue posible contactar el servidor. Inténtalo nuevamente.')
+      }
+    } finally {
+      passwordSubmission.current = false
+      setPasswordBusy(false)
+    }
+  }
 
   const loadData = useCallback(async () => {
     if (!session.authenticated) return
@@ -157,6 +222,74 @@ export default function ProfilePage({ session }: ProfilePageProps) {
 
         {session.role === 'CLIENTE' && session.is_email_verified && <WalletPanel />}
       </div>
+      {session.role === 'ROOT' && (
+        <section className="form-container" style={{ maxWidth: '680px', margin: '2rem 0' }}>
+          <h2 className="form-title" style={{ fontSize: '1.4rem' }}>Cambiar mi contraseña</h2>
+          <p className="form-subtitle">
+            Este cambio invalida todas las sesiones ROOT existentes, incluida esta. Después
+            tendrás que iniciar sesión manualmente con la nueva contraseña.
+          </p>
+          {passwordError && (
+            <div className="alert alert--error" role="alert" style={{ marginBottom: '1rem' }}>
+              <span className="alert__body">{passwordError}</span>
+            </div>
+          )}
+          <form onSubmit={handleRootPasswordChange} noValidate>
+            {([
+              ['current_password', 'Contraseña actual', 'current'],
+              ['password', 'Nueva contraseña', 'next'],
+              ['password_confirmation', 'Confirmar nueva contraseña', 'confirmation'],
+            ] as const).map(([field, label, visibilityKey]) => (
+              <div className="form-group" style={{ marginBottom: '1rem' }} key={field}>
+                <label className="form-label" htmlFor={`root-password-${field}`}>
+                  {label}<span className="form-label__required">*</span>
+                </label>
+                <div className="password-wrapper">
+                  <input
+                    id={`root-password-${field}`}
+                    type={passwordVisibility[visibilityKey] ? 'text' : 'password'}
+                    className="form-input"
+                    value={rootPassword[field]}
+                    onChange={(event) => updateRootPassword(field, event.target.value)}
+                    autoComplete={field === 'current_password' ? 'current-password' : 'new-password'}
+                    required
+                    minLength={field === 'current_password' ? undefined : 12}
+                    aria-describedby={field === 'password' ? 'root-password-policy' : undefined}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setPasswordVisibility((current) => ({
+                      ...current,
+                      [visibilityKey]: !current[visibilityKey],
+                    }))}
+                    aria-label={passwordVisibility[visibilityKey] ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {passwordVisibility[visibilityKey] ? 'Ocultar' : 'Ver'}
+                  </button>
+                </div>
+                {field === 'password' && (
+                  <span id="root-password-policy" className="form-hint">
+                    Mínimo 12 caracteres. También se aplican los validadores locales de seguridad.
+                  </span>
+                )}
+              </div>
+            ))}
+            <button
+              type="submit"
+              className="btn btn--primary"
+              disabled={
+                passwordBusy ||
+                !rootPassword.current_password ||
+                !rootPassword.password ||
+                !rootPassword.password_confirmation
+              }
+            >
+              {passwordBusy ? 'Cambiando contraseña...' : 'Cambiar contraseña'}
+            </button>
+          </form>
+        </section>
+      )}
       {session.role === 'CLIENTE' && <>
         <Link className="btn btn--secondary" to="/cancelaciones">Gestionar vuelos cancelados por la aerolínea</Link>
       {/* SECCIÓN MIS COMPRAS */}
@@ -185,11 +318,18 @@ export default function ProfilePage({ session }: ProfilePageProps) {
                       <button
                         type="button"
                         onClick={() => handleCancelPurchase(compra.id)}
+                        disabled={compra.tiquetes.some(t => t.estado === 'PENDIENTE_RESOLUCION')}
+                        title={compra.tiquetes.some(t => t.estado === 'PENDIENTE_RESOLUCION') ? 'Resuelve primero la cancelación gestionada por la aerolínea.' : undefined}
                         className="btn btn--secondary"
                         style={{ fontSize: '0.85rem', padding: '0.3rem 0.7rem', color: '#dc2626', borderColor: '#fca5a5' }}
                       >
                         Cancelar y Reembolsar
                       </button>
+                    )}
+                    {compra.tiquetes.some(t => t.estado === 'PENDIENTE_RESOLUCION') && (
+                      <span role="status" className="form-hint">
+                        Hay una cancelación pendiente. Resuélvela en la gestión de cancelaciones antes de cancelar esta compra.
+                      </span>
                     )}
                   </div>
                 </div>

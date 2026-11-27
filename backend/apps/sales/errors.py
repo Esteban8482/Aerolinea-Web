@@ -77,3 +77,12 @@ class PurchaseNotCancellable(APIException):
     status_code = 400
     default_code = "purchase_not_cancellable"
     default_detail = "La compra no se encuentra en estado cancelable."
+
+
+class CancellationResolutionPending(APIException):
+    status_code = 409
+    default_code = "cancellation_resolution_pending"
+    default_detail = (
+        "Resuelve primero los tiquetes pendientes mediante la gestión de cancelación "
+        "de la aerolínea."
+    )

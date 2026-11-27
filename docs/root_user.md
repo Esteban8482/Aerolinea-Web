@@ -13,7 +13,7 @@ Este documento detalla el funcionamiento, la creación y la administración de l
 3. **Identificación por `root_id`:**
    A diferencia de los roles `CLIENTE` y `ADMINISTRADOR` (quienes inician sesión mediante su correo electrónico), **ROOT se autentica exclusivamente a través de su `root_id`** (DEC-15).
 4. **Billetera Asociada:**
-   Al crear la cuenta ROOT, se inicializa automáticamente su billetera con saldo en cero en una transacción atómica.
+   La creación conserva el registro de billetera con saldo cero. La decisión vigente excluye a ROOT del acceso personal a billetera, movimientos, depósitos y medios de pago.
 
 ---
 
@@ -60,9 +60,9 @@ La inicialización de la cuenta ROOT se realiza mediante el comando interactivo 
 ## 3. Requisitos de la Contraseña
 
 Toda contraseña asignada a ROOT debe cumplir los validadores configurados en el sistema:
-* **Longitud mínima:** Al menos **8 caracteres**.
-* **Contenido:** Debe incluir **al menos un número** (`0-9`).
-* **Política vigente (DEC-27):** validadores locales de Django; no se consulta Pwned Passwords. Se conservan Argon2, límites y revocación de sesiones.
+* **Longitud mínima:** Al menos **12 caracteres**.
+* **Validación:** validadores locales de Django (similitud, contraseñas comunes y completamente numéricas); no se exige incluir un dígito ni se consulta Pwned Passwords (DEC-27).
+* **Almacenamiento y controles:** se conservan Argon2, límites y revocación de sesiones.
 
 ---
 
@@ -101,9 +101,14 @@ Se envía una solicitud `POST` a `/api/v1/auth/login/` con el encabezado `X-CSRF
 
 ### Opción A: Cambio de contraseña propia autenticado (HU-009)
 
-Con una sesión activa de ROOT, se puede cambiar la contraseña mediante el endpoint `POST /api/v1/users/root/password/`:
-* Requiere: `current_password`, `password` (nueva) y `password_confirmation`.
-* Al cambiar la contraseña, todas las demás sesiones activas quedan invalidadas inmediatamente.
+Con una sesión activa de ROOT, abre **Perfil** y utiliza la sección **Cambiar mi contraseña**, disponible exclusivamente para ROOT. La pantalla solicita la contraseña actual, la nueva y su confirmación; permite mostrar u ocultar cada campo e indica la longitud mínima de 12 caracteres. Los validadores locales del servidor siguen siendo autoritativos.
+
+El endpoint utilizado es `POST /api/v1/users/root/password/` con:
+* `current_password`
+* `password`
+* `password_confirmation`
+
+Los errores de credenciales, validación y límite temporal se muestran en el formulario. Tras el éxito, se limpian los campos sensibles, se cierra el estado autenticado local y se redirige a login. El cambio invalida las sesiones ROOT existentes; debes iniciar sesión manualmente con la nueva contraseña. No se inicia sesión automáticamente.
 
 ### Opción B: Restablecimiento manual desde Django Shell
 

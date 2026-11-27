@@ -347,6 +347,30 @@ No finite test suite proves every possible input or execution schedule.
 10. Commit/push/PR/deployment still require an explicit request. This branch's expanded task
     does not rewrite the team's general per-HU review/squash convention.
 
+## HU-014 / HU-009 targeted corrections (2026-11-27)
+
+- Voluntary purchase cancellation never treats `purchase.disrupted` as permission to bypass
+  domestic or international cutoffs. The service validates every active ticket before any
+  refund and returns HTTP 409 when any ticket remains `PENDIENTE_RESOLUCION`; the customer
+  cancellation control is disabled until the buyer completes the airline-resolution flow.
+- Resolving an outbound round-trip disruption as a refund also refunds/cancels the affected
+  return tickets. Relocation alternatives must preserve outbound-before-return timing.
+  `purchase.disrupted` is recalculated from pending resolutions after a resolution completes.
+- The ROOT-only profile form calls the existing password endpoint; it requests current/new/
+  confirmed passwords, applies the 12-character client minimum, shows validation/rate-limit
+  errors, prevents concurrent submissions, clears fields and local auth on success, and
+  redirects to login without automatically authenticating. ADMINISTRADOR's separately
+  approved wallet exclusion and existing administrator-password management are unchanged.
+
+| Targeted verification | Result |
+|---|---|
+| Frontend production build: `node node_modules/typescript/bin/tsc -b && node node_modules/vite/bin/vite.js build` from `frontend/`, using VS Code Server Node 24.22.1 | **Passed**; TypeScript build and Vite production bundle completed. This runs the configured `npm run build` script without requiring the unavailable npm executable. |
+| Backend regressions and ROOT security tests: `../.venv/bin/python -m pytest apps/sales/tests/test_cu14_cancelar_reserva_compra.py apps/sales/tests/test_cancellation_resolution.py apps/users/tests/test_administration.py` from `backend/` | **Blocked before collection**: pytest-django reported `Set the TEST_DATABASE_URL environment variable`. No local PostgreSQL server or Docker engine was available, so no database was used. |
+| `ruff check` on modified backend files; `git diff --check` | **Passed**. |
+
+These are the results available in this WSL environment; backend behavior remains unverified
+by execution until the targeted tests can run against an isolated PostgreSQL test database.
+
 
 ## Remaining integration work and practical limits
 

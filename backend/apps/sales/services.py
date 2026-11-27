@@ -21,6 +21,7 @@ from apps.wallets.models import MovimientoBilletera
 from apps.wallets.services import debitar_para_compra, reembolsar_a_billetera
 
 from .errors import (
+    CancellationResolutionPending,
     CancellationWindowClosed,
     CheckinAlreadyConfirmed,
     InsufficientSeats,
@@ -380,6 +381,8 @@ def _refund_ticket(ticket):
 def cancelar_compra(compra_id, cliente):
     client_required(cliente)
     purchase = owned(Compra.objects.select_for_update(), cliente, pk=compra_id)
+    if purchase.tiquetes.filter(estado=EstadoTiquete.PENDIENTE_RESOLUCION).exists():
+        raise CancellationResolutionPending()
     if purchase.estado == EstadoCompra.CANCELADA:
         return purchase
     tickets = list(
@@ -389,7 +392,9 @@ def cancelar_compra(compra_id, cliente):
         raise PurchaseNotCancellable()
     now = timezone.now()
     for ticket in tickets:
-        if not purchase.disrupted and now >= calcular_limite_vigencia_reserva(ticket.vuelo, now)[0]:
+        if ticket.refund_id:
+            raise PurchaseNotCancellable()
+        if now >= calcular_limite_vigencia_reserva(ticket.vuelo, now)[0]:
             raise CancellationWindowClosed()
     for ticket in tickets:
         _refund_ticket(ticket)

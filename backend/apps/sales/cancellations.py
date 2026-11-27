@@ -178,7 +178,9 @@ def eligible(resolution, destination):
         ):
             raise ResolutionConflict("Un viajero ya tiene reserva en la alternativa.")
     for other in (
-        resolution.purchase.tiquetes.filter(estado=EstadoTiquete.ACTIVO)
+        resolution.purchase.tiquetes.filter(
+            estado__in=[EstadoTiquete.ACTIVO, EstadoTiquete.PENDIENTE_RESOLUCION]
+        )
         .exclude(vuelo_id=resolution.flight_id)
         .select_related("vuelo__ruta")
     ):
@@ -194,6 +196,45 @@ def eligible(resolution, destination):
                 "La alternativa es incompatible con la otra etapa del itinerario."
             )
     return tickets
+
+
+def _original_ticket_id(ticket):
+    while ticket.replacement_of_id:
+        ticket = Tiquete.objects.only("pk", "replacement_of_id").get(pk=ticket.replacement_of_id)
+    return ticket.pk
+
+
+def _return_tickets_for_outbound(resolution, affected_tickets):
+    purchase = resolution.purchase
+    if purchase.tipo_trayecto != "COMPLETO":
+        return []
+
+    affected_by_traveler = {ticket.viajero_id: ticket for ticket in affected_tickets}
+    candidates = (
+        purchase.tiquetes.filter(
+            estado__in=[EstadoTiquete.ACTIVO, EstadoTiquete.PENDIENTE_RESOLUCION],
+            viajero_id__in=affected_by_traveler,
+            vuelo__ruta__origen_id=resolution.flight.ruta.destino_id,
+            vuelo__ruta__destino_id=resolution.flight.ruta.origen_id,
+        )
+        .exclude(vuelo_id=resolution.flight_id)
+        .select_related("cancellation_resolution")
+    )
+    # Purchase creation stores outbound tickets before return tickets; replacements retain
+    # the original ticket in their replacement_of chain.
+    return [
+        ticket
+        for ticket in candidates
+        if _original_ticket_id(affected_by_traveler[ticket.viajero_id])
+        < _original_ticket_id(ticket)
+    ]
+
+
+def _refresh_disrupted(purchase):
+    disrupted = purchase.cancellations.filter(status=CancellationResolution.Status.PENDING).exists()
+    if purchase.disrupted != disrupted:
+        purchase.disrupted = disrupted
+        purchase.save(update_fields=["disrupted"])
 
 
 def alternatives(resolution):
@@ -236,13 +277,51 @@ def resolve(actor, pk, decision, destination_id=None):
             desired == "RELOCATED" and resolution.destination_id != destination_id
         ):
             raise ResolutionConflict("La cancelación ya fue resuelta de otra manera.")
+        _refresh_disrupted(resolution.purchase)
         return resolution
     tickets = list(resolution.tickets.select_related("compra", "viajero", "vuelo"))
     if any(t.estado != EstadoTiquete.PENDIENTE_RESOLUCION for t in tickets):
         raise ResolutionConflict()
+    refunded_tickets = tickets
+    related_resolutions = []
     if desired == "REFUNDED":
-        for ticket in tickets:
+        cascaded_returns = _return_tickets_for_outbound(resolution, tickets)
+        if any(
+            ticket.estado == EstadoTiquete.PENDIENTE_RESOLUCION
+            and (
+                ticket.cancellation_resolution is None
+                or ticket.cancellation_resolution.status != CancellationResolution.Status.PENDING
+            )
+            for ticket in cascaded_returns
+        ):
+            raise ResolutionConflict()
+        refunded_tickets = [*tickets, *cascaded_returns]
+        related_resolution_ids = {
+            ticket.cancellation_resolution_id
+            for ticket in cascaded_returns
+            if ticket.estado == EstadoTiquete.PENDIENTE_RESOLUCION
+            and ticket.cancellation_resolution_id != resolution.pk
+        }
+        related_resolutions = list(
+            CancellationResolution.objects.select_for_update().filter(
+                pk__in=related_resolution_ids,
+                status=CancellationResolution.Status.PENDING,
+            )
+        )
+        for ticket in refunded_tickets:
             _refund_ticket(ticket)
+        for related in related_resolutions:
+            if not related.tickets.filter(estado=EstadoTiquete.PENDIENTE_RESOLUCION).exists():
+                related.status = CancellationResolution.Status.REFUNDED
+                related.resolved_at = timezone.now()
+                related.save(update_fields=["status", "resolved_at"])
+                audit(
+                    actor,
+                    "cancellation_resolved",
+                    related,
+                    decision="REFUND",
+                    cascaded_from=resolution.pk,
+                )
     else:
         destination = (
             Vuelo.objects.select_related("ruta__origen", "ruta__destino")
@@ -288,12 +367,14 @@ def resolve(actor, pk, decision, destination_id=None):
     resolution.status = desired
     resolution.resolved_at = timezone.now()
     resolution.save(update_fields=["status", "resolved_at", "destination"])
+    _refresh_disrupted(resolution.purchase)
     outcome = "reubicación sin cargo" if desired == "RELOCATED" else "reembolso"
     notify(
         [actor.email],
         "Cancelación resuelta",
         f"Compra {resolution.purchase.localizador}: {outcome} confirmado. "
-        f"Importe original del grupo: {sum((t.precio_pagado for t in tickets), Decimal('0'))} COP.",
+        f"Importe original del grupo: "
+        f"{sum((t.precio_pagado for t in refunded_tickets), Decimal('0'))} COP.",
     )
     audit(actor, "cancellation_resolved", resolution, decision=decision, destination=destination_id)
     return resolution

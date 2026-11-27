@@ -267,6 +267,7 @@ La ERS asocia el espacio financiero a cada usuario registrado. Eso no habilita a
 - Los movimientos confirmados se conservan. Una corrección financiera requiere una operación compensatoria trazable, no editar el historial para ocultar el cambio.
 - Rechazar compras o retiros sin fondos, sin dejar cambios parciales.
 - El reembolso vuelve a la billetera del **cliente que pagó**, aunque los viajeros sean otras personas.
+- El acceso personal a billetera, movimientos, depósitos y medios de pago se limita a `CLIENTE`. La exclusión de `ADMINISTRADOR` fue aprobada expresamente por el usuario y se conserva; `ROOT` tampoco tiene acceso personal a esas funciones.
 - Cancelar una reserva sin pago no genera un reembolso ficticio. Solo se devuelve dinero previamente debitado y todavía no reembolsado.
 - La prevención de duplicados debe identificar la operación concreta. No imponer una unicidad global «compra + tipo REEMBOLSO» que impida varios reembolsos legítimos de tiquetes diferentes de una misma compra.
 
@@ -348,6 +349,8 @@ Independientemente del nombre del estado, búsqueda, reserva y compra deben comp
 - No inventar cobros adicionales, reglas de consentimiento ni criterios de selección del vuelo alternativo. The accepted-buyer relocation/refund and boarding-pass treatment are now defined by DEC-23/26 (§3.1).
 - Cancelar el vuelo libera también las reservas sin pago afectadas; estas no reciben abonos. El vuelo y las operaciones originales se conservan como historial.
 - HU-003 exige revertir la cancelación si falla un abono obligatorio. La falla posterior de un correo se recupera mediante reintento y no revierte los movimientos confirmados.
+- **Acuerdo confirmado por el usuario para HU-014 en `iteracion-03`:** una cancelación voluntaria respeta siempre los plazos nacional/internacional, sin excepciones por `purchase.disrupted`. Si quedan tiquetes `PENDIENTE_RESOLUCION`, la cancelación voluntaria de la compra completa se bloquea hasta resolverlos por el flujo dirigido al comprador; no se permiten reembolsos parciales. El indicador `disrupted` refleja si aún hay resoluciones pendientes.
+- En ida/regreso, la reubicación de la ida debe conservar una secuencia temporal compatible y salir antes del regreso. Si el comprador elige reembolso de la ida, se reembolsan/cancelan también los tiquetes de regreso del itinerario; si no existe alternativa compatible para el grupo, se ofrece el reembolso del itinerario completo. La resolución continúa siendo una decisión del comprador.
 
 ## 7. Reservas, viajeros, cupos y sillas
 
@@ -463,7 +466,7 @@ Una reserva conserva su historia al convertirse en compra; una cancelación cons
 | Crear administradores | Solo root. |
 | Gestionar vuelos/promociones | Administrador. |
 | Reservar/comprar | Cliente autenticado y con correo verificado. |
-| Ver historial, billetera y medios | Titular autorizado; comprobar propiedad. |
+| Ver historial, billetera y medios | `CLIENTE` autorizado; comprobar propiedad. `ADMINISTRADOR` y `ROOT` no tienen acceso personal a billetera. |
 | Búsqueda y catálogo públicos | Visitante o usuario; conservar restricciones de acciones por rol. |
 | Recomendaciones personales | Cliente autenticado. |
 | Mensajería | Usuario registrado; clientes consultan sus conversaciones y administradores atienden las permitidas. |
@@ -627,6 +630,9 @@ imágenes, segundo factor y operaciones financieras.
   mediante el hash de autenticación de Django, efectivo en su siguiente petición; no se
   inicia sesión automáticamente. Una petición ya autenticada y en curso no se deshace.
   Un fallo de validación, persistencia o del proveedor conserva contraseña y sesiones.
+- El perfil web ofrece esta acción exclusivamente a `ROOT`: pide contraseña actual, nueva
+  y confirmación; tras éxito limpia los campos, borra el estado autenticado local y redirige
+  a login. ROOT debe autenticarse manualmente con la nueva contraseña; no hay login automático.
 - Se mantiene la política local de contraseñas Django (DEC-27), sin comprobación externa.
   Revalidar estado y credenciales antes del cambio atómico.
 
@@ -927,6 +933,7 @@ Cada encargo debe indicar HU, alcance, decisiones aplicables, dependencias, crit
 
 | Versión | Fecha | Cambio |
 |---|---|---|
+| 1.0.8 | 2026-11-27 | Registra las decisiones confirmadas para HU-014 (bloqueo ante resolución pendiente, límites ordinarios, cascada ida/regreso) y conserva el acceso a billetera solo para CLIENTE; documenta el cambio propio de clave ROOT en el perfil. |
 | 1.0.7 | 2026-11-27 | User-authorized cumulative scope/source precedence; DEC-27 retires breach-provider checks; documents HU-010 simulation and inherited deposit minimum/storage limits. |
 | 1.0.6 | 2026-11-26 | Records user-approved DEC-23–26 for iteration 03, promotion eligibility, explicit operation, accepted relocation/refund and scoped magic-link access; preserves unrelated pending decisions. |
 | 1.0.5 | 2026-10-20 | Registra DEC-21/22 aprobadas para altas de administradores y cambio propio de contraseña ROOT, límites independientes y revocación de sesiones; conserva P-05 parcial. |

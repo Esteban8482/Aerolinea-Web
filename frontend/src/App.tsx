@@ -58,7 +58,7 @@ export default function App() {
     const activity = () => {
       if (document.visibilityState !== 'visible' || pending || Date.now() - lastSent < 61000) return
       pending = true; lastSent = Date.now()
-      api.post('/auth/activity/', {}).then(() => refreshSession()).catch(() => {}).finally(() => { pending = false })
+      api.post('/api/v1/auth/session/activity/', {}).then(() => refreshSession()).catch(() => {}).finally(() => { pending = false })
     }
     window.addEventListener('pointerdown', activity)
     window.addEventListener('keydown', activity)
@@ -78,6 +78,11 @@ export default function App() {
       setSession({ authenticated: false, role: null, is_email_verified: false })
       setSessionError('')
     } catch { setSessionError('No se pudo confirmar el cierre de sesión. Reintenta.') }
+  }
+
+  function clearSessionAfterPasswordChange() {
+    setSession({ authenticated: false, role: null, is_email_verified: false })
+    setSessionError('')
   }
 
   if (loading) return <main className="page" role="status">Comprobando sesión…</main>
@@ -104,7 +109,12 @@ export default function App() {
         />
         <Route
           path="/perfil"
-          element={<ProfilePage session={session} />}
+          element={
+            <ProfilePage
+              session={session}
+              onPasswordChanged={clearSessionAfterPasswordChange}
+            />
+          }
         />
         <Route
           path="/administradores"

@@ -6,14 +6,16 @@ from unittest.mock import patch
 
 import pytest
 from django.db import close_old_connections
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.flights.models import Silla
 from apps.flights.services import programar_vuelo
 from apps.sales.cancellations import ResolutionConflict, alternatives, cancel, resolve
 from apps.sales.checkin import boarding_pdf
+from apps.sales.errors import CancellationResolutionPending, CancellationWindowClosed
 from apps.sales.models import CancellationResolution, JourneyNotification, Tiquete
-from apps.sales.services import comprar_tiquetes
+from apps.sales.services import cancelar_compra, comprar_tiquetes
 from apps.wallets.models import MovimientoBilletera
 
 pytestmark = pytest.mark.django_db
@@ -59,6 +61,27 @@ def replacement(vuelo_nacional, admin_user):
     )
 
 
+def round_trip(cliente, outbound, admin):
+    inbound = programar_vuelo(
+        origen_id=outbound.ruta.destino_id,
+        destino_id=outbound.ruta.origen_id,
+        fecha_salida=date.today() + timedelta(days=8),
+        hora_salida=time(10),
+        costo_persona_economica="150000",
+        costo_persona_primera="220000",
+        actor=admin,
+    )
+    purchase = comprar_tiquetes(
+        cliente,
+        outbound.pk,
+        viajeros_data=[traveler(31), traveler(32, True)],
+        tipo_trayecto="COMPLETO",
+        vuelo_regreso_id=inbound.pk,
+        accepted_total=Decimal("600000"),
+    )
+    return purchase, inbound
+
+
 def test_cancel_creates_pending_group_without_refunds_and_notifies_only_buyer(cancelled_group):
     r = cancelled_group
     assert r.tickets.filter(estado="PENDIENTE_RESOLUCION").count() == 2
@@ -83,11 +106,21 @@ def test_group_relocation_preserves_prices_seat_limit_and_retry(cancelled_group,
     assert set(new.values_list("precio_pagado", flat=True)) == {Decimal("150000")}
     assert new.get(replacement_of=original).numero_cambios_silla == 1
     assert set(new.values_list("estado_checkin", flat=True)) == {"PENDIENTE"}
+    r.purchase.refresh_from_db()
+    assert not r.purchase.disrupted
     resolve(r.purchase.cliente, r.pk, "RELOCATE", replacement.pk)
     assert new.count() == 2
     assert r.purchase.cliente.wallet.balance == before
     with pytest.raises(ResolutionConflict):
         resolve(r.purchase.cliente, r.pk, "REFUND")
+
+    replacement.salida_utc = timezone.now() + timedelta(minutes=30)
+    replacement.save(update_fields=["salida_utc"])
+    r.purchase.disrupted = True
+    r.purchase.save(update_fields=["disrupted"])
+    with pytest.raises(CancellationWindowClosed):
+        cancelar_compra(r.purchase_id, r.purchase.cliente)
+    assert not MovimientoBilletera.objects.filter(tipo="REEMBOLSO").exists()
 
 
 def test_full_group_capacity_conflict_keeps_refund_available(cancelled_group, replacement):
@@ -105,6 +138,145 @@ def test_full_group_capacity_conflict_keeps_refund_available(cancelled_group, re
     assert sum(
         MovimientoBilletera.objects.filter(tipo="REEMBOLSO").values_list("valor", flat=True)
     ) == Decimal("300000")
+    cancelled_group.purchase.refresh_from_db()
+    assert not cancelled_group.purchase.disrupted
+
+
+def test_refunding_outbound_cascades_to_return_and_is_repeat_safe(
+    cliente_con_billetera, vuelo_nacional, admin_user
+):
+    balance_before_purchase = cliente_con_billetera.wallet.balance
+    purchase, inbound = round_trip(cliente_con_billetera, vuelo_nacional, admin_user)
+    cancel(admin_user, vuelo_nacional.pk, "Cancelación del tramo de ida")
+    resolution = CancellationResolution.objects.get(purchase=purchase, flight=vuelo_nacional)
+
+    assert purchase.disrupted
+    result = resolve(cliente_con_billetera, resolution.pk, "REFUND")
+    assert result.status == "REFUNDED"
+    assert purchase.tiquetes.filter(estado="CANCELADO", refund__isnull=False).count() == 4
+    assert not purchase.tiquetes.filter(estado__in=["ACTIVO", "PENDIENTE_RESOLUCION"]).exists()
+    assert inbound.cupos_disponibles_economica == inbound.cupos_economica
+    assert (
+        MovimientoBilletera.objects.filter(
+            wallet=cliente_con_billetera.wallet, tipo="REEMBOLSO"
+        ).count()
+        == 4
+    )
+
+    resolve(cliente_con_billetera, resolution.pk, "REFUND")
+    cliente_con_billetera.wallet.refresh_from_db()
+    purchase.refresh_from_db()
+    assert cliente_con_billetera.wallet.balance == balance_before_purchase
+    assert purchase.estado == "CANCELADA" and not purchase.disrupted
+    assert (
+        MovimientoBilletera.objects.filter(
+            wallet=cliente_con_billetera.wallet, tipo="REEMBOLSO"
+        ).count()
+        == 4
+    )
+
+
+def test_refunding_relocated_outbound_cascades_to_return(
+    cliente_con_billetera, vuelo_nacional, admin_user, replacement
+):
+    purchase, inbound = round_trip(cliente_con_billetera, vuelo_nacional, admin_user)
+    cancel(admin_user, vuelo_nacional.pk, "Cancelación inicial de ida")
+    first_resolution = CancellationResolution.objects.get(purchase=purchase, flight=vuelo_nacional)
+    resolve(cliente_con_billetera, first_resolution.pk, "RELOCATE", replacement.pk)
+
+    cancel(admin_user, replacement.pk, "Nueva cancelación de la ida reubicada")
+    second_resolution = CancellationResolution.objects.get(purchase=purchase, flight=replacement)
+    resolve(cliente_con_billetera, second_resolution.pk, "REFUND")
+
+    purchase.refresh_from_db()
+    assert purchase.estado == "CANCELADA" and not purchase.disrupted
+    assert (
+        purchase.tiquetes.filter(vuelo=inbound, estado="CANCELADO", refund__isnull=False).count()
+        == 2
+    )
+    assert purchase.tiquetes.filter(refund__isnull=False).count() == 4
+    assert not purchase.tiquetes.filter(estado__in=["ACTIVO", "PENDIENTE_RESOLUCION"]).exists()
+
+
+def test_refunding_outbound_resolves_a_pending_return_cancellation(
+    cliente_con_billetera, vuelo_nacional, admin_user
+):
+    purchase, inbound = round_trip(cliente_con_billetera, vuelo_nacional, admin_user)
+    cancel(admin_user, vuelo_nacional.pk, "Cancelación de ida")
+    outbound_resolution = CancellationResolution.objects.get(
+        purchase=purchase, flight=vuelo_nacional
+    )
+    cancel(admin_user, inbound.pk, "Cancelación de regreso")
+    return_resolution = CancellationResolution.objects.get(purchase=purchase, flight=inbound)
+
+    resolve(cliente_con_billetera, outbound_resolution.pk, "REFUND")
+    outbound_resolution.refresh_from_db()
+    return_resolution.refresh_from_db()
+    purchase.refresh_from_db()
+    assert outbound_resolution.status == return_resolution.status == "REFUNDED"
+    assert not purchase.disrupted
+    assert purchase.tiquetes.filter(estado="CANCELADO", refund__isnull=False).count() == 4
+
+
+def test_pending_airline_resolution_blocks_whole_ordinary_cancellation(
+    cliente_con_billetera, vuelo_nacional, admin_user
+):
+    purchase, inbound = round_trip(cliente_con_billetera, vuelo_nacional, admin_user)
+    balance_before = cliente_con_billetera.wallet.balance
+    cancel(admin_user, vuelo_nacional.pk, "Cancelación de ida")
+
+    with pytest.raises(CancellationResolutionPending):
+        cancelar_compra(purchase.pk, cliente_con_billetera)
+
+    cliente_con_billetera.wallet.refresh_from_db()
+    assert cliente_con_billetera.wallet.balance == balance_before
+    assert (
+        purchase.tiquetes.filter(vuelo=inbound, estado="ACTIVO", refund__isnull=True).count() == 2
+    )
+    assert not MovimientoBilletera.objects.filter(tipo="REEMBOLSO").exists()
+
+
+def test_round_trip_cancellation_checks_every_deadline_before_refunding(
+    cliente_con_billetera, vuelo_nacional, admin_user
+):
+    purchase, inbound = round_trip(cliente_con_billetera, vuelo_nacional, admin_user)
+    inbound.salida_utc = timezone.now() + timedelta(minutes=30)
+    inbound.save(update_fields=["salida_utc"])
+
+    with pytest.raises(CancellationWindowClosed):
+        cancelar_compra(purchase.pk, cliente_con_billetera)
+
+    assert purchase.tiquetes.filter(estado="ACTIVO", refund__isnull=True).count() == 4
+    assert not MovimientoBilletera.objects.filter(tipo="REEMBOLSO").exists()
+
+
+def test_relocation_options_never_place_outbound_after_return(
+    cliente_con_billetera, vuelo_nacional, admin_user
+):
+    purchase, inbound = round_trip(cliente_con_billetera, vuelo_nacional, admin_user)
+    on_time = programar_vuelo(
+        origen_id=vuelo_nacional.ruta.origen_id,
+        destino_id=vuelo_nacional.ruta.destino_id,
+        fecha_salida=date.today() + timedelta(days=6),
+        hora_salida=time(10),
+        costo_persona_economica="900000",
+        costo_persona_primera="1000000",
+        actor=admin_user,
+    )
+    after_return = programar_vuelo(
+        origen_id=vuelo_nacional.ruta.origen_id,
+        destino_id=vuelo_nacional.ruta.destino_id,
+        fecha_salida=date.today() + timedelta(days=10),
+        hora_salida=time(10),
+        costo_persona_economica="900000",
+        costo_persona_primera="1000000",
+        actor=admin_user,
+    )
+    cancel(admin_user, vuelo_nacional.pk, "Cancelación de ida")
+    resolution = CancellationResolution.objects.get(purchase=purchase, flight=vuelo_nacional)
+
+    assert inbound.salida_utc < after_return.salida_utc
+    assert [flight.pk for flight in alternatives(resolution)] == [on_time.pk]
 
 
 def test_relocation_group_rollback(cancelled_group, replacement):

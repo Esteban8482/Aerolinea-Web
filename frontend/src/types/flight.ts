@@ -104,6 +104,7 @@ export interface Tiquete {
 export interface Compra {
   id: number
   localizador: string
+  disrupted: boolean
   valor_pagado: string
   tipo_trayecto: 'UNICO' | 'COMPLETO'
   estado: 'CONFIRMADA' | 'CANCELADA'
