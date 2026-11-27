@@ -231,3 +231,26 @@ class NotificacionAfectacion(models.Model):
         verbose_name = "Notificación de Afectación"
         verbose_name_plural = "Notificaciones de Afectación"
         ordering = ["-creada_en"]
+
+
+class Promotion(models.Model):
+    vuelo = models.ForeignKey(Vuelo, on_delete=models.PROTECT, related_name="promotions")
+    clase = models.CharField(max_length=20, choices=ClaseTiquete.choices)
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    active = models.BooleanField(default=True)
+    disabled_reason = models.CharField(max_length=100, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(price__gt=0), name="promotion_price_positive"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(ends_at__gt=models.F("starts_at")),
+                name="promotion_interval_valid",
+            ),
+        ]

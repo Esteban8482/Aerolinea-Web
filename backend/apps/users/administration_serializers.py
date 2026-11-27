@@ -9,7 +9,9 @@ class AdministratorCreateSerializer(StrictSerializer):
     password = serializers.CharField(write_only=True, trim_whitespace=False)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
-    document_number = serializers.CharField(max_length=20, required=False, allow_blank=True, default="")
+    document_number = serializers.CharField(
+        max_length=20, required=False, allow_blank=True, default=""
+    )
     phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
 
     def validate_email(self, value):

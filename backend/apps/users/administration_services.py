@@ -209,7 +209,9 @@ def change_administrator_password(*, actor, admin_id, password, origin):
     try:
         admin = User.objects.get(pk=admin_id, role=User.Role.ADMINISTRADOR, is_active=True)
     except User.DoesNotExist:
-        raise ValidationError({"admin_id": ["No se encontró el administrador especificado."]})
+        raise ValidationError(
+            {"admin_id": ["No se encontró el administrador especificado."]}
+        ) from None
     check_new_password(password, admin)
     with transaction.atomic():
         admin.set_password(password)

@@ -1,7 +1,8 @@
 from datetime import date, time, timedelta
 from decimal import Decimal
 
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.flights.catalogo import cargar_catalogo
@@ -19,11 +20,13 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        if not settings.DEBUG:
+            raise CommandError("Los datos demo solo se habilitan con DEBUG=True.")
         self.stdout.write("Cargando catálogo base de ciudades y rutas...")
         cargar_catalogo()
 
         # 1. Crear usuarios de demostración si no existen
-        admin, _ = User.objects.get_or_create(
+        admin, admin_created = User.objects.get_or_create(
             email="admin.demo@aerolinea.local",
             defaults={
                 "role": User.Role.ADMINISTRADOR,
@@ -32,11 +35,11 @@ class Command(BaseCommand):
                 "is_email_verified": True,
             },
         )
-        if not admin.has_usable_password():
+        if admin_created or not admin.has_usable_password():
             admin.set_password("AdminDemo2026*")
             admin.save()
 
-        cliente1, _ = User.objects.get_or_create(
+        cliente1, client1_created = User.objects.get_or_create(
             email="carlos.viajero@aerolinea.local",
             defaults={
                 "role": User.Role.CLIENTE,
@@ -51,11 +54,11 @@ class Command(BaseCommand):
                 "is_email_verified": True,
             },
         )
-        if not cliente1.has_usable_password():
+        if client1_created or not cliente1.has_usable_password():
             cliente1.set_password("CarlosViajero2026*")
             cliente1.save()
 
-        cliente2, _ = User.objects.get_or_create(
+        cliente2, client2_created = User.objects.get_or_create(
             email="maria.turista@aerolinea.local",
             defaults={
                 "role": User.Role.CLIENTE,
@@ -70,7 +73,7 @@ class Command(BaseCommand):
                 "is_email_verified": True,
             },
         )
-        if not cliente2.has_usable_password():
+        if client2_created or not cliente2.has_usable_password():
             cliente2.set_password("MariaTurista2026*")
             cliente2.save()
 
@@ -167,6 +170,7 @@ class Command(BaseCommand):
         ).first()
         if vuelo_compra and not Compra.objects.filter(cliente=cliente1).exists():
             compra = comprar_tiquetes(
+                accepted_total=vuelo_compra.costo_persona_economica,
                 cliente=cliente1,
                 vuelo_id=vuelo_compra.pk,
                 clase="ECONOMICA",
@@ -179,6 +183,8 @@ class Command(BaseCommand):
                         "fecha_nacimiento": date(1989, 4, 12),
                         "genero": "M",
                         "telefono": "3001234567",
+                        "nombre_contacto": "Contacto demo",
+                        "telefono_contacto": "3007654321",
                         "correo": "carlos.viajero@aerolinea.local",
                     }
                 ],
@@ -205,6 +211,8 @@ class Command(BaseCommand):
                         "fecha_nacimiento": date(1995, 8, 24),
                         "genero": "F",
                         "telefono": "3109876543",
+                        "nombre_contacto": "Contacto demo",
+                        "telefono_contacto": "3107654321",
                         "correo": "maria.turista@aerolinea.local",
                     }
                 ],

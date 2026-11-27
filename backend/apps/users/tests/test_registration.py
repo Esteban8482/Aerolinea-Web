@@ -561,7 +561,6 @@ def test_service_cannot_accept_an_unpublished_policy(data, settings):
         register_customer(data=data)
 
 
-
 @pytest.mark.django_db
 def test_registration_accepts_phone(data, csrf_client, settings):
     payload = {

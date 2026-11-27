@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 
 from apps.flights.models import ClaseTiquete, EstadoSilla, Silla
@@ -8,10 +10,15 @@ from apps.sales.models import EstadoCheckin, Tiquete
 def test_cambiar_silla_exitoso(vuelo_nacional, cliente_client):
     # 1. Comprar tiquete
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "11001",
                 "nombres": "Mateo",
                 "apellidos": "Silla",
@@ -20,7 +27,12 @@ def test_cambiar_silla_exitoso(vuelo_nacional, cliente_client):
             }
         ],
     }
-    res_compra = cliente_client.post("/api/v1/sales/purchases/", data, format="json")
+    res_compra = cliente_client.post(
+        "/api/v1/sales/purchases/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     tiquete_data = res_compra.json()["tiquetes"][0]
     tiquete_id = tiquete_data["id"]
     silla_anterior_id = tiquete_data["silla"]["id"]
@@ -59,10 +71,15 @@ def test_cambiar_silla_exitoso(vuelo_nacional, cliente_client):
 @pytest.mark.django_db
 def test_cambiar_silla_segundo_intento_rechazado(vuelo_nacional, cliente_client):
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "11002",
                 "nombres": "Mateo",
                 "apellidos": "DobleCambio",
@@ -71,7 +88,12 @@ def test_cambiar_silla_segundo_intento_rechazado(vuelo_nacional, cliente_client)
             }
         ],
     }
-    res_compra = cliente_client.post("/api/v1/sales/purchases/", data, format="json")
+    res_compra = cliente_client.post(
+        "/api/v1/sales/purchases/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     tiquete_id = res_compra.json()["tiquetes"][0]["id"]
     silla_actual = res_compra.json()["tiquetes"][0]["silla"]["id"]
 
@@ -102,10 +124,15 @@ def test_cambiar_silla_segundo_intento_rechazado(vuelo_nacional, cliente_client)
 @pytest.mark.django_db
 def test_cambiar_silla_otra_clase_rechazada(vuelo_nacional, cliente_client):
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "11003",
                 "nombres": "Mateo",
                 "apellidos": "UpgradeIlegal",
@@ -114,7 +141,12 @@ def test_cambiar_silla_otra_clase_rechazada(vuelo_nacional, cliente_client):
             }
         ],
     }
-    res_compra = cliente_client.post("/api/v1/sales/purchases/", data, format="json")
+    res_compra = cliente_client.post(
+        "/api/v1/sales/purchases/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     tiquete_id = res_compra.json()["tiquetes"][0]["id"]
 
     # Buscar una silla de PRIMERA_CLASE
@@ -134,10 +166,15 @@ def test_cambiar_silla_otra_clase_rechazada(vuelo_nacional, cliente_client):
 @pytest.mark.django_db
 def test_cambiar_silla_checkin_confirmado_rechazado(vuelo_nacional, cliente_client):
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "11004",
                 "nombres": "Mateo",
                 "apellidos": "Checkin",
@@ -146,16 +183,25 @@ def test_cambiar_silla_checkin_confirmado_rechazado(vuelo_nacional, cliente_clie
             }
         ],
     }
-    res_compra = cliente_client.post("/api/v1/sales/purchases/", data, format="json")
+    res_compra = cliente_client.post(
+        "/api/v1/sales/purchases/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     tiquete_id = res_compra.json()["tiquetes"][0]["id"]
 
     tiquete = Tiquete.objects.get(pk=tiquete_id)
     tiquete.estado_checkin = EstadoCheckin.CONFIRMADO
     tiquete.save()
 
-    otra_silla = Silla.objects.filter(
-        vuelo=vuelo_nacional, clase=ClaseTiquete.ECONOMICA, estado=EstadoSilla.DISPONIBLE
-    ).exclude(id=tiquete.silla_id).first()
+    otra_silla = (
+        Silla.objects.filter(
+            vuelo=vuelo_nacional, clase=ClaseTiquete.ECONOMICA, estado=EstadoSilla.DISPONIBLE
+        )
+        .exclude(id=tiquete.silla_id)
+        .first()
+    )
 
     res = cliente_client.post(
         f"/api/v1/sales/tickets/{tiquete_id}/change-seat/",

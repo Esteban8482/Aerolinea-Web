@@ -39,6 +39,12 @@ class MovimientoBilletera(models.Model):
         verbose_name = "Movimiento de Billetera"
         verbose_name_plural = "Movimientos de Billetera"
         ordering = ["-creado_en"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(valor__gt=0), name="movement_positive"),
+            models.CheckConstraint(
+                condition=models.Q(saldo_resultante__gte=0), name="movement_balance_nonnegative"
+            ),
+        ]
 
     def __str__(self):
         return f"{self.tipo} - ${self.valor} ({self.wallet.user}) [Saldo: ${self.saldo_resultante}]"

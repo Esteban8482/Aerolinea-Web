@@ -3,20 +3,21 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.db import transaction
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
+
+from apps.sales.locking import inventory_transaction
+from apps.sales.rules import administrator_required, money
 
 from .errors import (
-    CancellationReasonRequired,
     DepartureInPast,
+    DuplicateRoute,
     FlightCodeExhausted,
-    FlightNotCancellable,
     FlightNotEditable,
     FlightNotFound,
     InvalidFlightCost,
     SameOriginDestination,
     UnauthorizedRoute,
-    DuplicateRoute,
 )
 from .models import (
     BitacoraVuelo,
@@ -25,7 +26,6 @@ from .models import (
     EstadoSilla,
     EstadoVuelo,
     NoticiaVuelo,
-    NotificacionAfectacion,
     Ruta,
     SecuenciaCodigoVuelo,
     Silla,
@@ -34,13 +34,15 @@ from .models import (
 )
 
 
-@transaction.atomic
+@inventory_transaction
 def generar_codigo_vuelo() -> str:
     """Genera atómicamente un código de vuelo comercial único e inmutable (DEC-01).
 
     Prefijo de aerolínea configurable y consecutivo de 4 dígitos entre 0001 y 9999.
     """
-    prefijo = getattr(settings, "AIRLINE_CODE_PREFIX", "XX")[:2].upper()
+    prefijo = getattr(settings, "AIRLINE_CODE_PREFIX", "XX").upper()
+    if len(prefijo) != 2 or not prefijo.isascii() or not prefijo.isalnum():
+        raise ValidationError("Prefijo de aerolínea inválido.")
     secuencia, _ = SecuenciaCodigoVuelo.objects.select_for_update().get_or_create(
         prefijo=prefijo, defaults={"ultimo_consecutivo": 0}
     )
@@ -58,7 +60,16 @@ def calcular_llegada(
     tz_origen = ZoneInfo(zona_origen)
     tz_destino = ZoneInfo(zona_destino)
 
-    dt_salida_local = datetime.combine(fecha_salida, hora_salida).replace(tzinfo=tz_origen)
+    naive = datetime.combine(fecha_salida, hora_salida)
+    candidates = [naive.replace(tzinfo=tz_origen, fold=fold) for fold in (0, 1)]
+    valid = [
+        d
+        for d in candidates
+        if d.astimezone(ZoneInfo("UTC")).astimezone(tz_origen).replace(tzinfo=None) == naive
+    ]
+    if not valid or len({d.utcoffset() for d in valid}) > 1:
+        raise ValidationError("La hora local es inexistente o ambigua; elige otra hora.")
+    dt_salida_local = valid[0]
     salida_utc = dt_salida_local.astimezone(ZoneInfo("UTC"))
 
     llegada_utc = salida_utc + timedelta(minutes=duracion_min)
@@ -72,7 +83,7 @@ def calcular_llegada(
     )
 
 
-@transaction.atomic
+@inventory_transaction
 def programar_vuelo(
     origen_id: int,
     destino_id: int,
@@ -100,18 +111,12 @@ def programar_vuelo(
     except Ruta.DoesNotExist:
         raise UnauthorizedRoute() from None
 
-    costo_persona_economica = Decimal(str(costo_persona_economica))
-    if costo_persona_economica <= Decimal("0.00"):
-        raise InvalidFlightCost()
-
-    if costo_persona_primera is None:
-        costo_persona_primera = (costo_persona_economica * Decimal("1.50")).quantize(
-            Decimal("0.01")
-        )
-    else:
-        costo_persona_primera = Decimal(str(costo_persona_primera))
-        if costo_persona_primera <= Decimal("0.00"):
-            raise InvalidFlightCost()
+    administrator_required(actor)
+    try:
+        costo_persona_economica = money(costo_persona_economica)
+        costo_persona_primera = money(costo_persona_primera)
+    except ValidationError:
+        raise InvalidFlightCost() from None
 
     salida_utc, llegada_utc, fecha_llegada, hora_llegada = calcular_llegada(
         fecha_salida=fecha_salida,
@@ -206,7 +211,7 @@ def programar_vuelo(
     return vuelo
 
 
-@transaction.atomic
+@inventory_transaction
 def editar_vuelo(
     vuelo_id: int,
     fecha_salida=None,
@@ -215,6 +220,7 @@ def editar_vuelo(
     costo_persona_primera=None,
     actor=None,
     ip_origen: str = "",
+    motivo: str = "",
 ) -> Vuelo:
     """CU-02 / HU-002: Modifica fecha, hora o costo por persona de un vuelo programado."""
     try:
@@ -229,7 +235,10 @@ def editar_vuelo(
     if vuelo.estado != EstadoVuelo.PROGRAMADO:
         raise FlightNotEditable()
 
-    cambios = {}
+    administrator_required(actor)
+    if not motivo.strip():
+        raise ValidationError({"motivo": "Indica el motivo de la edición."})
+    cambios = {"motivo": motivo.strip()}
     nueva_fecha = fecha_salida or vuelo.fecha_salida
     nueva_hora = hora_salida or vuelo.hora_salida
 
@@ -262,7 +271,10 @@ def editar_vuelo(
         }
 
     if costo_persona_economica is not None:
-        nuevo_costo_eco = Decimal(str(costo_persona_economica))
+        try:
+            nuevo_costo_eco = money(costo_persona_economica)
+        except ValidationError:
+            raise InvalidFlightCost() from None
         if nuevo_costo_eco <= Decimal("0.00"):
             raise InvalidFlightCost()
         cambios["costo_economica_anterior"] = str(vuelo.costo_persona_economica)
@@ -270,7 +282,10 @@ def editar_vuelo(
         cambios["costo_economica_nuevo"] = str(nuevo_costo_eco)
 
     if costo_persona_primera is not None:
-        nuevo_costo_prim = Decimal(str(costo_persona_primera))
+        try:
+            nuevo_costo_prim = money(costo_persona_primera)
+        except ValidationError:
+            raise InvalidFlightCost() from None
         if nuevo_costo_prim <= Decimal("0.00"):
             raise InvalidFlightCost()
         cambios["costo_primera_anterior"] = str(vuelo.costo_persona_primera)
@@ -279,15 +294,9 @@ def editar_vuelo(
 
     vuelo.save()
 
-    # Si hubo cambios en horarios, registramos notificación de afectación (DEC-13, CU-02)
-    if "salida_nueva" in cambios:
-        NotificacionAfectacion.objects.create(
-            vuelo=vuelo,
-            destinatario="pasajeros@aerolinea.local",
-            tipo_afectacion=NotificacionAfectacion.Tipo.REPROGRAMACION,
-            motivo="Reprogramación de fecha y hora de salida del vuelo.",
-            datos_adicionales=cambios,
-        )
+    from .operations import propagate_edit
+
+    propagate_edit(vuelo, cambios, actor)
 
     BitacoraVuelo.objects.create(
         vuelo=vuelo,
@@ -300,58 +309,14 @@ def editar_vuelo(
     return vuelo
 
 
-@transaction.atomic
-def cancelar_vuelo(
-    vuelo_id: int, motivo: str, alternativa: str = "REINTEGRO", actor=None, ip_origen: str = ""
-) -> Vuelo:
-    """CU-03 / HU-003: Cancela un vuelo programado y gestiona afectaciones."""
-    if not motivo or not motivo.strip():
-        raise CancellationReasonRequired()
+@inventory_transaction
+def cancelar_vuelo(vuelo_id, motivo, alternativa="REINTEGRO", actor=None, ip_origen=""):
+    from .operations import cancel_flight
 
-    try:
-        vuelo = Vuelo.objects.select_for_update().get(pk=vuelo_id)
-    except Vuelo.DoesNotExist:
-        raise FlightNotFound() from None
+    return cancel_flight(vuelo_id, motivo, alternativa, actor, ip_origen)
 
-    if vuelo.estado != EstadoVuelo.PROGRAMADO:
-        raise FlightNotCancellable()
 
-    vuelo.estado = EstadoVuelo.CANCELADO
-    vuelo.motivo_cancelacion = motivo.strip()
-    vuelo.cancelado_en = timezone.now()
-    vuelo.cancelado_por = actor
-    vuelo.cupos_disponibles_primera = 0
-    vuelo.cupos_disponibles_economica = 0
-    vuelo.save()
-
-    # Retirar noticias asociadas para que dejen de presentarse (CU-03)
-    vuelo.noticias.filter(vigente=True).update(vigente=False)
-
-    # Reembolsar a billeteras de pasajeros afectados si existen compras confirmadas (CU-03, §6.5)
-    from apps.sales.services import reembolsar_tiquetes_por_cancelacion_vuelo
-
-    reembolsar_tiquetes_por_cancelacion_vuelo(vuelo.pk)
-
-    # Registrar notificación persistente de cancelación (DEC-13)
-    NotificacionAfectacion.objects.create(
-        vuelo=vuelo,
-        destinatario="pasajeros@aerolinea.local",
-        tipo_afectacion=NotificacionAfectacion.Tipo.CANCELACION,
-        motivo=motivo.strip(),
-        datos_adicionales={"alternativa": alternativa},
-    )
-
-    BitacoraVuelo.objects.create(
-        vuelo=vuelo,
-        actor=actor,
-        tipo_evento=BitacoraVuelo.Evento.CANCELACION,
-        ip_origen=ip_origen,
-        detalles={"motivo": motivo.strip(), "alternativa": alternativa},
-    )
-
-    return vuelo
-
-@transaction.atomic
+@inventory_transaction
 def crear_ruta(*, origen_id: int, destino_id: int, tipo_vuelo: str, duracion_min: int) -> Ruta:
     """Registra una ruta en el catálogo validando las reglas de autorización."""
     if origen_id == destino_id:
@@ -365,8 +330,10 @@ def crear_ruta(*, origen_id: int, destino_id: int, tipo_vuelo: str, duracion_min
 
     if tipo_vuelo == TipoVuelo.NACIONAL:
         if not (
-            origen.codigo_pais == "CO" and origen.es_capital_principal
-            and destino.codigo_pais == "CO" and destino.es_capital_principal
+            origen.codigo_pais == "CO"
+            and origen.es_capital_principal
+            and destino.codigo_pais == "CO"
+            and destino.es_capital_principal
         ):
             raise UnauthorizedRoute()
     else:  # INTERNACIONAL
@@ -377,6 +344,8 @@ def crear_ruta(*, origen_id: int, destino_id: int, tipo_vuelo: str, duracion_min
         raise DuplicateRoute()
 
     return Ruta.objects.create(
-        origen=origen, destino=destino,
-        tipo_vuelo=tipo_vuelo, duracion_min=duracion_min,
+        origen=origen,
+        destino=destino,
+        tipo_vuelo=tipo_vuelo,
+        duracion_min=duracion_min,
     )

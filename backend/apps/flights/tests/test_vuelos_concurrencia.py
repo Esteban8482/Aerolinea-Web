@@ -25,6 +25,7 @@ def test_ca01_generacion_concurrente_de_codigos_de_vuelo(catalogo, admin_user):
     def crear_un_vuelo():
         connection.close()
         return programar_vuelo(
+            costo_persona_primera=Decimal("300000.00"),
             origen_id=origen.pk,
             destino_id=destino.pk,
             fecha_salida=fecha_salida,

@@ -20,7 +20,9 @@ class InvalidAmount(APIException):
 
 @transaction.atomic
 def depositar(wallet_id: int, monto: Decimal, referencia: str = "") -> MovimientoBilletera:
-    monto = Decimal(str(monto))
+    from apps.sales.rules import money
+
+    monto = money(monto)
     if monto <= Decimal("0.00"):
         raise InvalidAmount()
 
@@ -41,7 +43,9 @@ def depositar(wallet_id: int, monto: Decimal, referencia: str = "") -> Movimient
 def debitar_para_compra(
     wallet_id: int, monto: Decimal, referencia: str = ""
 ) -> MovimientoBilletera:
-    monto = Decimal(str(monto))
+    from apps.sales.rules import money
+
+    monto = money(monto)
     if monto <= Decimal("0.00"):
         raise InvalidAmount()
 
@@ -65,7 +69,9 @@ def debitar_para_compra(
 def reembolsar_a_billetera(
     wallet_id: int, monto: Decimal, referencia: str = ""
 ) -> MovimientoBilletera:
-    monto = Decimal(str(monto))
+    from apps.sales.rules import money
+
+    monto = money(monto)
     if monto <= Decimal("0.00"):
         raise InvalidAmount()
 

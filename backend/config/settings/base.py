@@ -58,16 +58,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-        "OPTIONS": {"min_length": 8},
+        "OPTIONS": {"min_length": 12},
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
-    {
-        "NAME": "apps.users.password_check.ContainsDigitValidator",
     },
 ]
 PASSWORD_HASHERS = [
@@ -160,3 +157,6 @@ PWNED_PASSWORDS_TIMEOUT_SECONDS = 3
 
 PASSWORD_RECOVERY_FRONTEND_URL = env("PASSWORD_RECOVERY_FRONTEND_URL", default="")
 AIRLINE_CODE_PREFIX = env("AIRLINE_CODE_PREFIX", default="XX")
+
+# Passwordless check-in frontend; fragment carries the traveler-scoped credential.
+GUEST_CHECKIN_FRONTEND_URL = env("GUEST_CHECKIN_FRONTEND_URL", default="")

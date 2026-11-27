@@ -1,11 +1,11 @@
 from datetime import date, time, timedelta
 from decimal import Decimal
 
-from django.core.management.base import BaseCommand
-from django.utils import timezone
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 
 from apps.flights.catalogo import cargar_catalogo
-from apps.flights.models import Ciudad, EstadoVuelo, Ruta, Vuelo
+from apps.flights.models import Ciudad, EstadoVuelo, Vuelo
 from apps.flights.services import cancelar_vuelo, programar_vuelo
 from apps.users.models import User
 from apps.users.services import provision_root
@@ -17,6 +17,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         del args, options
+        if not settings.DEBUG:
+            raise CommandError("Los datos demo solo se habilitan con DEBUG=True.")
         self.stdout.write(self.style.NOTICE("==> Sembrando catálogo de ciudades y rutas..."))
         cargar_catalogo()
 
@@ -49,7 +51,9 @@ class Command(BaseCommand):
             admin_user.set_password("Admin12345!")
             admin_user.save()
             Wallet.objects.get_or_create(user=admin_user, defaults={"balance": Decimal("0.00")})
-            self.stdout.write(self.style.SUCCESS("✓ Administrador creado (admin@alas.com / Admin12345!)"))
+            self.stdout.write(
+                self.style.SUCCESS("✓ Administrador creado (admin@alas.com / Admin12345!)")
+            )
         else:
             self.stdout.write("  Administrador admin@alas.com ya existía.")
 
@@ -70,8 +74,14 @@ class Command(BaseCommand):
             )
             cliente_user.set_password("Cliente12345!")
             cliente_user.save()
-            Wallet.objects.get_or_create(user=cliente_user, defaults={"balance": Decimal("5000000.00")})
-            self.stdout.write(self.style.SUCCESS("✓ Cliente creado (cliente@alas.com / Cliente12345! - Saldo: $5.000.000 COP)"))
+            Wallet.objects.get_or_create(
+                user=cliente_user, defaults={"balance": Decimal("5000000.00")}
+            )
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "✓ Cliente creado (cliente@alas.com / Cliente12345! - Saldo: $5.000.000 COP)"
+                )
+            )
         else:
             self.stdout.write("  Cliente cliente@alas.com ya existía.")
 
@@ -101,7 +111,9 @@ class Command(BaseCommand):
             costo_persona_primera=Decimal("225000.00"),
             actor=admin_user,
         )
-        self.stdout.write(self.style.SUCCESS(f"✓ Vuelo programado {v1.codigo_vuelo} (Bogotá -> Pereira)"))
+        self.stdout.write(
+            self.style.SUCCESS(f"✓ Vuelo programado {v1.codigo_vuelo} (Bogotá -> Pereira)")
+        )
 
         # Vuelo 2: Nacional Programado (Pereira -> Bogotá)
         v2 = programar_vuelo(
@@ -113,7 +125,9 @@ class Command(BaseCommand):
             costo_persona_primera=Decimal("230000.00"),
             actor=admin_user,
         )
-        self.stdout.write(self.style.SUCCESS(f"✓ Vuelo programado {v2.codigo_vuelo} (Pereira -> Bogotá)"))
+        self.stdout.write(
+            self.style.SUCCESS(f"✓ Vuelo programado {v2.codigo_vuelo} (Pereira -> Bogotá)")
+        )
 
         # Vuelo 3: Internacional Programado (Bogotá -> Madrid)
         v3 = programar_vuelo(
@@ -125,7 +139,9 @@ class Command(BaseCommand):
             costo_persona_primera=Decimal("1990000.00"),
             actor=admin_user,
         )
-        self.stdout.write(self.style.SUCCESS(f"✓ Vuelo programado {v3.codigo_vuelo} (Bogotá -> Madrid)"))
+        self.stdout.write(
+            self.style.SUCCESS(f"✓ Vuelo programado {v3.codigo_vuelo} (Bogotá -> Madrid)")
+        )
 
         # Vuelo 4: Internacional Programado (Medellín -> Miami)
         v4 = programar_vuelo(
@@ -137,7 +153,9 @@ class Command(BaseCommand):
             costo_persona_primera=Decimal("1470000.00"),
             actor=admin_user,
         )
-        self.stdout.write(self.style.SUCCESS(f"✓ Vuelo programado {v4.codigo_vuelo} (Medellín -> Miami)"))
+        self.stdout.write(
+            self.style.SUCCESS(f"✓ Vuelo programado {v4.codigo_vuelo} (Medellín -> Miami)")
+        )
 
         # Vuelo 5: Nacional Cancelado (Cartagena -> Bogotá)
         v5 = programar_vuelo(
@@ -155,7 +173,9 @@ class Command(BaseCommand):
             alternativa="REINTEGRO",
             actor=admin_user,
         )
-        self.stdout.write(self.style.SUCCESS(f"✓ Vuelo cancelado {v5.codigo_vuelo} (Cartagena -> Bogotá)"))
+        self.stdout.write(
+            self.style.SUCCESS(f"✓ Vuelo cancelado {v5.codigo_vuelo} (Cartagena -> Bogotá)")
+        )
 
         # Vuelo 6: Histórico / Realizado (Bogotá -> Medellín)
         v6 = programar_vuelo(
@@ -170,6 +190,8 @@ class Command(BaseCommand):
         # Marcamos como realizado para pruebas de filtrado
         v6.estado = EstadoVuelo.REALIZADO
         v6.save(update_fields=["estado"])
-        self.stdout.write(self.style.SUCCESS(f"✓ Vuelo realizado {v6.codigo_vuelo} (Bogotá -> Medellín)"))
+        self.stdout.write(
+            self.style.SUCCESS(f"✓ Vuelo realizado {v6.codigo_vuelo} (Bogotá -> Medellín)")
+        )
 
         self.stdout.write(self.style.SUCCESS("==> Datos de prueba generados exitosamente."))

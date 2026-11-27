@@ -83,7 +83,8 @@ class AdministratorsView(GenericAPIView):
         tags=["Administradores"],
         description="Solo ROOT activo, independientemente de staff/superuser o verificación. "
         "Correo, contraseña inicial, nombres, apellidos, DNI y teléfono obligatorios. "
-        "Rol ADMINISTRADOR fijado por servidor. Máximo 10 solicitudes por ROOT/hora y 20/origen/hora; "
+        "Rol ADMINISTRADOR fijado por servidor. Máximo 10 solicitudes por ROOT/hora "
+        "y 20/origen/hora; "
         "429 con Retry-After. Cuenta, billetera cero, aviso y auditoría atómicos. "
         "No envía la contraseña por correo ni marca el correo como verificado. "
         "Correo duplicado: 409 email_already_registered; Pwned Passwords no disponible: "
@@ -168,7 +169,9 @@ class AdministratorPasswordChangeView(APIView):
         responses={200: RootPasswordResultSerializer, **ERRORS},
         parameters=[CSRF_HEADER],
         tags=["Administradores"],
-        description="Solo ROOT activo. Permite actualizar la contraseña de un administrador existente.",
+        description=(
+            "Solo ROOT activo. Permite actualizar la contraseña de un administrador existente."
+        ),
     )
     def post(self, request):
         origin = request_origin(request)

@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from io import StringIO
+from uuid import uuid4
 
 import pytest
 from django.core.management import call_command
@@ -18,11 +19,14 @@ def test_crear_reserva_nacional_exitosa(vuelo_nacional, cliente_client, cliente_
     cupos_iniciales = vuelo_nacional.cupos_disponibles_economica
 
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 2),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "tipo_trayecto": "UNICO",
         "viajeros": [
             {
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "1001",
                 "tipo_documento": "CC",
                 "nombres": "Juan",
@@ -33,6 +37,8 @@ def test_crear_reserva_nacional_exitosa(vuelo_nacional, cliente_client, cliente_
                 "correo": "juan@example.com",
             },
             {
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "1002",
                 "tipo_documento": "TI",
                 "nombres": "Pedro",
@@ -45,7 +51,12 @@ def test_crear_reserva_nacional_exitosa(vuelo_nacional, cliente_client, cliente_
         ],
     }
 
-    response = cliente_client.post("/api/v1/sales/reservations/", data, format="json")
+    response = cliente_client.post(
+        "/api/v1/sales/reservations/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     assert response.status_code == 201
     res = response.json()
 
@@ -64,10 +75,13 @@ def test_crear_reserva_nacional_exitosa(vuelo_nacional, cliente_client, cliente_
 @pytest.mark.django_db
 def test_crear_reserva_sin_adulto_rechazada(vuelo_nacional, cliente_client):
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "2001",
                 "tipo_documento": "TI",
                 "nombres": "Menor",
@@ -80,7 +94,12 @@ def test_crear_reserva_sin_adulto_rechazada(vuelo_nacional, cliente_client):
         ],
     }
 
-    response = cliente_client.post("/api/v1/sales/reservations/", data, format="json")
+    response = cliente_client.post(
+        "/api/v1/sales/reservations/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     assert response.status_code == 400
     assert response.json()["code"] == "adult_passenger_required"
 
@@ -88,10 +107,15 @@ def test_crear_reserva_sin_adulto_rechazada(vuelo_nacional, cliente_client):
 @pytest.mark.django_db
 def test_crear_reserva_viajero_duplicado_rechazada(vuelo_nacional, cliente_client):
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 2),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "3001",
                 "nombres": "Adulto",
                 "apellidos": "Uno",
@@ -99,6 +123,10 @@ def test_crear_reserva_viajero_duplicado_rechazada(vuelo_nacional, cliente_clien
                 "correo": "adulto@example.com",
             },
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "3001",
                 "nombres": "Adulto",
                 "apellidos": "Repetido",
@@ -108,7 +136,12 @@ def test_crear_reserva_viajero_duplicado_rechazada(vuelo_nacional, cliente_clien
         ],
     }
 
-    response = cliente_client.post("/api/v1/sales/reservations/", data, format="json")
+    response = cliente_client.post(
+        "/api/v1/sales/reservations/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     assert response.status_code == 400
     assert response.json()["code"] == "duplicate_passenger_in_flight"
 
@@ -117,10 +150,15 @@ def test_crear_reserva_viajero_duplicado_rechazada(vuelo_nacional, cliente_clien
 def test_crear_reserva_limite_tiquetes_cliente_excedido(vuelo_nacional, cliente_client):
     # Intentar reservar 6 pasajeros (máximo 5)
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 6),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": f"400{i}",
                 "nombres": f"V{i}",
                 "apellidos": "T",
@@ -131,7 +169,12 @@ def test_crear_reserva_limite_tiquetes_cliente_excedido(vuelo_nacional, cliente_
         ],
     }
 
-    response = cliente_client.post("/api/v1/sales/reservations/", data, format="json")
+    response = cliente_client.post(
+        "/api/v1/sales/reservations/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     assert response.status_code == 400
 
 
@@ -141,10 +184,15 @@ def test_cancelar_reserva_voluntaria_devuelve_cupos(vuelo_nacional, cliente_clie
 
     # 1. Crear reserva
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "5001",
                 "nombres": "Adulto",
                 "apellidos": "Cancelar",
@@ -153,7 +201,12 @@ def test_cancelar_reserva_voluntaria_devuelve_cupos(vuelo_nacional, cliente_clie
             }
         ],
     }
-    creacion = cliente_client.post("/api/v1/sales/reservations/", data, format="json")
+    creacion = cliente_client.post(
+        "/api/v1/sales/reservations/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     reserva_id = creacion.json()["id"]
 
     vuelo_nacional.refresh_from_db()
@@ -176,6 +229,8 @@ def test_cancelar_reserva_voluntaria_devuelve_cupos(vuelo_nacional, cliente_clie
 
 def _viajero(documento, correo, nacimiento="1990-01-01"):
     return {
+        "nombre_contacto": "Contacto de prueba",
+        "telefono_contacto": "3007654321",
         "documento": documento,
         "tipo_documento": "CC",
         "nombres": "Viajero",
@@ -196,17 +251,20 @@ def test_crear_reserva_viajero_ya_reservado_en_mismo_vuelo_rechazada(
     r1 = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero("7101", "uno@example.com")],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r1.status_code == 201
 
     r2 = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 2),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [
@@ -215,6 +273,7 @@ def test_crear_reserva_viajero_ya_reservado_en_mismo_vuelo_rechazada(
             ],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r2.status_code == 400
     assert r2.json()["code"] == "duplicate_passenger_in_flight"
@@ -228,11 +287,13 @@ def test_crear_reserva_limite_cinco_tiquetes_acumulados_en_mismo_vuelo(
     r1 = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 3),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero(f"720{i}", f"a{i}@example.com") for i in range(3)],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r1.status_code == 201
 
@@ -240,11 +301,13 @@ def test_crear_reserva_limite_cinco_tiquetes_acumulados_en_mismo_vuelo(
     r2 = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 3),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero(f"721{i}", f"b{i}@example.com") for i in range(3)],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r2.status_code == 400
     assert r2.json()["code"] == "ticket_limit_exceeded"
@@ -253,11 +316,13 @@ def test_crear_reserva_limite_cinco_tiquetes_acumulados_en_mismo_vuelo(
     r3 = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 2),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero(f"722{i}", f"c{i}@example.com") for i in range(2)],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r3.status_code == 201
 
@@ -271,11 +336,13 @@ def test_ventana_reserva_nacional_cierra_una_hora_antes(vuelo_nacional, cliente_
     response = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero("7301", "nacional@example.com")],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert response.status_code == 400
     assert response.json()["code"] == "reservation_window_closed"
@@ -290,11 +357,13 @@ def test_ventana_reserva_internacional_cierra_tres_horas_antes(vuelo_internacion
     response = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_internacional.costo_persona_economica * 1),
             "vuelo_id": vuelo_internacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero("7401", "internacional@example.com")],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert response.status_code == 400
     assert response.json()["code"] == "reservation_window_closed"
@@ -312,11 +381,13 @@ def test_limite_vigencia_reserva_segun_tipo_de_vuelo(
     r_nac = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero("7501", "lim-nac@example.com")],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r_nac.status_code == 201
     reserva_nac = Reserva.objects.get(pk=r_nac.json()["id"])
@@ -328,11 +399,13 @@ def test_limite_vigencia_reserva_segun_tipo_de_vuelo(
     r_int = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_internacional.costo_persona_economica * 1),
             "vuelo_id": vuelo_internacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero("7502", "lim-int@example.com")],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r_int.status_code == 201
     reserva_int = Reserva.objects.get(pk=r_int.json()["id"])
@@ -350,6 +423,7 @@ def test_command_liberar_reservas_vencidas_devuelve_cupos_e_idempotente(
     r1 = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 2),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [
@@ -358,6 +432,7 @@ def test_command_liberar_reservas_vencidas_devuelve_cupos_e_idempotente(
             ],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r1.status_code == 201
     reserva_vencida_id = r1.json()["id"]
@@ -366,11 +441,13 @@ def test_command_liberar_reservas_vencidas_devuelve_cupos_e_idempotente(
     r2 = cliente_client.post(
         "/api/v1/sales/reservations/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero("7603", "vigente@example.com")],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r2.status_code == 201
     reserva_vigente_id = r2.json()["id"]
@@ -416,6 +493,7 @@ def test_reservas_concurrentes_por_ultimo_cupo(vuelo_nacional, cliente_con_bille
 
     cliente_b = User.objects.create_user(
         email="cliente.concurrente@example.invalid",
+        is_email_verified=True,
         password="password-segura-pruebas-2026",
         role=User.Role.CLIENTE,
         username="cliente_concurrente",

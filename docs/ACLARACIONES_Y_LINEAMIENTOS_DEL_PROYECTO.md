@@ -2,8 +2,8 @@
 
 **Proyecto:** Sistema de Gestión de Compra y Reserva de Tiquetes Aéreos en Línea  
 **Asignatura:** Laboratorio de Software — Universidad Tecnológica de Pereira  
-**Versión:** 1.0.5
-**Fecha:** 2026-10-20
+**Versión:** 1.0.6
+**Fecha:** 2026-11-26
 **Ubicación propuesta:** `docs/ACLARACIONES_Y_LINEAMIENTOS_DEL_PROYECTO.md`  
 **Destinatarios:** backend, frontend, integración/despliegue y herramientas de IA del equipo.  
 **Estado:** complemento consolidado para revisión e incorporación al repositorio mediante el flujo de trabajo del equipo. No acredita aprobación del profesor ni implementación del código.
@@ -115,6 +115,41 @@ La revisión parte de los adjuntos compartidos. La captura `image.png` únicamen
 | DEC-20 | C | HU-008: inactividad de 30 min renovada únicamente mediante POST explícito de actividad, como máximo una vez/minuto; polling no renueva (§9.6). |
 | DEC-21 | C | HU-009: alta de administradores máximo 10 solicitudes por ROOT/hora y 20/origen/hora, tras sesión, CSRF y permiso ROOT; ventana móvil y PostgreSQL (§9.7). |
 | DEC-22 | C | HU-009: cambio propio de clave ROOT con contraseña actual/nueva/confirmación, bloqueo separado del login y revocación de todas sus sesiones (§9.7). |
+
+## 3.1. Iteration 03 decisions — 2026-11-26 (DEC-23–26)
+
+**Agreement and provenance:** the user responsible for this task explicitly authorized
+repairing started backend stories and implementing HU-002/003/004/014/016/017 together on
+`iteracion-03`. They approved the report's proposals, then clarified promotion eligibility,
+relocation choice and magic-link lifetime, and approved the request limits below. Backend
+tests and isolated checks are explicitly authorized. This does not attribute team PR review,
+academic approval, deployment, or permission to push/commit.
+
+These decisions supersede only the affected P-01/P-03/P-04 proposals and contradictory
+implementation defaults. Existing unrelated requirements and P-05/P-06/P-07 remain in force.
+
+| ID | Adopted rule | Affected artifacts / acceptance |
+|---|---|---|
+| DEC-23 | Flight performance is explicitly confirmed by an administrator after scheduled departure; time alone does not confirm operation. Rescheduling retains paid prices, recomputes reservation cutoffs without extending original 24 h, invalidates confirmed check-in and requires new confirmation. Incompatible itineraries are explicitly flagged/notified and handled through release, relocation or refund. | P-01; HU-002/003/016; RF-ADM-10/12/13/20; audit and boarding-pass validity. |
+| DEC-24 | Administrators schedule discounts for a specific flight/class until no later than departure. Independent class fares are entered explicitly, without a multiplier. Only new reservations/purchases are eligible; a reservation predating promotion creation/start is excluded. No consumable promotion quota. One nonoverlapping scheduled interval per flight/class; confirmation uses the currently valid price and never modifies paid history. | P-04; HU-004/012/013; quote, display, news, price acceptance and interval boundaries. |
+| DEC-25 | Guest access uses a traveler-scoped passwordless magic link for tickets within one purchase. Access lasts until each flight's check-in closing time (departure in the current common rule), rather than an arbitrary 15-minute expiry. A new link revokes prior links for that traveler/purchase. Request limits: wait 60 s, 5 per traveler/hour, 20 per origin/hour, persisted shared counters and generic unknown-traveler response. Require CSRF on public mutations. | P-03 and partial P-05; HU-016/017; no cross-traveler or financial access; exact departure cutoff, privacy and limits. |
+| DEC-26 | Relocation requires recorded buyer acceptance. The buyer may select refund; no suitable destination capacity also leads to refund. Relocation preserves paid price, adds no charge, checks route/class/capacity/traveler identity and group adulthood, links original/replacement tickets and preserves voluntary seat-change usage. Resolve offers before cancelling the source flight; final cancellation refunds remaining active tickets. | P-01; HU-003/014/016/017; no simultaneous replacement and full refund for the same payment; rollback and concurrency. |
+
+**Implementation conventions:** session access remains separate from magic-link access.
+The token is carried in a fragment then a dedicated header; it grants no general account
+session. Inventory services share a transaction-scoped PostgreSQL advisory lock and row
+locks. Refunds link to the original debit and the affected ticket. Durable workers process
+email and PDF after commit; provider failure never reverses a confirmed business operation.
+These are reviewable implementation details, not new stack components.
+
+**Scope of closure:** P-01 is resolved for explicit performance confirmation, rescheduling
+invalidation and accepted relocation/refund in these stories; live delay monitoring and
+external operational integrations are not introduced. P-03 and P-04 are resolved for the
+rules above. P-05 remains open for unrelated monetary limits/withdrawal second factor and
+other controls. P-06 international return-route expansion is not approved.
+
+**Evidence:** see [iteration-03 report](backend/iteracion-03.md) for source mapping, commands,
+test environment/results, migrations, consumer changes and remaining integration work.
 
 ## 4. Identificadores y códigos
 
@@ -268,7 +303,7 @@ En S5, HU-004 exige que el valor promocional sea positivo e inferior al precio r
 
 Al cambiar la tarifa base, revisar promociones activas. Desactivar para futuras operaciones aquellas que dejen de representar un descuento y registrar la causa. Las compras ya confirmadas no se recalculan.
 
-**Pendiente P-04:** concretar el significado de `cupos_afectados`, la elegibilidad de reservas anteriores a una promoción y la política de promociones superpuestas. Hasta resolverlo, no implementar algoritmos distintos de selección de promociones.
+**P-04 resolved by DEC-24 (§3.1):** no consumable quota; scheduled nonoverlapping intervals per flight/class; only new operations are eligible. Earlier reservations are excluded. This replaces the former pending selection rule.
 
 El ER almacena precios por clase (`vuelo_clase`). No se ha definido un multiplicador para primera clase: ninguna IA debe inventar porcentajes. Ver P-04 para el contrato de entrada de esas tarifas.
 
@@ -276,7 +311,7 @@ El ER almacena precios por clase (`vuelo_clase`). No se ha definido un multiplic
 
 No confundir «hora programada alcanzada» con «operación efectivamente realizada». RF-ADM-13 y parte de RNF-DIS-02 usan el paso de la hora de salida para marcar `REALIZADO`, lo que puede impedir reprogramar retrasos.
 
-El mecanismo definitivo de transición está en **P-01**. Se mantiene la exigencia de conservar vuelos realizados/cancelados y excluirlos de nuevas operaciones, pero no se implementa una transición automática incompatible con la administración de retrasos sin cerrar esa decisión.
+The transition for this iteration is resolved by **DEC-23 (§3.1)**: explicit administrator confirmation after scheduled departure. Se mantiene la exigencia de conservar vuelos realizados/cancelados y excluirlos de nuevas operaciones, pero no se implementa una transición automática incompatible con la administración de retrasos sin cerrar esa decisión.
 
 Independientemente del nombre del estado, búsqueda, reserva y compra deben comprobar la salida vigente y los límites temporales. Un registro desactualizado como `PROGRAMADO` no autoriza vender una salida que ya quedó en el pasado.
 
@@ -285,7 +320,7 @@ Independientemente del nombre del estado, búsqueda, reserva y compra deben comp
 - HU-003 exige resolver cada tiquete vendido mediante reembolso o reubicación y registrar la alternativa aplicada. Si no hay vuelos alternativos con cupos suficientes, corresponde el reembolso.
 - El destinatario del reembolso es el comprador que realizó el débito. La referencia de algunos textos a «billetera del pasajero» no exige crear una cuenta a un viajero sin registro.
 - La reubicación comprueba capacidad, clase, identidad del viajero y coherencia de los trayectos en el vuelo de destino. Conserva una relación trazable entre tiquete original y sustituto; no puede producir simultáneamente un reembolso completo y un tiquete sustituto activo por el mismo pago.
-- No inventar cobros adicionales, reglas de consentimiento ni criterios de selección del vuelo alternativo. Acordar ese flujo y el tratamiento del pasabordo junto con P-01 antes de completar la reubicación. Esto no impide implementar el reembolso previsto.
+- No inventar cobros adicionales, reglas de consentimiento ni criterios de selección del vuelo alternativo. The accepted-buyer relocation/refund and boarding-pass treatment are now defined by DEC-23/26 (§3.1).
 - Cancelar el vuelo libera también las reservas sin pago afectadas; estas no reciben abonos. El vuelo y las operaciones originales se conservan como historial.
 - HU-003 exige revertir la cancelación si falla un abono obligatorio. La falla posterior de un correo se recupera mediante reintento y no revierte los movimientos confirmados.
 
@@ -365,7 +400,7 @@ La protección de identidad debe cubrir conjuntamente reservas y compras. Dos re
 - Los cambios impuestos por reubicación no deben confundirse con el cambio voluntario; el nuevo tiquete y su relación con el original deben quedar trazados.
 - Generar un pasabordo por viajero y vuelo, y registrar el envío o la necesidad de reintento.
 - El check-in grupal valida cada tiquete. Si una selección contiene tiquetes no habilitados, informar el motivo y pedir una selección válida, sin confirmar parcialmente y en silencio la selección original.
-- El acceso rápido sin cuenta es una excepción funcional al enunciado general de RNF-SEG-01. Su mecanismo de verificación está en P-03; no tratar el documento o localizador como autorización universal.
+- El acceso rápido sin cuenta es una excepción funcional al enunciado general de RNF-SEG-01. Its verification is resolved by DEC-25 (§3.1); document or locator alone never authorizes access.
 
 ## 8. DEC-09 — Transacciones, concurrencia e idempotencia
 
@@ -728,13 +763,13 @@ Los objetivos de rendimiento de S2 se presentan como iniciales y pendientes de c
 
 ## 14. Decisiones pendientes: registro único
 
-Los siguientes puntos permanecen abiertos; no son permiso para inventar una respuesta individual. La propuesta ayuda a resolverlos, pero **no equivale a una decisión ya aprobada**. Bloquear únicamente el comportamiento afectado, no el proyecto completo.
+This register retains historical issues and marks those resolved by DEC-23–26. Only unresolved rows remain open; they are not permission to invent a private rule. La propuesta ayuda a resolverlos, pero **no equivale a una decisión ya aprobada**. Bloquear únicamente el comportamiento afectado, no el proyecto completo.
 
 | ID | Punto por cerrar | Propuesta o criterio de resolución | Área afectada |
 |---|---|---|---|
-| **P-01** | Evento que marca `REALIZADO`, tratamiento de retrasos, check-ins/pasabordos al reprogramar y flujo de reubicación. | Separar hora prevista de confirmación de operación; considerar confirmación administrativa o evento explícito. Definir conservación o invalidación de check-in y documentos, selección/aceptación de vuelo sustituto y tratamiento de diferencias de tarifa, sin cobros silenciosos. Actualizar RF-ADM-12/13/RNF-DIS-02 y HU-002/003. | Vuelos, tareas automáticas, reubicación y check-in. |
-| **P-03** | Check-in rápido por documento/localizador frente a privacidad y autorización. | Mantener acceso sin cuenta, pero proponer un código de un solo uso enviado al correo registrado antes de mostrar datos o confirmar cambios. No revelar destinatarios completos ni permitir acceso a información financiera. Acordar el flujo exacto. | API pública, check-in y frontend. |
-| **P-04** | Promociones, `cupos_afectados`, reservas previas y tarifa por clase. | Definir si cupos es cuota consumible o instantánea; elegibilidad de reservas ya retenidas; tratamiento de superposición; y cómo se ingresan precios de ambas clases. Propuesta de simplicidad: una promoción activa por vuelo/clase. No inventar recargos de primera clase. | Vuelos, promociones, cotización, reserva/compra. |
+| **P-01 — resolved for iteration 03 by DEC-23/26** | Historical issue: evento que marca `REALIZADO`, tratamiento de retrasos, check-ins/pasabordos al reprogramar y flujo de reubicación. | Separar hora prevista de confirmación de operación; considerar confirmación administrativa o evento explícito. Definir conservación o invalidación de check-in y documentos, selección/aceptación de vuelo sustituto y tratamiento de diferencias de tarifa, sin cobros silenciosos. Actualizar RF-ADM-12/13/RNF-DIS-02 y HU-002/003. | Vuelos, tareas automáticas, reubicación y check-in. |
+| **P-03 — resolved by DEC-25** | Historical issue: check-in rápido por documento/localizador frente a privacidad y autorización. | Mantener acceso sin cuenta, pero proponer un código de un solo uso enviado al correo registrado antes de mostrar datos o confirmar cambios. No revelar destinatarios completos ni permitir acceso a información financiera. Acordar el flujo exacto. | API pública, check-in y frontend. |
+| **P-04 — resolved by DEC-24** | Historical issue: promociones, `cupos_afectados`, reservas previas y tarifa por clase. | Definir si cupos es cuota consumible o instantánea; elegibilidad de reservas ya retenidas; tratamiento de superposición; y cómo se ingresan precios de ambas clases. Propuesta de simplicidad: una promoción activa por vuelo/clase. No inventar recargos de primera clase. | Vuelos, promociones, cotización, reserva/compra. |
 | **P-05 (parcial)** | Siguen abiertos límites monetarios, segundo factor, otros controles de seguridad y contratos de imágenes. | DEC-16 resuelve únicamente tasas de registro/reenvío de HU-007. DEC-17 aprueba imagen y consulta API por rango para HU-007 (§9.5). DEC-18/19/20 resuelven HU-008 (§9.6); DEC-21/22 resuelven límites de alta y cambio propio de contraseña de HU-009 (§9.7). No extenderlos a otras operaciones. | Seguridad, billetera, perfil. |
 | **P-06** | Ida y regreso internacional frente a rutas autorizadas solo Colombia → exterior. | Aclarar si se autorizan rutas inversas del mismo conjunto o si esa modalidad queda limitada. Hasta resolverlo, no ampliar el catálogo silenciosamente. | Rutas, búsqueda y compra internacional. |
 | **P-07** | Rama/PR para tareas técnicas o documentación transversal sin HU propia. | Registrar una convención explícita en S8, manteniendo revisión y squash. No crear historias ficticias. | Integración y todo el equipo. |
@@ -868,6 +903,7 @@ Cada encargo debe indicar HU, alcance, decisiones aplicables, dependencias, crit
 
 | Versión | Fecha | Cambio |
 |---|---|---|
+| 1.0.6 | 2026-11-26 | Records user-approved DEC-23–26 for iteration 03, promotion eligibility, explicit operation, accepted relocation/refund and scoped magic-link access; preserves unrelated pending decisions. |
 | 1.0.5 | 2026-10-20 | Registra DEC-21/22 aprobadas para altas de administradores y cambio propio de contraseña ROOT, límites independientes y revocación de sesiones; conserva P-05 parcial. |
 | 1.0.4 | 2026-10-20 | Registra DEC-18/19/20 aprobadas para login, recuperación e inactividad de HU-008; P-05 continúa abierto para los demás controles. |
 | 1.0.3 | 2026-10-20 | Sustituye exclusivamente el corpus local de DEC-17 por API oficial por rango, con presupuesto 3 s, fallo cerrado y limpieza sin borrar datos; conserva trazabilidad y política pendiente. |

@@ -594,7 +594,6 @@ def test_mail_never_runs_inside_registration_transaction(root, data, provider):
             process_administrator_notifications()
 
 
-
 ADMIN_PASSWORD_URL = "/api/v1/users/administrators/password/"
 
 

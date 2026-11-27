@@ -90,7 +90,8 @@ def api_exception_handler(exc, context):
             ),
             "invalid_amount": "El monto debe ser un valor positivo.",
             "reservation_window_closed": (
-                "Ya no es posible realizar reservas para este vuelo debido a la proximidad de la salida."
+                "Ya no es posible realizar reservas para este vuelo "
+                "debido a la proximidad de la salida."
             ),
             "flight_not_available_for_sale": (
                 "El vuelo no se encuentra disponible para venta o reserva."
@@ -122,11 +123,12 @@ def api_exception_handler(exc, context):
             "checkin_already_confirmed": (
                 "No es posible cambiar de silla debido a que el check-in ya fue confirmado."
             ),
-            "purchase_not_cancellable": (
-                "La compra no se encuentra en estado cancelable."
-            ),
+            "purchase_not_cancellable": ("La compra no se encuentra en estado cancelable."),
         }
         message, details = messages.get(code, "No se pudo procesar la solicitud."), {}
+    if hasattr(exc, "current_total"):
+        details = {"current_total": exc.current_total}
+        message = "El precio cambió. Confirma el nuevo total antes de comprar."
     response.data = {"code": code, "message": message, "details": details}
     return response
 

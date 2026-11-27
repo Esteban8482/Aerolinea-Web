@@ -1,3 +1,19 @@
+# Iteration 03 backend update
+
+The current backend work extends flight/reservation/purchase workflows and adds promotions,
+relocation decisions, cancellation safeguards, check-in and boarding passes. Read the
+[iteration-03 diagnosis, API contract and handoff](../docs/backend/iteracion-03.md) before
+integrating consumers or migrating an existing database. It records verification status;
+the historical iteration-01 text below is not a description of current coverage.
+
+- Migrate after installing the hashed requirements; ReportLab is now required.
+- Schedule `process_journey_emails` in addition to existing user/purchase mail processors.
+- User verification/recovery create durable jobs; HTTP requests do not run SMTP processors.
+- Configure `GUEST_CHECKIN_FRONTEND_URL` for passwordless check-in.
+- New reservations/purchases require `Idempotency-Key`; purchases require `accepted_total`.
+- Flight creation requires both class fares; editing requires `motivo`.
+- Check-in closes at departure; magic-link access has the same per-flight cutoff.
+
 # Backend de Aerolínea Web
 
 Punto de entrada para el equipo: [entrega de iteración 1](../docs/backend/ITERACION-01.md),

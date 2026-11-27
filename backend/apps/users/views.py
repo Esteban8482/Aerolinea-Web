@@ -193,19 +193,21 @@ class ProfileView(APIView):
         balance = "0.00"
         if hasattr(user, "wallet"):
             balance = str(user.wallet.balance)
-        return Response({
-            "id": user.pk,
-            "username": user.username,
-            "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "document_number": user.document_number,
-            "document_type": user.document_type,
-            "birth_date": user.birth_date.isoformat() if user.birth_date else None,
-            "birth_place": user.birth_place,
-            "billing_address": user.billing_address,
-            "gender": user.gender,
-            "role": user.role,
-            "is_email_verified": user.is_email_verified,
-            "wallet_balance": balance,
-        })
+        return Response(
+            {
+                "id": user.pk,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "document_number": user.document_number,
+                "document_type": user.document_type,
+                "birth_date": user.birth_date.isoformat() if user.birth_date else None,
+                "birth_place": user.birth_place,
+                "billing_address": user.billing_address,
+                "gender": user.gender,
+                "role": user.role,
+                "is_email_verified": user.is_email_verified,
+                "wallet_balance": balance,
+            }
+        )

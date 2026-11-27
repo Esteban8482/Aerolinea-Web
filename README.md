@@ -17,6 +17,12 @@ correo real e integración operativa siguen pendientes. El alcance funcional des
 abajo incluye historias futuras. La evidencia histórica de infraestructura se conserva en
 [BASE-01](docs/BASE-01_VERIFICACION.md).
 
+**Iteration 03 update (2026-11-26):** the integrated branch now contains flights,
+reservations, purchases and wallet movements. The current backend changes, adopted decisions,
+verification status and frontend handoff are in
+[iteracion-03](docs/backend/iteracion-03.md). Earlier iteration-01 status statements below
+are historical; they do not describe the complete current branch.
+
 ## Contenido
 
 - [Contexto y objetivos](#contexto-y-objetivos)
@@ -388,9 +394,9 @@ El registro detallado y vigente se mantiene en el complemento. Al preparar esta 
 
 | ID | Tema por resolver |
 |---|---|
-| P-01 | Transición a vuelo realizado; retrasos, reprogramaciones, reubicación y efectos sobre check-in y pasabordos. |
-| P-03 | Verificación del viajero para check-in rápido sin cuenta. |
-| P-04 | Cupos de promociones, superposición, reservas anteriores y entrada de tarifas por clase. |
+| P-01 | Resolved for iteration 03 by DEC-23/26: explicit operation confirmation, rescheduling invalidation and accepted relocation/refund. |
+| P-03 | Resolved by DEC-25: traveler-scoped magic-link access through each flight closing time. |
+| P-04 | Resolved by DEC-24: scheduled class discounts, no consumable quota, nonoverlapping intervals and new-operation eligibility. |
 | P-05 (parcial) | Siguen pendientes otros parámetros de seguridad, finanzas e imágenes. DEC-16/17 resuelven registro/reenvío, imagen y consulta por rango de HU-007; DEC-18/19/20 concretan login, recuperación e inactividad de HU-008; DEC-21/22 fijan límites de alta de administradores y cambio propio de contraseña ROOT en HU-009. No cierran P-05 globalmente. |
 | P-06 | Rutas internacionales de regreso frente a la restricción de origen y destino. |
 | P-07 | Convención general de ramas y PR para tareas técnicas sin HU. |

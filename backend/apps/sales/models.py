@@ -74,9 +74,7 @@ class Reserva(models.Model):
     cliente = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reservas"
     )
-    vuelo = models.ForeignKey(
-        Vuelo, on_delete=models.PROTECT, related_name="reservas_ida"
-    )
+    vuelo = models.ForeignKey(Vuelo, on_delete=models.PROTECT, related_name="reservas_ida")
     vuelo_regreso = models.ForeignKey(
         Vuelo, on_delete=models.PROTECT, null=True, blank=True, related_name="reservas_regreso"
     )
@@ -100,9 +98,7 @@ class Reserva(models.Model):
 
 
 class ReservaViajero(models.Model):
-    reserva = models.ForeignKey(
-        Reserva, on_delete=models.CASCADE, related_name="viajeros_reserva"
-    )
+    reserva = models.ForeignKey(Reserva, on_delete=models.CASCADE, related_name="viajeros_reserva")
     viajero = models.ForeignKey(
         Viajero, on_delete=models.PROTECT, related_name="reservas_asociadas"
     )
@@ -118,6 +114,10 @@ class ReservaViajero(models.Model):
 
 
 class Compra(models.Model):
+    disrupted = models.BooleanField(default=False)
+    debit = models.OneToOneField(
+        "wallets.MovimientoBilletera", null=True, on_delete=models.PROTECT, related_name="purchase"
+    )
     cliente = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="compras"
     )
@@ -145,18 +145,19 @@ class Compra(models.Model):
 
 
 class Tiquete(models.Model):
-    compra = models.ForeignKey(
-        Compra, on_delete=models.PROTECT, related_name="tiquetes"
+    refund = models.OneToOneField(
+        "wallets.MovimientoBilletera",
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="refunded_ticket",
     )
-    vuelo = models.ForeignKey(
-        Vuelo, on_delete=models.PROTECT, related_name="tiquetes"
+    replacement_of = models.OneToOneField(
+        "self", null=True, on_delete=models.PROTECT, related_name="replacement"
     )
-    viajero = models.ForeignKey(
-        Viajero, on_delete=models.PROTECT, related_name="tiquetes"
-    )
-    silla = models.ForeignKey(
-        Silla, on_delete=models.PROTECT, related_name="tiquetes"
-    )
+    compra = models.ForeignKey(Compra, on_delete=models.PROTECT, related_name="tiquetes")
+    vuelo = models.ForeignKey(Vuelo, on_delete=models.PROTECT, related_name="tiquetes")
+    viajero = models.ForeignKey(Viajero, on_delete=models.PROTECT, related_name="tiquetes")
+    silla = models.ForeignKey(Silla, on_delete=models.PROTECT, related_name="tiquetes")
     clase = models.CharField(max_length=20, choices=ClaseTiquete.choices)
     precio_pagado = models.DecimalField(max_digits=12, decimal_places=2)
     codigo_tiquete = models.CharField(max_length=25, unique=True, db_index=True)
@@ -178,7 +179,12 @@ class Tiquete(models.Model):
             models.CheckConstraint(
                 condition=models.Q(numero_cambios_silla__lte=1),
                 name="check_maximo_un_cambio_silla",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["silla"],
+                condition=models.Q(estado="ACTIVO"),
+                name="unique_active_ticket_seat",
+            ),
         ]
 
     def __str__(self):
@@ -237,3 +243,64 @@ class HistorialBusqueda(models.Model):
         verbose_name = "Historial de Búsqueda"
         verbose_name_plural = "Historial de Búsquedas"
         ordering = ["-creado_en"]
+
+
+class OperationAudit(models.Model):
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
+    action = models.CharField(max_length=50)
+    resource_id = models.BigIntegerField()
+    details = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+
+class OperationRequest(models.Model):
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    action = models.CharField(max_length=50)
+    key = models.CharField(max_length=128)
+    fingerprint = models.CharField(max_length=64)
+    result = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["actor", "action", "key"], name="unique_operation_request"
+            )
+        ]
+
+
+class JourneyNotification(models.Model):
+    guest_access = models.ForeignKey("GuestAccess", null=True, on_delete=models.PROTECT)
+    cancelled_at = models.DateTimeField(null=True)
+    recipient = models.EmailField()
+    subject = models.CharField(max_length=200)
+    body = models.TextField()
+    ticket = models.ForeignKey(Tiquete, null=True, on_delete=models.PROTECT)
+    boarding_pass = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+    sent_at = models.DateTimeField(null=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    lease_id = models.UUIDField(null=True)
+    lease_until = models.DateTimeField(null=True)
+    last_error = models.CharField(max_length=40, blank=True)
+
+
+class GuestAccess(models.Model):
+    """Access is indexed by digest and restricted to one traveler/locator."""
+
+    token_digest = models.CharField(max_length=64, unique=True)
+    compra = models.ForeignKey(Compra, on_delete=models.PROTECT)
+    viajero = models.ForeignKey(Viajero, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(default=timezone.now)
+    revoked_at = models.DateTimeField(null=True)
+
+
+class RelocationOffer(models.Model):
+    ticket = models.ForeignKey(Tiquete, on_delete=models.PROTECT, related_name="relocation_offers")
+    destination = models.ForeignKey(Vuelo, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    accepted_at = models.DateTimeField(null=True)
+    resolved_at = models.DateTimeField(null=True)
+    decision = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)

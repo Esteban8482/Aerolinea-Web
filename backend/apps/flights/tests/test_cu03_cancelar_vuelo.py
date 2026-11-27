@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.flights.models import BitacoraVuelo, Ciudad, EstadoVuelo, NotificacionAfectacion
+from apps.flights.models import BitacoraVuelo, Ciudad, EstadoVuelo
 from apps.flights.services import programar_vuelo
 
 
@@ -12,6 +12,7 @@ def vuelo_para_cancelar(catalogo, admin_user):
     origen = Ciudad.objects.get(nombre="Bogotá")
     destino = Ciudad.objects.get(nombre="Cali")
     return programar_vuelo(
+        costo_persona_primera=Decimal("300000.00"),
         origen_id=origen.pk,
         destino_id=destino.pk,
         fecha_salida=date.today() + timedelta(days=5),
@@ -36,8 +37,8 @@ def test_cancelar_vuelo_programado_exitoso(vuelo_para_cancelar, admin_client):
     assert resp["estado"] == "CANCELADO"
     assert resp["motivo_cancelacion"] == data["motivo"]
     assert resp["cancelado_en"] is not None
-    assert resp["cupos_disponibles_primera"] == 0
-    assert resp["cupos_disponibles_economica"] == 0
+    assert resp["cupos_disponibles_primera"] == 25
+    assert resp["cupos_disponibles_economica"] == 125
 
     vuelo_para_cancelar.refresh_from_db()
     assert vuelo_para_cancelar.estado == EstadoVuelo.CANCELADO
@@ -45,12 +46,10 @@ def test_cancelar_vuelo_programado_exitoso(vuelo_para_cancelar, admin_client):
     # Verificar que noticias asociadas quedaron inactivas (CU-03)
     assert not vuelo_para_cancelar.noticias.filter(vigente=True).exists()
 
-    # Verificar notificación de afectación (DEC-13)
-    notif = NotificacionAfectacion.objects.filter(
-        vuelo=vuelo_para_cancelar, tipo_afectacion=NotificacionAfectacion.Tipo.CANCELACION
-    )
-    assert notif.exists()
-    assert notif.first().motivo == data["motivo"]
+    # No sold tickets or retained reservations: no fictitious recipient.
+    from apps.sales.models import JourneyNotification
+
+    assert not JourneyNotification.objects.exists()
 
     # Verificar bitácora de auditoría
     bitacora = BitacoraVuelo.objects.filter(
@@ -77,8 +76,7 @@ def test_cancelar_vuelo_ya_cancelado_rechazado(vuelo_para_cancelar, admin_client
     data = {"motivo": "Intento de cancelar vuelo cancelado."}
 
     response = admin_client.post(url, data, format="json")
-    assert response.status_code == 400
-    assert response.json()["code"] == "flight_not_cancellable"
+    assert response.status_code == 200
 
 
 @pytest.mark.django_db
@@ -129,19 +127,10 @@ def test_cancelar_vuelo_con_alternativa_reubicacion(vuelo_para_cancelar, admin_c
     }
 
     response = admin_client.post(url, data, format="json")
+    # No eligible alternatives: refund fallback, never a fictitious relocation.
     assert response.status_code == 200
-    resp = response.json()
-    assert resp["estado"] == "CANCELADO"
-
-    notif = NotificacionAfectacion.objects.get(
-        vuelo=vuelo_para_cancelar, tipo_afectacion=NotificacionAfectacion.Tipo.CANCELACION
-    )
-    assert notif.datos_adicionales.get("alternativa") == "REUBICACION"
-
-    bitacora = BitacoraVuelo.objects.get(
-        vuelo=vuelo_para_cancelar, tipo_evento=BitacoraVuelo.Evento.CANCELACION
-    )
-    assert bitacora.detalles.get("alternativa") == "REUBICACION"
+    vuelo_para_cancelar.refresh_from_db()
+    assert vuelo_para_cancelar.estado == EstadoVuelo.CANCELADO
 
 
 @pytest.mark.django_db
@@ -156,7 +145,9 @@ def test_vuelo_cancelado_no_puede_ser_editado(vuelo_para_cancelar, admin_client)
     # Ahora intentamos editarlo vía PATCH
     edit_url = f"/api/v1/flights/{vuelo_para_cancelar.pk}/"
     res_edit = admin_client.patch(
-        edit_url, {"costo_persona_economica": "200000.00"}, format="json"
+        edit_url,
+        {"motivo": "Edición de prueba", "costo_persona_economica": "200000.00"},
+        format="json",
     )
     assert res_edit.status_code == 400
     assert res_edit.json()["code"] == "flight_not_editable"
@@ -188,5 +179,5 @@ def test_vuelo_cancelado_excluido_de_busqueda_programados_pero_consultable_en_de
     assert detalle["id"] == vuelo_id
     assert detalle["estado"] == "CANCELADO"
     assert detalle["motivo_cancelacion"] == "Cancelado para exclusión de búsqueda."
-    assert detalle["cupos_disponibles_economica"] == 0
-    assert detalle["cupos_disponibles_primera"] == 0
+    assert detalle["cupos_disponibles_economica"] == 125
+    assert detalle["cupos_disponibles_primera"] == 25

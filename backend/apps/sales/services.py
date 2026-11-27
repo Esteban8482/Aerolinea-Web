@@ -1,34 +1,43 @@
-import random
+import secrets
 import string
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 
-from apps.flights.models import ClaseTiquete, EstadoSilla, EstadoVuelo, Silla, TipoVuelo, Vuelo
+from apps.flights.models import (
+    ClaseTiquete,
+    EstadoSilla,
+    EstadoVuelo,
+    Promotion,
+    Silla,
+    TipoVuelo,
+    Vuelo,
+)
+from apps.wallets.models import MovimientoBilletera
 from apps.wallets.services import debitar_para_compra, reembolsar_a_billetera
 
 from .errors import (
-    AdultPassengerRequired,
     CancellationWindowClosed,
     CheckinAlreadyConfirmed,
-    DuplicatePassengerInFlight,
-    FlightNotAvailableForSale,
     InsufficientSeats,
     PurchaseNotCancellable,
     ReservationNotActive,
     ReservationWindowClosed,
     SeatChangeLimitReached,
     SeatNotAvailable,
-    TicketLimitExceeded,
 )
+from .events import audit, notify
+from .locking import inventory_transaction
 from .models import (
     Compra,
     EstadoCompra,
     EstadoReserva,
     EstadoTiquete,
+    JourneyNotification,
     NotificacionCompra,
     Reserva,
     ReservaViajero,
@@ -36,614 +45,462 @@ from .models import (
     Tiquete,
     Viajero,
 )
+from .rules import capacity_field, client_required, identity, itinerary, owned, travelers
 
 
-def generar_localizador() -> str:
-    """Genera un localizador alfanumérico aleatorio y único de 6 caracteres (DEC-02)."""
-    caracteres = string.ascii_uppercase + string.digits
-    for _ in range(10):
-        candidato = "".join(random.choices(caracteres, k=6))
-        if not Compra.objects.filter(localizador=candidato).exists():
-            return candidato
-    # Fallback con timestamp
-    return "".join(random.choices(caracteres, k=6))
+class PriceChanged(APIException):
+    status_code = 409
+    default_code = "price_changed"
+    default_detail = "El precio cambió. Confirma el nuevo total antes de comprar."
 
 
-def generar_codigo_tiquete(localizador: str, indice: int) -> str:
+def generar_localizador():
+    return "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+
+
+def generar_codigo_tiquete(localizador, indice):
     return f"{localizador}-{indice:02d}"
 
 
-def calcular_limite_vigencia_reserva(
-    vuelo: Vuelo, now=None
-) -> tuple[timezone.datetime, timezone.datetime]:
-    """Calcula la vigencia de una reserva conforme a DEC-07.
-
-    margen_reserva = 1 hora para nacional; 3 horas para internacional
-    limite_por_salida = salida_vigente - margen_reserva
-    vence_en = min(now + 24 horas, limite_por_salida)
-    """
-    if now is None:
-        now = timezone.now()
-
-    margen_horas = 1 if vuelo.tipo_vuelo == TipoVuelo.NACIONAL else 3
-    limite_por_salida = vuelo.salida_utc - timedelta(hours=margen_horas)
-    vence_en = min(now + timedelta(hours=24), limite_por_salida)
-    return limite_por_salida, vence_en
+def calcular_limite_vigencia_reserva(vuelo, now=None):
+    now = now or timezone.now()
+    cutoff = vuelo.salida_utc - timedelta(hours=1 if vuelo.tipo_vuelo == TipoVuelo.NACIONAL else 3)
+    return cutoff, min(now + timedelta(hours=24), cutoff)
 
 
-def resolver_precio_vigente(vuelo: Vuelo, clase: str, fecha=None) -> Decimal:
-    """Punto único de consulta del precio por persona para búsqueda, carrito y compra (DEC-06).
-
-    Hoy retorna la tarifa base vigente del vuelo según la clase; `fecha` se acepta
-    ya para el contrato de promociones y por ahora no altera el resultado.
-
-    Contrato para HU-004 (promociones): HU-004 debe resolver aquí la promoción
-    activa aplicable a (vuelo, clase) en `fecha` y retornar el precio promocional
-    — positivo e inferior a la tarifa base (§6.3) — en lugar de la tarifa base.
-    La política de selección ante promociones superpuestas, la elegibilidad de
-    reservas previas y el significado de `cupos_afectados` siguen pendientes en
-    P-04: hasta resolverlos no se implementa ningún algoritmo de selección de
-    promociones. Búsqueda, carrito y compra deben obtener el precio solo desde
-    esta función, de modo que las promociones se apliquen automáticamente y de
-    forma consistente en los tres flujos. El `precio_pagado` de cada tiquete se
-    conserva con el valor resuelto al confirmar; nunca se recalcula (DEC-06).
-    """
-    if clase == ClaseTiquete.PRIMERA_CLASE:
-        return vuelo.costo_persona_primera
-    return vuelo.costo_persona_economica
-
-
-def contar_tiquetes_activos_cliente_en_vuelo(cliente, vuelo: Vuelo) -> int:
-    """Cuenta tiquetes activos (reservas vigentes + compras confirmadas) del cliente en el vuelo."""
-    # Reservas vigentes
-    reservas_count = ReservaViajero.objects.filter(
-        reserva__cliente=cliente,
-        reserva__vuelo=vuelo,
-        reserva__estado=EstadoReserva.VIGENTE,
-    ).count()
-
-    # Compras confirmadas
-    compras_count = Tiquete.objects.filter(
-        compra__cliente=cliente,
-        vuelo=vuelo,
-        estado=EstadoTiquete.ACTIVO,
-    ).count()
-
-    return reservas_count + compras_count
-
-
-def obtener_o_crear_viajero(data: dict) -> Viajero:
-    doc = str(data["documento"]).strip()
-    viajero, _ = Viajero.objects.get_or_create(
-        documento=doc,
-        defaults={
-            "tipo_documento": data.get("tipo_documento", "CC"),
-            "nombres": data["nombres"].strip(),
-            "apellidos": data["apellidos"].strip(),
-            "fecha_nacimiento": data["fecha_nacimiento"],
-            "genero": data.get("genero", "OTRO"),
-            "telefono": data.get("telefono", "").strip(),
-            "correo": data.get("correo", "").strip().lower(),
-            "nombre_contacto": data.get("nombre_contacto", "").strip(),
-            "telefono_contacto": data.get("telefono_contacto", "").strip(),
-        },
+def resolver_precio_vigente(vuelo, clase, fecha=None, reservation_created_at=None):
+    capacity_field(clase)
+    now = fecha or timezone.now()
+    base = (
+        vuelo.costo_persona_primera
+        if clase == ClaseTiquete.PRIMERA_CLASE
+        else vuelo.costo_persona_economica
     )
-    return viajero
-
-
-@transaction.atomic
-def crear_reserva(
-    cliente,
-    vuelo_id: int,
-    clase: str,
-    viajeros_data: list[dict],
-    tipo_trayecto: str = TipoTrayecto.UNICO,
-    vuelo_regreso_id: int = None,
-) -> Reserva:
-    """CU-12: Permite al cliente apartar temporalmente cupos de un vuelo sin pago
-
-    (DEC-07, DEC-08).
-    """
-    if not viajeros_data:
-        raise InsufficientSeats()
-
-    num_pasajeros = len(viajeros_data)
-    if num_pasajeros > 5:
-        raise TicketLimitExceeded()
-
-    now = timezone.now()
-
-    vuelo = Vuelo.objects.select_for_update().get(pk=vuelo_id)
-    if vuelo.estado != EstadoVuelo.PROGRAMADO or vuelo.salida_utc <= now:
-        raise FlightNotAvailableForSale()
-
-    limite_por_salida, vence_en = calcular_limite_vigencia_reserva(vuelo, now)
-    if now >= limite_por_salida:
-        raise ReservationWindowClosed()
-
-    # Comprobar límite de 5 tiquetes activos por cliente en el vuelo
-    actuales = contar_tiquetes_activos_cliente_en_vuelo(cliente, vuelo)
-    if actuales + num_pasajeros > 5:
-        raise TicketLimitExceeded()
-
-    # Verificar cupos en el vuelo
-    if clase == ClaseTiquete.PRIMERA_CLASE:
-        if vuelo.cupos_disponibles_primera < num_pasajeros:
-            raise InsufficientSeats()
-        vuelo.cupos_disponibles_primera -= num_pasajeros
-    else:
-        if vuelo.cupos_disponibles_economica < num_pasajeros:
-            raise InsufficientSeats()
-        vuelo.cupos_disponibles_economica -= num_pasajeros
-    vuelo.save()
-
-    # Validar que al menos un viajero sea mayor de edad en la fecha del vuelo
-    vuelo_regreso = None
-    if vuelo_regreso_id:
-        vuelo_regreso = Vuelo.objects.select_for_update().get(pk=vuelo_regreso_id)
-        if vuelo_regreso.estado != EstadoVuelo.PROGRAMADO or vuelo_regreso.salida_utc <= now:
-            raise FlightNotAvailableForSale()
-        # Verificar cupos en regreso
-        if clase == ClaseTiquete.PRIMERA_CLASE:
-            if vuelo_regreso.cupos_disponibles_primera < num_pasajeros:
-                raise InsufficientSeats()
-            vuelo_regreso.cupos_disponibles_primera -= num_pasajeros
-        else:
-            if vuelo_regreso.cupos_disponibles_economica < num_pasajeros:
-                raise InsufficientSeats()
-            vuelo_regreso.cupos_disponibles_economica -= num_pasajeros
-        vuelo_regreso.save()
-
-        # En ida y regreso el límite es el más temprano
-        _, vence_regreso = calcular_limite_vigencia_reserva(vuelo_regreso, now)
-        vence_en = min(vence_en, vence_regreso)
-
-    # Procesar viajeros y validar unicidad
-    viajeros = []
-    documentos_vistos = set()
-    al_menos_un_adulto = False
-
-    for v_data in viajeros_data:
-        doc = str(v_data["documento"]).strip()
-        if doc in documentos_vistos:
-            raise DuplicatePassengerInFlight()
-        documentos_vistos.add(doc)
-
-        viajero = obtener_o_crear_viajero(v_data)
-        if viajero.es_mayor_de_edad(vuelo.fecha_salida):
-            al_menos_un_adulto = True
-        viajeros.append(viajero)
-
-    if not al_menos_un_adulto:
-        raise AdultPassengerRequired()
-
-    # Ninguna persona puede figurar dos veces como viajero en el mismo vuelo:
-    # tampoco en otra reserva vigente ni en un tiquete activo de ese vuelo
-    vuelos_ids = [vuelo.pk]
-    if vuelo_regreso:
-        vuelos_ids.append(vuelo_regreso.pk)
-    duplicado_en_reserva = (
-        ReservaViajero.objects.filter(
-            reserva__estado=EstadoReserva.VIGENTE,
-            viajero__documento__in=documentos_vistos,
+    promotions = Promotion.objects.filter(
+        vuelo=vuelo, clase=clase, active=True, starts_at__lte=now, ends_at__gt=now, price__lt=base
+    )
+    if reservation_created_at is not None:
+        promotions = promotions.filter(
+            starts_at__lte=reservation_created_at, created_at__lte=reservation_created_at
         )
-        .filter(Q(reserva__vuelo_id__in=vuelos_ids) | Q(reserva__vuelo_regreso_id__in=vuelos_ids))
-        .exists()
-    )
-    duplicado_en_tiquete = Tiquete.objects.filter(
-        vuelo_id__in=vuelos_ids,
-        estado=EstadoTiquete.ACTIVO,
-        viajero__documento__in=documentos_vistos,
-    ).exists()
-    if duplicado_en_reserva or duplicado_en_tiquete:
-        raise DuplicatePassengerInFlight()
+    promotion = promotions.order_by("pk").first()
+    return promotion.price if promotion else base
 
-    reserva = Reserva.objects.create(
-        cliente=cliente,
-        vuelo=vuelo,
-        vuelo_regreso=vuelo_regreso,
-        tipo_trayecto=tipo_trayecto,
-        clase=clase,
-        limite_vigencia=vence_en,
-        estado=EstadoReserva.VIGENTE,
+
+def contar_tiquetes_activos_cliente_en_vuelo(cliente, vuelo):
+    return (
+        ReservaViajero.objects.filter(
+            reserva__cliente=cliente,
+            reserva__estado=EstadoReserva.VIGENTE,
+            reserva__limite_vigencia__gt=timezone.now(),
+        )
+        .filter(Q(reserva__vuelo=vuelo) | Q(reserva__vuelo_regreso=vuelo))
+        .count()
+        + Tiquete.objects.filter(
+            compra__cliente=cliente, vuelo=vuelo, estado=EstadoTiquete.ACTIVO
+        ).count()
     )
 
-    for v in viajeros:
-        ReservaViajero.objects.create(reserva=reserva, viajero=v)
 
-    return reserva
+def obtener_o_crear_viajero(data):
+    # Snapshot per operation: never reuse another buyer's private contact data.
+    data = dict(data)
+    data["tipo_documento"], data["documento"] = identity(data)
+    return Viajero.objects.create(**data)
 
 
-@transaction.atomic
-def liberar_reserva_si_vencida(reserva: Reserva) -> bool:
-    """Libera transaccionalmente los cupos de una reserva si alcanzó su vigencia (DEC-07)."""
-    reserva = Reserva.objects.select_for_update().get(pk=reserva.pk)
-    if reserva.estado != EstadoReserva.VIGENTE:
+def _flights(outbound, inbound=None):
+    ids = [outbound] + ([inbound] if inbound else [])
+    rows = {
+        f.pk: f
+        for f in Vuelo.objects.select_for_update()
+        .select_related("ruta")
+        .filter(pk__in=ids)
+        .order_by("pk")
+    }
+    if len(rows) != len(set(ids)):
+        raise NotFound()
+    return [rows[i] for i in ids]
+
+
+def _change_capacity(flight, clase, delta):
+    field = capacity_field(clase)
+    value = getattr(flight, field) + delta
+    maximum = (
+        flight.cupos_primera_clase
+        if clase == ClaseTiquete.PRIMERA_CLASE
+        else flight.cupos_economica
+    )
+    if value < 0:
+        raise InsufficientSeats()
+    if value > maximum:
+        raise ValidationError("El inventario requiere conciliación; no se modificó la operación.")
+    setattr(flight, field, value)
+    flight.save(update_fields=[field])
+
+
+def _release(reservation, state):
+    if reservation.estado != EstadoReserva.VIGENTE:
         return False
+    for flight in _flights(reservation.vuelo_id, reservation.vuelo_regreso_id):
+        _change_capacity(flight, reservation.clase, reservation.viajeros_reserva.count())
+    reservation.estado = state
+    reservation.save(update_fields=["estado"])
+    return True
 
-    if timezone.now() >= reserva.limite_vigencia:
-        reserva.estado = EstadoReserva.VENCIDA
-        reserva.save(update_fields=["estado"])
 
-        num_viajeros = reserva.viajeros_reserva.count()
-        vuelo = Vuelo.objects.select_for_update().get(pk=reserva.vuelo_id)
-        if reserva.clase == ClaseTiquete.PRIMERA_CLASE:
-            vuelo.cupos_disponibles_primera += num_viajeros
-        else:
-            vuelo.cupos_disponibles_economica += num_viajeros
-        vuelo.save()
-
-        if reserva.vuelo_regreso_id:
-            v_reg = Vuelo.objects.select_for_update().get(pk=reserva.vuelo_regreso_id)
-            if reserva.clase == ClaseTiquete.PRIMERA_CLASE:
-                v_reg.cupos_disponibles_primera += num_viajeros
-            else:
-                v_reg.cupos_disponibles_economica += num_viajeros
-            v_reg.save()
-
-        return True
+@inventory_transaction
+def liberar_reserva_si_vencida(reserva):
+    reserva = Reserva.objects.select_for_update().get(pk=reserva.pk)
+    if reserva.estado == EstadoReserva.VIGENTE and timezone.now() >= reserva.limite_vigencia:
+        return _release(reserva, EstadoReserva.VENCIDA)
     return False
 
 
-@transaction.atomic
-def cancelar_reserva(reserva_id: int, cliente) -> Reserva:
-    """CU-14 (Reserva): Cancela una reserva vigente y devuelve los cupos sin cobro."""
-    reserva = Reserva.objects.select_for_update().get(pk=reserva_id)
-    if reserva.cliente != cliente:
+def _expire_for(flights):
+    ids = [f.pk for f in flights]
+    for reservation in (
+        Reserva.objects.filter(estado=EstadoReserva.VIGENTE, limite_vigencia__lte=timezone.now())
+        .filter(Q(vuelo_id__in=ids) | Q(vuelo_regreso_id__in=ids))
+        .order_by("pk")
+    ):
+        liberar_reserva_si_vencida(reservation)
+    for flight in flights:
+        flight.refresh_from_db()
+
+
+@inventory_transaction
+def crear_reserva(
+    cliente, vuelo_id, clase, viajeros_data, tipo_trayecto=TipoTrayecto.UNICO, vuelo_regreso_id=None
+):
+    client_required(cliente)
+    flights = _flights(vuelo_id, vuelo_regreso_id)
+    _expire_for(flights)
+    now = timezone.now()
+    itinerary(flights, tipo_trayecto, now)
+    travelers(viajeros_data, flights, cliente, now)
+    expiry = min(calcular_limite_vigencia_reserva(f, now)[1] for f in flights)
+    if now >= expiry:
+        raise ReservationWindowClosed()
+    for flight in flights:
+        _change_capacity(flight, clase, -len(viajeros_data))
+    reservation = Reserva.objects.create(
+        cliente=cliente,
+        vuelo=flights[0],
+        vuelo_regreso=flights[1] if len(flights) > 1 else None,
+        tipo_trayecto=tipo_trayecto,
+        clase=clase,
+        limite_vigencia=expiry,
+    )
+    for data in viajeros_data:
+        ReservaViajero.objects.create(reserva=reservation, viajero=obtener_o_crear_viajero(data))
+    audit(cliente, "reservation_created", reservation)
+    return reservation
+
+
+@inventory_transaction
+def cancelar_reserva(reserva_id, cliente):
+    client_required(cliente)
+    reservation = owned(Reserva.objects.select_for_update(), cliente, pk=reserva_id)
+    if reservation.estado == EstadoReserva.CANCELADA:
+        return reservation
+    if reservation.estado != EstadoReserva.VIGENTE or timezone.now() >= reservation.limite_vigencia:
         raise ReservationNotActive()
-
-    if reserva.estado != EstadoReserva.VIGENTE:
-        raise ReservationNotActive()
-
-    reserva.estado = EstadoReserva.CANCELADA
-    reserva.save(update_fields=["estado"])
-
-    num_viajeros = reserva.viajeros_reserva.count()
-    vuelo = Vuelo.objects.select_for_update().get(pk=reserva.vuelo_id)
-    if reserva.clase == ClaseTiquete.PRIMERA_CLASE:
-        vuelo.cupos_disponibles_primera += num_viajeros
-    else:
-        vuelo.cupos_disponibles_economica += num_viajeros
-    vuelo.save()
-
-    if reserva.vuelo_regreso_id:
-        v_reg = Vuelo.objects.select_for_update().get(pk=reserva.vuelo_regreso_id)
-        if reserva.clase == ClaseTiquete.PRIMERA_CLASE:
-            v_reg.cupos_disponibles_primera += num_viajeros
-        else:
-            v_reg.cupos_disponibles_economica += num_viajeros
-        v_reg.save()
-
-    return reserva
+    _release(reservation, EstadoReserva.CANCELADA)
+    audit(cliente, "reservation_cancelled", reservation)
+    notify(
+        [cliente.email, *reservation.viajeros_reserva.values_list("viajero__correo", flat=True)],
+        "Reserva cancelada",
+        f"La reserva {reservation.pk} fue cancelada. No existía un pago que reembolsar.",
+    )
+    return reservation
 
 
-@transaction.atomic
+@inventory_transaction
 def comprar_tiquetes(
     cliente,
-    vuelo_id: int,
-    clase: str,
-    viajeros_data: list[dict] = None,
-    reserva_id: int = None,
-    tipo_trayecto: str = TipoTrayecto.UNICO,
-    vuelo_regreso_id: int = None,
-) -> Compra:
-    """CU-13: Compra confirmada de tiquetes con débito en billetera y asignación
-
-    de sillas (DEC-02, DEC-06, DEC-08, DEC-09).
-    """
+    vuelo_id=None,
+    clase=ClaseTiquete.ECONOMICA,
+    viajeros_data=None,
+    reserva_id=None,
+    tipo_trayecto=TipoTrayecto.UNICO,
+    vuelo_regreso_id=None,
+    accepted_total=None,
+):
+    client_required(cliente)
+    reservation = None
     now = timezone.now()
-    reserva = None
-
     if reserva_id:
-        reserva = Reserva.objects.select_for_update().get(pk=reserva_id)
-        if reserva.cliente != cliente or reserva.estado != EstadoReserva.VIGENTE:
+        reservation = owned(Reserva.objects.select_for_update(), cliente, pk=reserva_id)
+        if reservation.estado != EstadoReserva.VIGENTE or now >= reservation.limite_vigencia:
             raise ReservationNotActive()
-        if now >= reserva.limite_vigencia:
-            liberar_reserva_si_vencida(reserva)
-            raise ReservationNotActive()
-
-        vuelo = Vuelo.objects.select_for_update().get(pk=reserva.vuelo_id)
-        clase = reserva.clase
-        tipo_trayecto = reserva.tipo_trayecto
-        vuelo_regreso = reserva.vuelo_regreso
-        viajeros = [rv.viajero for rv in reserva.viajeros_reserva.select_related("viajero")]
-        num_pasajeros = len(viajeros)
-    else:
-        if not viajeros_data:
-            raise InsufficientSeats()
-        num_pasajeros = len(viajeros_data)
-        if num_pasajeros > 5:
-            raise TicketLimitExceeded()
-
-        vuelo = Vuelo.objects.select_for_update().get(pk=vuelo_id)
-        if vuelo.estado != EstadoVuelo.PROGRAMADO or vuelo.salida_utc <= now:
-            raise FlightNotAvailableForSale()
-
-        # Comprobar límite de 5 tiquetes activos por cliente en el vuelo
-        actuales = contar_tiquetes_activos_cliente_en_vuelo(cliente, vuelo)
-        if actuales + num_pasajeros > 5:
-            raise TicketLimitExceeded()
-
-        # Verificar cupos
-        if clase == ClaseTiquete.PRIMERA_CLASE:
-            if vuelo.cupos_disponibles_primera < num_pasajeros:
-                raise InsufficientSeats()
-            vuelo.cupos_disponibles_primera -= num_pasajeros
-        else:
-            if vuelo.cupos_disponibles_economica < num_pasajeros:
-                raise InsufficientSeats()
-            vuelo.cupos_disponibles_economica -= num_pasajeros
-        vuelo.save()
-
-        vuelo_regreso = None
-        if vuelo_regreso_id:
-            vuelo_regreso = Vuelo.objects.select_for_update().get(pk=vuelo_regreso_id)
-            if vuelo_regreso.estado != EstadoVuelo.PROGRAMADO or vuelo_regreso.salida_utc <= now:
-                raise FlightNotAvailableForSale()
-            if clase == ClaseTiquete.PRIMERA_CLASE:
-                if vuelo_regreso.cupos_disponibles_primera < num_pasajeros:
-                    raise InsufficientSeats()
-                vuelo_regreso.cupos_disponibles_primera -= num_pasajeros
-            else:
-                if vuelo_regreso.cupos_disponibles_economica < num_pasajeros:
-                    raise InsufficientSeats()
-                vuelo_regreso.cupos_disponibles_economica -= num_pasajeros
-            vuelo_regreso.save()
-
-        # Procesar viajeros
-        viajeros = []
-        documentos_vistos = set()
-        al_menos_un_adulto = False
-        for v_data in viajeros_data:
-            doc = str(v_data["documento"]).strip()
-            if doc in documentos_vistos:
-                raise DuplicatePassengerInFlight()
-            documentos_vistos.add(doc)
-            viajero = obtener_o_crear_viajero(v_data)
-            if viajero.es_mayor_de_edad(vuelo.fecha_salida):
-                al_menos_un_adulto = True
-            viajeros.append(viajero)
-
-        if not al_menos_un_adulto:
-            raise AdultPassengerRequired()
-
-    # Cálculo de precios vigentes (DEC-06) por el punto único de consulta
-    tarifa_vuelo = resolver_precio_vigente(vuelo, clase, now)
-    total = tarifa_vuelo * num_pasajeros
-    tarifa_regreso = None
-    if vuelo_regreso:
-        tarifa_regreso = resolver_precio_vigente(vuelo_regreso, clase, now)
-        total += tarifa_regreso * num_pasajeros
-
-    # Débito atómico en billetera (DEC-03, DEC-09)
-    wallet = cliente.wallet
-    localizador = generar_localizador()
-    debitar_para_compra(
-        wallet_id=wallet.pk,
-        monto=total,
-        referencia=f"Compra tiquetes localizador {localizador}",
-    )
-
-    compra = Compra.objects.create(
-        cliente=cliente,
-        localizador=localizador,
-        valor_pagado=total,
-        tipo_trayecto=tipo_trayecto,
-        estado=EstadoCompra.CONFIRMADA,
-        reserva_origen=reserva,
-    )
-
-    if reserva:
-        reserva.estado = EstadoReserva.COMPRADA
-        reserva.save(update_fields=["estado"])
-
-    # Asignación aleatoria de sillas en vuelo de ida (DEC-08, RN-14)
-    sillas_libres_ida = list(
-        Silla.objects.select_for_update()
-        .filter(vuelo=vuelo, clase=clase, estado=EstadoSilla.DISPONIBLE)
-    )
-    if len(sillas_libres_ida) < num_pasajeros:
-        raise InsufficientSeats()
-
-    sillas_asignadas_ida = random.sample(sillas_libres_ida, num_pasajeros)
-
-    for idx, (viajero, silla) in enumerate(
-        zip(viajeros, sillas_asignadas_ida, strict=False), start=1
-    ):
-        silla.estado = EstadoSilla.OCUPADA
-        silla.save(update_fields=["estado"])
-
-        tiquete = Tiquete.objects.create(
-            compra=compra,
-            vuelo=vuelo,
-            viajero=viajero,
-            silla=silla,
-            clase=clase,
-            precio_pagado=tarifa_vuelo,
-            codigo_tiquete=generar_codigo_tiquete(localizador, idx),
-            estado=EstadoTiquete.ACTIVO,
-        )
-        # Outbox: el código de reserva se envía al correo de cada viajero (HU-013);
-        # el envío SMTP lo procesa `process_purchase_emails` tras el commit.
-        NotificacionCompra.objects.create(tiquete=tiquete, recipient=viajero.correo)
-
-    # Si hay regreso, asignar sillas en regreso
-    if vuelo_regreso:
-        sillas_libres_reg = list(
-            Silla.objects.select_for_update()
-            .filter(vuelo=vuelo_regreso, clase=clase, estado=EstadoSilla.DISPONIBLE)
-        )
-        if len(sillas_libres_reg) < num_pasajeros:
-            raise InsufficientSeats()
-        sillas_asignadas_reg = random.sample(sillas_libres_reg, num_pasajeros)
-
-        for idx, (viajero, silla) in enumerate(
-            zip(viajeros, sillas_asignadas_reg, strict=False), start=num_pasajeros + 1
-        ):
-            silla.estado = EstadoSilla.OCUPADA
-            silla.save(update_fields=["estado"])
-
-            tiquete_regreso = Tiquete.objects.create(
-                compra=compra,
-                vuelo=vuelo_regreso,
-                viajero=viajero,
-                silla=silla,
-                clase=clase,
-                precio_pagado=tarifa_regreso,
-                codigo_tiquete=generar_codigo_tiquete(localizador, idx),
-                estado=EstadoTiquete.ACTIVO,
-            )
-            NotificacionCompra.objects.create(tiquete=tiquete_regreso, recipient=viajero.correo)
-
-    return compra
-
-
-@transaction.atomic
-def cancelar_compra(compra_id: int, cliente) -> Compra:
-    """CU-14 (Compra): Cancela voluntariamente una compra dentro del plazo legal.
-
-    Reembolsa a la billetera (DEC-06, DEC-07, DEC-09).
-    """
-    compra = Compra.objects.select_for_update().get(pk=compra_id)
-    if compra.cliente != cliente or compra.estado != EstadoCompra.CONFIRMADA:
-        raise PurchaseNotCancellable()
-
-    tiquetes = list(
-        compra.tiquetes.filter(estado=EstadoTiquete.ACTIVO).select_related("vuelo", "silla")
-    )
-    if not tiquetes:
-        raise PurchaseNotCancellable()
-
+        vuelo_id, vuelo_regreso_id = reservation.vuelo_id, reservation.vuelo_regreso_id
+        clase, tipo_trayecto = reservation.clase, reservation.tipo_trayecto
+        passengers = [r.viajero for r in reservation.viajeros_reserva.select_related("viajero")]
+        fields = [
+            "documento",
+            "tipo_documento",
+            "nombres",
+            "apellidos",
+            "fecha_nacimiento",
+            "genero",
+            "telefono",
+            "correo",
+            "nombre_contacto",
+            "telefono_contacto",
+        ]
+        viajeros_data = [{key: getattr(v, key) for key in fields} for v in passengers]
+    flights = _flights(vuelo_id, vuelo_regreso_id)
+    _expire_for(flights)
     now = timezone.now()
+    itinerary(flights, tipo_trayecto, now)
+    travelers(viajeros_data or [], flights, cliente, now, reserva_id)
+    prices = [
+        (
+            resolver_precio_vigente(f, clase, now, reservation_created_at=reservation.creada_en)
+            if reservation
+            else resolver_precio_vigente(f, clase, now)
+        )
+        for f in flights
+    ]
+    total = sum(prices) * len(viajeros_data)
+    if accepted_total is None or Decimal(str(accepted_total)) != total:
+        error = PriceChanged()
+        error.current_total = str(total)
+        raise error
+    if not reservation:
+        passengers = [obtener_o_crear_viajero(data) for data in viajeros_data]
+        for flight in flights:
+            _change_capacity(flight, clase, -len(passengers))
+    # Retry only locator collisions inside savepoints, not arbitrary integrity failures.
+    for _ in range(10):
+        locator = generar_localizador()
+        try:
+            with transaction.atomic():
+                purchase = Compra.objects.create(
+                    cliente=cliente,
+                    localizador=locator,
+                    valor_pagado=total,
+                    tipo_trayecto=tipo_trayecto,
+                    reserva_origen=reservation,
+                )
+            break
+        except IntegrityError:
+            if not Compra.objects.filter(localizador=locator).exists():
+                raise
+    else:
+        raise ValidationError("No fue posible generar el localizador. Reintenta.")
+    debit = debitar_para_compra(cliente.wallet.pk, total, f"Compra tiquetes localizador {locator}")
+    purchase.debit = debit
+    purchase.save(update_fields=["debit"])
+    index = 0
+    for flight, price in zip(flights, prices, strict=True):
+        seats = list(
+            Silla.objects.select_for_update()
+            .filter(vuelo=flight, clase=clase, estado=EstadoSilla.DISPONIBLE)
+            .order_by("pk")
+        )
+        if len(seats) < len(passengers):
+            raise InsufficientSeats()
+        for passenger in passengers:
+            seat = seats.pop(secrets.randbelow(len(seats)))
+            seat.estado = EstadoSilla.OCUPADA
+            seat.save(update_fields=["estado"])
+            index += 1
+            ticket = Tiquete.objects.create(
+                compra=purchase,
+                vuelo=flight,
+                viajero=passenger,
+                silla=seat,
+                clase=clase,
+                precio_pagado=price,
+                codigo_tiquete=generar_codigo_tiquete(locator, index),
+            )
+            NotificacionCompra.objects.create(tiquete=ticket, recipient=passenger.correo)
+    if reservation:
+        reservation.estado = EstadoReserva.COMPRADA
+        reservation.save(update_fields=["estado"])
+    audit(cliente, "purchase_confirmed", purchase, total=str(total))
+    return purchase
 
-    # Validar plazo de cancelación voluntaria: 1 hora nacional / 3 horas internacional (§7.1)
-    for t in tiquetes:
-        margen = 1 if t.vuelo.tipo_vuelo == TipoVuelo.NACIONAL else 3
-        limite_cancelacion = t.vuelo.salida_utc - timedelta(hours=margen)
-        if now >= limite_cancelacion:
+
+def _refund_ticket(ticket):
+    if ticket.estado != EstadoTiquete.ACTIVO:
+        return
+    purchase = Compra.objects.select_for_update().get(pk=ticket.compra_id)
+    debit = purchase.debit
+    if (
+        debit is None
+        or debit.tipo != MovimientoBilletera.Tipo.COMPRA
+        or debit.wallet.user_id != purchase.cliente_id
+    ):
+        raise ValidationError(
+            "No existe un débito conciliado para este tiquete; se requiere revisión financiera."
+        )
+    legacy_unresolved = purchase.tiquetes.filter(
+        estado=EstadoTiquete.CANCELADO, refund__isnull=True, replacement__isnull=True
+    ).exists()
+    original_total = sum(
+        purchase.tiquetes.filter(replacement_of__isnull=True).values_list(
+            "precio_pagado", flat=True
+        ),
+        Decimal("0"),
+    )
+    if legacy_unresolved or original_total != debit.valor or purchase.valor_pagado != debit.valor:
+        raise ValidationError("El historial financiero requiere conciliación antes de reembolsar.")
+    refunded = sum(
+        purchase.tiquetes.filter(refund__isnull=False).values_list("refund__valor", flat=True),
+        Decimal("0"),
+    )
+    if refunded + ticket.precio_pagado > debit.valor:
+        raise ValidationError("El reembolso excede el débito original.")
+    refund = reembolsar_a_billetera(
+        debit.wallet_id, ticket.precio_pagado, f"Reembolso tiquete {ticket.pk}; débito {debit.pk}"
+    )
+    JourneyNotification.objects.filter(
+        ticket=ticket, boarding_pass=True, sent_at__isnull=True
+    ).update(cancelled_at=timezone.now())
+    ticket.refund = refund
+    ticket.estado = EstadoTiquete.CANCELADO
+    ticket.save(update_fields=["refund", "estado"])
+    Silla.objects.filter(pk=ticket.silla_id).update(estado=EstadoSilla.DISPONIBLE)
+    flight = Vuelo.objects.select_for_update().get(pk=ticket.vuelo_id)
+    _change_capacity(flight, ticket.clase, 1)
+    if not purchase.tiquetes.filter(estado=EstadoTiquete.ACTIVO).exists():
+        purchase.estado = EstadoCompra.CANCELADA
+        purchase.fecha_cancelacion = timezone.now()
+        purchase.save(update_fields=["estado", "fecha_cancelacion"])
+
+
+@inventory_transaction
+def cancelar_compra(compra_id, cliente):
+    client_required(cliente)
+    purchase = owned(Compra.objects.select_for_update(), cliente, pk=compra_id)
+    if purchase.estado == EstadoCompra.CANCELADA:
+        return purchase
+    tickets = list(
+        purchase.tiquetes.filter(estado=EstadoTiquete.ACTIVO).select_related("vuelo", "viajero")
+    )
+    if not tickets:
+        raise PurchaseNotCancellable()
+    now = timezone.now()
+    for ticket in tickets:
+        if not purchase.disrupted and now >= calcular_limite_vigencia_reserva(ticket.vuelo, now)[0]:
             raise CancellationWindowClosed()
-
-    total_reembolso = Decimal("0.00")
-
-    # Liberar sillas, devolver cupos y marcar tiquetes cancelados
-    for t in tiquetes:
-        silla = t.silla
-        silla.estado = EstadoSilla.DISPONIBLE
-        silla.save(update_fields=["estado"])
-
-        vuelo = Vuelo.objects.select_for_update().get(pk=t.vuelo_id)
-        if t.clase == ClaseTiquete.PRIMERA_CLASE:
-            vuelo.cupos_disponibles_primera += 1
-        else:
-            vuelo.cupos_disponibles_economica += 1
-        vuelo.save()
-
-        t.estado = EstadoTiquete.CANCELADO
-        t.save(update_fields=["estado"])
-
-        total_reembolso += t.precio_pagado
-
-    compra.estado = EstadoCompra.CANCELADA
-    compra.fecha_cancelacion = now
-    compra.save(update_fields=["estado", "fecha_cancelacion"])
-
-    # Reembolso íntegro a la billetera del cliente comprador (DEC-09)
-    reembolsar_a_billetera(
-        wallet_id=cliente.wallet.pk,
-        monto=total_reembolso,
-        referencia=f"Reembolso por cancelación de compra {compra.localizador}",
+    for ticket in tickets:
+        _refund_ticket(ticket)
+    audit(cliente, "purchase_cancelled", purchase)
+    notify(
+        [cliente.email, *[t.viajero.correo for t in tickets]],
+        "Compra cancelada",
+        f"Compra {purchase.localizador}: reembolso al comprador confirmado.",
     )
+    purchase.refresh_from_db()
+    return purchase
 
-    return compra
 
-
-@transaction.atomic
-def reembolsar_tiquetes_por_cancelacion_vuelo(vuelo_id: int) -> int:
-    """Procesa el reintegro automático de todos los tiquetes vendidos cuando un administrador
-
-    cancela un vuelo (CU-03, §6.5).
-    """
-    tiquete_ids = list(
-        Tiquete.objects.filter(vuelo_id=vuelo_id, estado=EstadoTiquete.ACTIVO).values_list(
-            "id", flat=True
+@inventory_transaction
+def reembolsar_tiquetes_por_cancelacion_vuelo(vuelo_id):
+    tickets = list(
+        Tiquete.objects.filter(vuelo_id=vuelo_id, estado=EstadoTiquete.ACTIVO)
+        .select_related("compra__cliente", "viajero")
+        .order_by("compra__cliente_id", "pk")
+    )
+    for ticket in tickets:
+        _refund_ticket(ticket)
+        notify(
+            [ticket.compra.cliente.email, ticket.viajero.correo],
+            "Vuelo cancelado",
+            f"El tiquete {ticket.codigo_tiquete} fue reembolsado al comprador.",
         )
-    )
-    if not tiquete_ids:
-        return 0
-
-    tiquetes = list(
-        Tiquete.objects.select_for_update(of=("self",))
-        .filter(id__in=tiquete_ids)
-        .select_related("compra__cliente", "silla")
-    )
-
-    reembolsos_por_billetera = {}
-    for t in tiquetes:
-        wallet = t.compra.cliente.wallet
-        reembolsos_por_billetera.setdefault(wallet.pk, Decimal("0.00"))
-        reembolsos_por_billetera[wallet.pk] += t.precio_pagado
-
-        # Liberar silla y marcar tiquete como cancelado
-        t.silla.estado = EstadoSilla.DISPONIBLE
-        t.silla.save(update_fields=["estado"])
-        t.estado = EstadoTiquete.CANCELADO
-        t.save(update_fields=["estado"])
-
-    for wallet_id, monto in reembolsos_por_billetera.items():
-        reembolsar_a_billetera(
-            wallet_id=wallet_id,
-            monto=monto,
-            referencia=f"Reintegro por cancelación administrativa de vuelo #{vuelo_id}",
-        )
-
-    return len(tiquetes)
+    return len(tickets)
 
 
-@transaction.atomic
-def cambiar_silla_tiquete(tiquete_id: int, nueva_silla_id: int, actor) -> Tiquete:
-    """CU-17: Permite al cliente/viajero cambiar por una única vez la silla asignada
-
-    antes de check-in (RN-15).
-    """
-    tiquete = (
+@inventory_transaction
+def cambiar_silla_tiquete(tiquete_id, nueva_silla_id, actor):
+    client_required(actor, require_verified=False)
+    ticket = (
         Tiquete.objects.select_for_update()
-        .select_related("compra", "vuelo", "silla")
-        .get(pk=tiquete_id)
-    )
-
-    if tiquete.estado != EstadoTiquete.ACTIVO:
-        raise SeatNotAvailable()
-
-    # Si el check-in ya fue confirmado, no se admite cambio (CU-17 Flujo 2.a)
-    if tiquete.checkin_confirmado:
-        raise CheckinAlreadyConfirmed()
-
-    # Máximo un único cambio permitido por tiquete (RN-15)
-    if tiquete.numero_cambios_silla >= 1:
-        raise SeatChangeLimitReached()
-
-    # Obtener y validar la nueva silla
-    nueva_silla = (
-        Silla.objects.select_for_update()
-        .filter(pk=nueva_silla_id, vuelo=tiquete.vuelo)
+        .select_related("compra", "vuelo")
+        .filter(pk=tiquete_id, compra__cliente=actor)
         .first()
     )
-    if not nueva_silla:
+    if ticket is None:
+        raise NotFound()
+    return change_seat(ticket, nueva_silla_id, actor)
+
+
+def change_seat(ticket, seat_id, actor=None):
+    if (
+        ticket.estado != EstadoTiquete.ACTIVO
+        or ticket.vuelo.estado != EstadoVuelo.PROGRAMADO
+        or ticket.vuelo.salida_utc <= timezone.now()
+    ):
         raise SeatNotAvailable()
-
-    if nueva_silla.clase != tiquete.clase or nueva_silla.estado != EstadoSilla.DISPONIBLE:
+    if ticket.checkin_confirmado:
+        raise CheckinAlreadyConfirmed()
+    if ticket.silla_id == seat_id:
+        return ticket
+    if ticket.numero_cambios_silla >= 1:
+        raise SeatChangeLimitReached()
+    seat = (
+        Silla.objects.select_for_update()
+        .filter(
+            pk=seat_id, vuelo_id=ticket.vuelo_id, clase=ticket.clase, estado=EstadoSilla.DISPONIBLE
+        )
+        .first()
+    )
+    if seat is None:
         raise SeatNotAvailable()
+    previous = ticket.silla_id
+    Silla.objects.filter(pk=previous).update(estado=EstadoSilla.DISPONIBLE)
+    seat.estado = EstadoSilla.OCUPADA
+    seat.save(update_fields=["estado"])
+    ticket.silla = seat
+    ticket.numero_cambios_silla += 1
+    ticket.save(update_fields=["silla", "numero_cambios_silla"])
+    audit(actor, "seat_changed", ticket, previous_seat=previous, new_seat=seat.pk)
+    return ticket
 
-    # Reasignación atómica: liberar anterior y ocupar nueva
-    silla_anterior = tiquete.silla
-    silla_anterior.estado = EstadoSilla.DISPONIBLE
-    silla_anterior.save(update_fields=["estado"])
 
-    nueva_silla.estado = EstadoSilla.OCUPADA
-    nueva_silla.save(update_fields=["estado"])
-
-    tiquete.silla = nueva_silla
-    tiquete.numero_cambios_silla += 1
-    tiquete.save(update_fields=["silla", "numero_cambios_silla"])
-
-    return tiquete
+@inventory_transaction
+def quote_purchase(
+    cliente,
+    vuelo_id=None,
+    clase=ClaseTiquete.ECONOMICA,
+    viajeros_data=None,
+    reserva_id=None,
+    tipo_trayecto=TipoTrayecto.UNICO,
+    vuelo_regreso_id=None,
+):
+    """Return a current total; a quote never retains capacity or debits money."""
+    client_required(cliente)
+    reservation = None
+    if reserva_id:
+        reservation = owned(Reserva.objects.all(), cliente, pk=reserva_id)
+        if (
+            reservation.estado != EstadoReserva.VIGENTE
+            or timezone.now() >= reservation.limite_vigencia
+        ):
+            raise ReservationNotActive()
+        vuelo_id, vuelo_regreso_id = reservation.vuelo_id, reservation.vuelo_regreso_id
+        clase, tipo_trayecto = reservation.clase, reservation.tipo_trayecto
+        count = reservation.viajeros_reserva.count()
+    else:
+        count = len(viajeros_data or [])
+        if not 1 <= count <= 5:
+            raise ValidationError("Selecciona entre uno y cinco viajeros.")
+    flights = _flights(vuelo_id, vuelo_regreso_id)
+    itinerary(flights, tipo_trayecto, timezone.now())
+    prices = [
+        resolver_precio_vigente(
+            f, clase, reservation_created_at=reservation.creada_en if reservation else None
+        )
+        for f in flights
+    ]
+    return {
+        "total": str(sum(prices) * count),
+        "currency": "COP",
+        "prices": [str(p) for p in prices],
+        "quoted_at": timezone.now().isoformat(),
+    }

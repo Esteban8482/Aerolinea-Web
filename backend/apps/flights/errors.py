@@ -60,6 +60,7 @@ class RefundFailed(APIException):
     default_code = "refund_failed"
     default_detail = "Falla técnica durante el abono a las billeteras de los pasajeros afectados."
 
+
 class DuplicateRoute(APIException):
     status_code = 400
     default_code = "duplicate_route"

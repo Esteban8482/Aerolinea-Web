@@ -47,6 +47,7 @@ def test_cancelacion_administrativa_vuelo_reembolsa_automaticamente_compras(
 
     # 1. Programar vuelo
     vuelo = programar_vuelo(
+        costo_persona_primera=Decimal("300000.00"),
         origen_id=origen.pk,
         destino_id=destino.pk,
         fecha_salida=date.today() + timedelta(days=6),
@@ -57,11 +58,16 @@ def test_cancelacion_administrativa_vuelo_reembolsa_automaticamente_compras(
 
     # 2. Cliente compra 2 tiquetes
     compra = comprar_tiquetes(
+        accepted_total=Decimal("360000.00"),
         cliente=cliente_comprador,
         vuelo_id=vuelo.pk,
         clase="ECONOMICA",
         viajeros_data=[
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "12001",
                 "nombres": "Viajero",
                 "apellidos": "Uno",
@@ -69,6 +75,10 @@ def test_cancelacion_administrativa_vuelo_reembolsa_automaticamente_compras(
                 "correo": "v1@ex.com",
             },
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "12002",
                 "nombres": "Viajero",
                 "apellidos": "Dos",
@@ -105,8 +115,8 @@ def test_cancelacion_administrativa_vuelo_reembolsa_automaticamente_compras(
     assert cliente_comprador.wallet.balance == Decimal("1000000.00")
 
     # Movimiento tipo REEMBOLSO registrado
-    mov = MovimientoBilletera.objects.filter(
+    movements = MovimientoBilletera.objects.filter(
         wallet=cliente_comprador.wallet, tipo=MovimientoBilletera.Tipo.REEMBOLSO
-    ).first()
-    assert mov is not None
-    assert mov.valor == Decimal("360000.00")
+    )
+    assert movements.count() == 2
+    assert sum(movements.values_list("valor", flat=True)) == Decimal("360000.00")

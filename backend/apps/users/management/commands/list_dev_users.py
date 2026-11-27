@@ -58,13 +58,13 @@ class Command(BaseCommand):
 
         self.stdout.write("")
         self.stdout.write("Ayuda rapida:")
-        self.stdout.write(
-            "  - Crear datos demo:        python manage.py cargar_datos_demostracion"
-        )
+        self.stdout.write("  - Crear datos demo:        python manage.py cargar_datos_demostracion")
         self.stdout.write(
             "  - Restablecer claves demo: python manage.py list_dev_users --reset-demo"
         )
-        self.stdout.write("  - Crear cuenta ROOT:       python manage.py create_root --root-id root")
+        self.stdout.write(
+            "  - Crear cuenta ROOT:       python manage.py create_root --root-id root"
+        )
 
     def _print_user(self, user):
         if user.role == User.Role.ROOT:

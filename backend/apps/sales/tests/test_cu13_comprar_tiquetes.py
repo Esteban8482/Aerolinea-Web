@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from io import StringIO
+from uuid import uuid4
 
 import pytest
 from django.core import mail
@@ -30,11 +31,14 @@ def test_compra_directa_exitosa(vuelo_nacional, cliente_client, cliente_con_bill
     tarifa = vuelo_nacional.costo_persona_economica  # 150000.00
 
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "tipo_trayecto": "UNICO",
         "viajeros": [
             {
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "6001",
                 "tipo_documento": "CC",
                 "nombres": "Viajero",
@@ -47,7 +51,12 @@ def test_compra_directa_exitosa(vuelo_nacional, cliente_client, cliente_con_bill
         ],
     }
 
-    response = cliente_client.post("/api/v1/sales/purchases/", data, format="json")
+    response = cliente_client.post(
+        "/api/v1/sales/purchases/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     assert response.status_code == 201
     res = response.json()
 
@@ -75,10 +84,15 @@ def test_compra_directa_exitosa(vuelo_nacional, cliente_client, cliente_con_bill
 def test_compra_desde_reserva_exitosa(vuelo_nacional, cliente_client, cliente_con_billetera):
     # 1. Crear reserva previa
     data_reserva = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "7001",
                 "nombres": "Reservador",
                 "apellidos": "Uno",
@@ -87,15 +101,25 @@ def test_compra_desde_reserva_exitosa(vuelo_nacional, cliente_client, cliente_co
             }
         ],
     }
-    res_crear = cliente_client.post("/api/v1/sales/reservations/", data_reserva, format="json")
+    res_crear = cliente_client.post(
+        "/api/v1/sales/reservations/",
+        data_reserva,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     reserva_id = res_crear.json()["id"]
 
     vuelo_nacional.refresh_from_db()
     cupos_despues_reserva = vuelo_nacional.cupos_disponibles_economica
 
     # 2. Convertir reserva en compra
-    data_compra = {"reserva_id": reserva_id}
-    res_compra = cliente_client.post("/api/v1/sales/purchases/", data_compra, format="json")
+    data_compra = {"accepted_total": "150000.00", "reserva_id": reserva_id}
+    res_compra = cliente_client.post(
+        "/api/v1/sales/purchases/",
+        data_compra,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     assert res_compra.status_code == 201
 
     # Verificar que el vuelo no perdió cupos adicionales
@@ -116,10 +140,15 @@ def test_compra_saldo_insuficiente_rechazada(
     # El vuelo internacional cuesta 2.500.000 COP por persona en económica
     # La billetera tiene 2.000.000 COP
     data = {
+        "accepted_total": str(vuelo_internacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_internacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "8001",
                 "nombres": "Viajero",
                 "apellidos": "Internacional",
@@ -129,7 +158,12 @@ def test_compra_saldo_insuficiente_rechazada(
         ],
     }
 
-    response = cliente_client.post("/api/v1/sales/purchases/", data, format="json")
+    response = cliente_client.post(
+        "/api/v1/sales/purchases/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     assert response.status_code == 400
     assert response.json()["code"] == "insufficient_wallet_balance"
 
@@ -145,6 +179,8 @@ def test_compra_saldo_insuficiente_rechazada(
 
 def _viajero(documento, correo, nacimiento="1990-01-01"):
     return {
+        "nombre_contacto": "Contacto de prueba",
+        "telefono_contacto": "3007654321",
         "documento": documento,
         "tipo_documento": "CC",
         "nombres": "Viajero",
@@ -170,6 +206,8 @@ def _crear_cliente_con_saldo(email, username, document_number, saldo):
         billing_address="Avenida 3 # 12-34",
         gender="F",
     )
+    cliente.is_email_verified = True
+    cliente.save(update_fields=["is_email_verified"])
     wallet, _ = Wallet.objects.get_or_create(user=cliente)
     depositar(wallet.pk, saldo, "Saldo inicial de prueba")
     cliente.refresh_from_db()
@@ -193,6 +231,7 @@ def test_compra_concurrente_por_ultimo_cupo(vuelo_nacional, cliente_con_billeter
         connection.close()
         try:
             comprar_tiquetes(
+                accepted_total=Decimal("150000.00"),
                 cliente=cliente,
                 vuelo_id=vuelo_nacional.pk,
                 clase="ECONOMICA",
@@ -237,11 +276,13 @@ def test_compra_limite_cinco_tiquetes_acumulados_en_mismo_vuelo(
     r1 = cliente_client.post(
         "/api/v1/sales/purchases/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 3),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero(f"820{i}", f"a{i}@example.com") for i in range(3)],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r1.status_code == 201
     cliente_con_billetera.wallet.refresh_from_db()
@@ -251,11 +292,13 @@ def test_compra_limite_cinco_tiquetes_acumulados_en_mismo_vuelo(
     r2 = cliente_client.post(
         "/api/v1/sales/purchases/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 3),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero(f"821{i}", f"b{i}@example.com") for i in range(3)],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r2.status_code == 400
     assert r2.json()["code"] == "ticket_limit_exceeded"
@@ -271,11 +314,13 @@ def test_compra_limite_cinco_tiquetes_acumulados_en_mismo_vuelo(
     r3 = cliente_client.post(
         "/api/v1/sales/purchases/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 2),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [_viajero(f"822{i}", f"c{i}@example.com") for i in range(2)],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert r3.status_code == 201
 
@@ -287,6 +332,7 @@ def test_correo_codigo_reserva_enviado_a_cada_viajero(vuelo_nacional, cliente_cl
     response = cliente_client.post(
         "/api/v1/sales/purchases/",
         {
+            "accepted_total": str(vuelo_nacional.costo_persona_economica * 2),
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [
@@ -295,6 +341,7 @@ def test_correo_codigo_reserva_enviado_a_cada_viajero(vuelo_nacional, cliente_cl
             ],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert response.status_code == 201
     localizador = response.json()["localizador"]
@@ -353,6 +400,7 @@ def test_compra_resuelve_precios_via_resolver_precio_vigente(
     response = cliente_client.post(
         "/api/v1/sales/purchases/",
         {
+            "accepted_total": "222222.00",
             "vuelo_id": vuelo_nacional.pk,
             "clase": "ECONOMICA",
             "viajeros": [
@@ -361,6 +409,7 @@ def test_compra_resuelve_precios_via_resolver_precio_vigente(
             ],
         },
         format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
     assert response.status_code == 201
     res = response.json()

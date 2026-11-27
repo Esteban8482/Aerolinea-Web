@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -6,7 +6,9 @@ from rest_framework.views import APIView
 
 from apps.flights.models import Silla
 from apps.flights.serializers import SillaSerializer
+from apps.users.permissions import HasVerifiedEmail, IsClient
 
+from .idempotency import execute
 from .models import Compra, HistorialBusqueda, Reserva
 from .serializers import (
     CambiarSillaSerializer,
@@ -26,9 +28,19 @@ from .services import (
     liberar_reserva_si_vencida,
 )
 
+IDEMPOTENCY_HEADER = OpenApiParameter(
+    "Idempotency-Key",
+    str,
+    OpenApiParameter.HEADER,
+    required=True,
+    description=(
+        "Stable per-action key; repeat with exactly the same payload after network failure."
+    ),
+)
+
 
 class ReservationListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient, HasVerifiedEmail]
 
     @extend_schema(responses={200: ReservaDetailSerializer(many=True)})
     def get(self, request):
@@ -48,23 +60,39 @@ class ReservationListCreateView(APIView):
         reservas = reservas.all()
         return Response(ReservaDetailSerializer(reservas, many=True).data)
 
-    @extend_schema(request=CrearReservaSerializer, responses={201: ReservaDetailSerializer})
+    @extend_schema(
+        parameters=[IDEMPOTENCY_HEADER],
+        request=CrearReservaSerializer,
+        responses={201: ReservaDetailSerializer},
+    )
     def post(self, request):
         serializer = CrearReservaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        reserva = crear_reserva(
-            cliente=request.user,
-            vuelo_id=serializer.validated_data["vuelo_id"],
-            clase=serializer.validated_data["clase"],
-            viajeros_data=serializer.validated_data["viajeros"],
-            tipo_trayecto=serializer.validated_data.get("tipo_trayecto", "UNICO"),
-            vuelo_regreso_id=serializer.validated_data.get("vuelo_regreso_id"),
+
+        def perform():
+            reserva = crear_reserva(
+                cliente=request.user,
+                **{
+                    **{k: v for k, v in serializer.validated_data.items() if k != "viajeros"},
+                    "viajeros_data": serializer.validated_data["viajeros"],
+                },
+            )
+            return ReservaDetailSerializer(reserva).data
+
+        return Response(
+            execute(
+                request.user,
+                "reserve",
+                request.headers.get("Idempotency-Key"),
+                serializer.validated_data,
+                perform,
+            ),
+            status=201,
         )
-        return Response(ReservaDetailSerializer(reserva).data, status=status.HTTP_201_CREATED)
 
 
 class ReservationDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient, HasVerifiedEmail]
 
     @extend_schema(responses={200: ReservaDetailSerializer})
     def get(self, request, pk):
@@ -76,15 +104,20 @@ class ReservationDetailView(APIView):
                 "vuelo_regreso__ruta__destino",
             )
             .prefetch_related("viajeros_reserva__viajero")
-            .get(pk=pk, cliente=request.user)
+            .filter(pk=pk, cliente=request.user)
+            .first()
         )
+        if reserva is None:
+            from rest_framework.exceptions import NotFound
+
+            raise NotFound()
         liberar_reserva_si_vencida(reserva)
         reserva.refresh_from_db()
         return Response(ReservaDetailSerializer(reserva).data)
 
 
 class ReservationCancelView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient, HasVerifiedEmail]
 
     @extend_schema(request=None, responses={200: ReservaDetailSerializer})
     def post(self, request, pk):
@@ -93,7 +126,7 @@ class ReservationCancelView(APIView):
 
 
 class PurchaseListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient, HasVerifiedEmail]
 
     @extend_schema(responses={200: CompraDetailSerializer(many=True)})
     def get(self, request):
@@ -109,24 +142,35 @@ class PurchaseListCreateView(APIView):
         )
         return Response(CompraDetailSerializer(compras, many=True).data)
 
-    @extend_schema(request=ComprarTiquetesSerializer, responses={201: CompraDetailSerializer})
+    @extend_schema(
+        parameters=[IDEMPOTENCY_HEADER],
+        request=ComprarTiquetesSerializer,
+        responses={201: CompraDetailSerializer},
+    )
     def post(self, request):
         serializer = ComprarTiquetesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        compra = comprar_tiquetes(
-            cliente=request.user,
-            vuelo_id=serializer.validated_data.get("vuelo_id"),
-            clase=serializer.validated_data.get("clase", "ECONOMICA"),
-            viajeros_data=serializer.validated_data.get("viajeros"),
-            reserva_id=serializer.validated_data.get("reserva_id"),
-            tipo_trayecto=serializer.validated_data.get("tipo_trayecto", "UNICO"),
-            vuelo_regreso_id=serializer.validated_data.get("vuelo_regreso_id"),
+
+        def perform():
+            data = dict(serializer.validated_data)
+            data["viajeros_data"] = data.pop("viajeros", None)
+            compra = comprar_tiquetes(cliente=request.user, **data)
+            return CompraDetailSerializer(compra).data
+
+        return Response(
+            execute(
+                request.user,
+                "purchase",
+                request.headers.get("Idempotency-Key"),
+                serializer.validated_data,
+                perform,
+            ),
+            status=201,
         )
-        return Response(CompraDetailSerializer(compra).data, status=status.HTTP_201_CREATED)
 
 
 class PurchaseDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient, HasVerifiedEmail]
 
     @extend_schema(responses={200: CompraDetailSerializer})
     def get(self, request, pk):
@@ -136,13 +180,19 @@ class PurchaseDetailView(APIView):
                 "tiquetes__vuelo__ruta__destino",
                 "tiquetes__viajero",
                 "tiquetes__silla",
-            ).get(pk=pk, cliente=request.user)
+            )
+            .filter(pk=pk, cliente=request.user)
+            .first()
         )
+        if compra is None:
+            from rest_framework.exceptions import NotFound
+
+            raise NotFound()
         return Response(CompraDetailSerializer(compra).data)
 
 
 class PurchaseCancelView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient, HasVerifiedEmail]
 
     @extend_schema(request=None, responses={200: CompraDetailSerializer})
     def post(self, request, pk):
@@ -160,7 +210,7 @@ class SeatMapView(APIView):
 
 
 class TicketSeatChangeView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient]
 
     @extend_schema(request=CambiarSillaSerializer, responses={200: TiqueteSerializer})
     def post(self, request, pk):
@@ -175,12 +225,11 @@ class TicketSeatChangeView(APIView):
 
 
 class SearchHistoryView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsClient, HasVerifiedEmail]
 
     @extend_schema(responses={200: HistorialBusquedaSerializer(many=True)})
     def get(self, request):
-        historial = (
-            HistorialBusqueda.objects.filter(usuario=request.user)
-            .order_by("-creado_en")[:20]
-        )
+        historial = HistorialBusqueda.objects.filter(usuario=request.user).order_by("-creado_en")[
+            :20
+        ]
         return Response(HistorialBusquedaSerializer(historial, many=True).data)

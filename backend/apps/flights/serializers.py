@@ -1,4 +1,4 @@
-
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import Ciudad, ClaseTiquete, Ruta, Silla, TipoVuelo, Vuelo
@@ -44,7 +44,9 @@ class RutaWriteSerializer(serializers.Serializer):
         origen_id = attrs.get("origen_id")
         destino_id = attrs.get("destino_id")
         if origen_id and destino_id and origen_id == destino_id:
-            raise serializers.ValidationError({"destino_id": "El origen y el destino no pueden ser iguales."})
+            raise serializers.ValidationError(
+                {"destino_id": "El origen y el destino no pueden ser iguales."}
+            )
         return attrs
 
 
@@ -58,15 +60,19 @@ class ProgramarVueloSerializer(serializers.Serializer):
     destino_id = serializers.IntegerField(min_value=1)
     fecha_salida = serializers.DateField()
     hora_salida = serializers.TimeField()
-    costo_persona_economica = serializers.DecimalField(
-        max_digits=12, decimal_places=2
-    )
-    costo_persona_primera = serializers.DecimalField(
-        max_digits=12, decimal_places=2, required=False, allow_null=True
-    )
+    costo_persona_economica = serializers.DecimalField(max_digits=12, decimal_places=2)
+    costo_persona_primera = serializers.DecimalField(max_digits=12, decimal_places=2)
 
 
 class EditarVueloSerializer(serializers.Serializer):
+    motivo = serializers.CharField(max_length=500, allow_blank=False)
+
+    def to_internal_value(self, data):
+        unknown = set(data) - set(self.fields)
+        if unknown:
+            raise serializers.ValidationError({key: "Campo no editable." for key in unknown})
+        return super().to_internal_value(data)
+
     fecha_salida = serializers.DateField(required=False, allow_null=True)
     hora_salida = serializers.TimeField(required=False, allow_null=True)
     costo_persona_economica = serializers.DecimalField(
@@ -77,7 +83,7 @@ class EditarVueloSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
-        if not any(v is not None for v in attrs.values()):
+        if not any(v is not None for k, v in attrs.items() if k != "motivo"):
             raise serializers.ValidationError("Debes indicar al menos un campo para modificar.")
         return attrs
 
@@ -89,7 +95,25 @@ class CancelarVueloSerializer(serializers.Serializer):
     )
 
 
-class VueloListSerializer(serializers.ModelSerializer):
+class EffectivePriceMixin:
+    @extend_schema_field(serializers.DecimalField(max_digits=12, decimal_places=2))
+    def get_precio_vigente_economica(self, obj):
+        from apps.sales.services import resolver_precio_vigente
+
+        return str(resolver_precio_vigente(obj, ClaseTiquete.ECONOMICA))
+
+    @extend_schema_field(serializers.DecimalField(max_digits=12, decimal_places=2))
+    def get_precio_vigente_primera(self, obj):
+        from apps.sales.services import resolver_precio_vigente
+
+        return str(resolver_precio_vigente(obj, ClaseTiquete.PRIMERA_CLASE))
+
+
+class VueloListSerializer(EffectivePriceMixin, serializers.ModelSerializer):
+    currency = serializers.CharField(default="COP", read_only=True)
+    precio_vigente_economica = serializers.SerializerMethodField()
+    precio_vigente_primera = serializers.SerializerMethodField()
+
     origen = serializers.CharField(source="ruta.origen.nombre", read_only=True)
     destino = serializers.CharField(source="ruta.destino.nombre", read_only=True)
 
@@ -108,6 +132,9 @@ class VueloListSerializer(serializers.ModelSerializer):
             "fecha_llegada",
             "hora_llegada",
             "llegada_utc",
+            "currency",
+            "precio_vigente_economica",
+            "precio_vigente_primera",
             "costo_persona_economica",
             "costo_persona_primera",
             "capacidad_total",
@@ -117,9 +144,13 @@ class VueloListSerializer(serializers.ModelSerializer):
         ]
 
 
-class VueloDetalleSerializer(serializers.ModelSerializer):
+class VueloDetalleSerializer(EffectivePriceMixin, serializers.ModelSerializer):
+    currency = serializers.CharField(default="COP", read_only=True)
+    precio_vigente_economica = serializers.SerializerMethodField()
+    precio_vigente_primera = serializers.SerializerMethodField()
+
     ruta = RutaSerializer(read_only=True)
-    creado_por = serializers.CharField(source="creado_por.email", read_only=True)
+    creado_por = serializers.IntegerField(source="creado_por_id", read_only=True)
 
     class Meta:
         model = Vuelo
@@ -135,6 +166,9 @@ class VueloDetalleSerializer(serializers.ModelSerializer):
             "fecha_llegada",
             "hora_llegada",
             "llegada_utc",
+            "currency",
+            "precio_vigente_economica",
+            "precio_vigente_primera",
             "costo_persona_economica",
             "costo_persona_primera",
             "capacidad_total",
@@ -203,6 +237,7 @@ class FlightSearchResultSerializer(serializers.Serializer):
     vuelos_ida = VueloListSerializer(many=True)
     vuelos_regreso = VueloListSerializer(many=True)
 
+
 class CrearRutaSerializer(serializers.Serializer):
     origen_id = serializers.IntegerField(min_value=1, required=False)
     destino_id = serializers.IntegerField(min_value=1, required=False)
@@ -220,7 +255,9 @@ class CrearRutaSerializer(serializers.Serializer):
         if not destino_id:
             raise serializers.ValidationError({"destino_id": "Este campo es requerido."})
         if origen_id == destino_id:
-            raise serializers.ValidationError({"destino_id": "El origen y el destino no pueden ser iguales."})
+            raise serializers.ValidationError(
+                {"destino_id": "El origen y el destino no pueden ser iguales."}
+            )
         attrs["origen_id"] = origen_id
         attrs["destino_id"] = destino_id
         return attrs

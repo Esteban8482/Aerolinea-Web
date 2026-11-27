@@ -13,15 +13,15 @@ Antes de planificar o modificar código:
 3. Consulta en `docs/` el enunciado, la ERS, la HU, el caso de uso y los modelos relevantes para la tarea.
 4. Inspecciona el código, las migraciones, las dependencias, las pruebas y el contrato API existentes.
 
-Para usuarios, empieza por [la entrega de iteración 1](backend/ITERACION-01.md) y
-[su revisión de diseño y pendientes](backend/ITERACION-01_REVISION.md); sigue los enlaces
-HU-007/008/009 y OpenAPI. Reutiliza `apps/users` (servicios, sesiones/CSRF, permisos,
-validador de contraseñas, límites y procesadores); `Wallet` solo tiene persistencia mínima.
-Perfil completo, vuelos y finanzas no tienen API en esta entrega. No conviertas métodos
-del diagrama pendientes en endpoints aprobados. Conserva las decisiones versionadas sobre
-roles, credenciales, cuotas, revocación y formato de errores; justifica y prueba sus cambios.
-Selecciona verificaciones según el riesgo y distingue resultados nuevos de evidencia histórica;
-el README backend contiene los comandos Docker con settings de pruebas explícitos.
+For current backend work, start with [iteration 03](backend/iteracion-03.md) and the
+project clarifications (including DEC-23–26). The branch now includes flights, reservations,
+purchases, wallet movements and iteration-03 services; do not infer a users-only schema
+from historical iteration-01 documentation. Reuse `apps/users` session/CSRF/role checks,
+`sales` inventory/payment/check-in services, and their persistent mail processors. Treat
+frontend integration, worker scheduling, PostgreSQL target version and actual delivery
+verification as separate evidence. The backend README provides the test settings/commands.
+Historical [iteration 01](backend/ITERACION-01.md) and [its review](backend/ITERACION-01_REVISION.md)
+remain useful for user-specific decisions; they do not replace current contracts.
 
 El complemento resuelve únicamente las contradicciones que identifica expresamente. Para el resto del alcance se conservan los requisitos originales. El README resume el proyecto; una pantalla, un diagrama o el código actual no sustituyen por sí solos una regla documentada.
 

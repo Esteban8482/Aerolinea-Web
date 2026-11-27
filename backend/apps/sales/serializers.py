@@ -1,4 +1,3 @@
-
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -22,14 +21,10 @@ class ViajeroInputSerializer(serializers.Serializer):
     apellidos = serializers.CharField(max_length=80)
     fecha_nacimiento = serializers.DateField()
     genero = serializers.CharField(max_length=20, default="OTRO", required=False)
-    telefono = serializers.CharField(max_length=30, default="", required=False, allow_blank=True)
+    telefono = serializers.CharField(max_length=30)
     correo = serializers.EmailField()
-    nombre_contacto = serializers.CharField(
-        max_length=100, required=False, allow_blank=True, default=""
-    )
-    telefono_contacto = serializers.CharField(
-        max_length=30, required=False, allow_blank=True, default=""
-    )
+    nombre_contacto = serializers.CharField(max_length=100)
+    telefono_contacto = serializers.CharField(max_length=30)
 
 
 class ViajeroSerializer(serializers.ModelSerializer):
@@ -52,9 +47,7 @@ class ViajeroSerializer(serializers.ModelSerializer):
 
 class CrearReservaSerializer(serializers.Serializer):
     vuelo_id = serializers.IntegerField(min_value=1)
-    clase = serializers.ChoiceField(
-        choices=ClaseTiquete.choices, default=ClaseTiquete.ECONOMICA
-    )
+    clase = serializers.ChoiceField(choices=ClaseTiquete.choices, default=ClaseTiquete.ECONOMICA)
     tipo_trayecto = serializers.ChoiceField(
         choices=TipoTrayecto.choices, default=TipoTrayecto.UNICO
     )
@@ -93,6 +86,7 @@ class ReservaDetailSerializer(serializers.ModelSerializer):
 
 
 class ComprarTiquetesSerializer(serializers.Serializer):
+    accepted_total = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=0)
     vuelo_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
     clase = serializers.ChoiceField(
         choices=ClaseTiquete.choices, default=ClaseTiquete.ECONOMICA, required=False
@@ -144,6 +138,7 @@ class TiqueteSerializer(serializers.ModelSerializer):
 
 
 class CompraDetailSerializer(serializers.ModelSerializer):
+    currency = serializers.CharField(default="COP", read_only=True)
     tiquetes = TiqueteSerializer(many=True, read_only=True)
 
     class Meta:
@@ -151,7 +146,9 @@ class CompraDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "localizador",
+            "disrupted",
             "valor_pagado",
+            "currency",
             "tipo_trayecto",
             "estado",
             "fecha_compra",

@@ -11,10 +11,18 @@ from .password_check import validate_registration_password
 from .policy import current_registration_policy
 
 DISPOSABLE_EMAIL_DOMAINS = {
-    "mailinator.com", "tempmail.com", "10minutemail.com", "guerrillamail.com",
-    "yopmail.com", "trashmail.com", "temp-mail.org", "sharklasers.com",
-    "guerrillamail.net", "dispostable.com",
+    "mailinator.com",
+    "tempmail.com",
+    "10minutemail.com",
+    "guerrillamail.com",
+    "yopmail.com",
+    "trashmail.com",
+    "temp-mail.org",
+    "sharklasers.com",
+    "guerrillamail.net",
+    "dispostable.com",
 }
+
 
 class StrictSerializer(serializers.Serializer):
     def to_internal_value(self, data):
@@ -59,14 +67,12 @@ class RegistrationSerializer(StrictSerializer):
         if age > self.MAX_AGE_YEARS:
             raise serializers.ValidationError("La fecha de nacimiento no es plausible.")
         return value
-    
+
     def validate_email(self, value):
         value = value.strip().lower()
         domain = value.rsplit("@", 1)[-1]
         if domain in DISPOSABLE_EMAIL_DOMAINS:
-            raise serializers.ValidationError(
-                "No se admiten correos temporales o desechables."
-            )
+            raise serializers.ValidationError("No se admiten correos temporales o desechables.")
         return value
 
     def validate_accepts_data_policy(self, value):

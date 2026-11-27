@@ -68,6 +68,7 @@ def test_programar_vuelo_internacional_calculo_horario_y_sillas(catalogo, admin_
     # Salida UTC: 01:00 día siguiente. Llegada UTC: 10:50.
     # Madrid (UTC+1 o UTC+2 en verano): llega al día siguiente local
     data = {
+        "costo_persona_primera": "300000.00",
         "origen_id": origen.pk,
         "destino_id": destino.pk,
         "fecha_salida": str(fecha_salida),
@@ -94,6 +95,7 @@ def test_programar_vuelo_fecha_salida_en_el_pasado_rechazada(catalogo, admin_cli
     destino = Ciudad.objects.get(nombre="Medellín")
 
     data = {
+        "costo_persona_primera": "300000.00",
         "origen_id": origen.pk,
         "destino_id": destino.pk,
         "fecha_salida": "2020-01-01",
@@ -112,6 +114,7 @@ def test_programar_vuelo_ruta_no_autorizada_rechazada(catalogo, admin_client):
     destino = Ciudad.objects.get(nombre="Madrid")  # Pasto no es origen internacional autorizado
 
     data = {
+        "costo_persona_primera": "300000.00",
         "origen_id": origen.pk,
         "destino_id": destino.pk,
         "fecha_salida": str(date.today() + timedelta(days=2)),
@@ -129,6 +132,7 @@ def test_programar_vuelo_origen_coincide_con_destino_rechazado(catalogo, admin_c
     origen = Ciudad.objects.get(nombre="Bogotá")
 
     data = {
+        "costo_persona_primera": "300000.00",
         "origen_id": origen.pk,
         "destino_id": origen.pk,
         "fecha_salida": str(date.today() + timedelta(days=2)),
@@ -147,6 +151,7 @@ def test_programar_vuelo_costo_invalido_rechazado(catalogo, admin_client):
     destino = Ciudad.objects.get(nombre="Pereira")
 
     data = {
+        "costo_persona_primera": "300000.00",
         "origen_id": origen.pk,
         "destino_id": destino.pk,
         "fecha_salida": str(date.today() + timedelta(days=2)),
@@ -164,6 +169,7 @@ def test_programar_vuelo_denegado_para_no_administrador(catalogo, regular_client
     destino = Ciudad.objects.get(nombre="Pereira")
 
     data = {
+        "costo_persona_primera": "300000.00",
         "origen_id": origen.pk,
         "destino_id": destino.pk,
         "fecha_salida": str(date.today() + timedelta(days=2)),
@@ -200,6 +206,7 @@ def test_consultar_catalogos_y_listar_vuelos(catalogo, admin_client, anon_client
     destino = Ciudad.objects.get(nombre="Pereira")
     fecha_salida = date.today() + timedelta(days=7)
     data = {
+        "costo_persona_primera": "300000.00",
         "origen_id": origen.pk,
         "destino_id": destino.pk,
         "fecha_salida": str(fecha_salida),
@@ -247,6 +254,7 @@ def test_programar_vuelo_formato_fecha_hora_invalido(catalogo, admin_client):
     destino = Ciudad.objects.get(nombre="Pereira")
 
     data = {
+        "costo_persona_primera": "300000.00",
         "origen_id": origen.pk,
         "destino_id": destino.pk,
         "fecha_salida": "fecha-invalida",
@@ -309,6 +317,7 @@ def test_programar_vuelo_ciudad_o_ruta_inactiva_rechazada(catalogo, admin_client
     ruta.save()
 
     data = {
+        "costo_persona_primera": "300000.00",
         "origen_id": origen.pk,
         "destino_id": destino.pk,
         "fecha_salida": str(date.today() + timedelta(days=3)),

@@ -5,3 +5,4 @@ django-environ
 drf-spectacular
 argon2-cffi
 Pillow>=13,<14
+reportlab>=4,<5

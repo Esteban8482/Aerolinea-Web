@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.limits import request_origin
-from apps.users.permissions import IsAdminOrRoot
+from apps.users.permissions import IsAdministrator
 
 from .errors import DuplicateRoute, FlightNotFound
 from .models import Ciudad, EstadoVuelo, Ruta, Vuelo
@@ -34,7 +34,11 @@ class CitiesView(APIView):
     def get(self, request):
         todos = request.query_params.get("todos") == "1"
         queryset = Ciudad.objects.all().order_by("nombre")
-        if not (todos and request.user.is_authenticated and request.user.role in ("ADMINISTRADOR", "ROOT")):
+        if not (
+            todos
+            and request.user.is_authenticated
+            and request.user.role in ("ADMINISTRADOR", "ROOT")
+        ):
             queryset = queryset.filter(activa=True)
         return Response(CiudadSerializer(queryset, many=True).data)
 
@@ -42,7 +46,7 @@ class CitiesView(APIView):
 class RoutesView(APIView):
     def get_permissions(self):
         if self.request.method == "POST":
-            return [IsAuthenticated(), IsAdminOrRoot()]
+            return [IsAuthenticated(), IsAdministrator()]
         return [AllowAny()]
 
     @extend_schema(responses={200: RutaSerializer(many=True)})
@@ -53,7 +57,11 @@ class RoutesView(APIView):
             .select_related("origen", "destino")
             .order_by("origen__nombre", "destino__nombre")
         )
-        if not (todos and request.user.is_authenticated and request.user.role in ("ADMINISTRADOR", "ROOT")):
+        if not (
+            todos
+            and request.user.is_authenticated
+            and request.user.role in ("ADMINISTRADOR", "ROOT")
+        ):
             queryset = queryset.filter(activa=True)
         return Response(RutaSerializer(queryset, many=True).data)
 
@@ -88,7 +96,7 @@ class RoutesView(APIView):
 
 
 class RouteDetailView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrRoot]
+    permission_classes = [IsAuthenticated, IsAdministrator]
 
     @extend_schema(request=RutaUpdateSerializer, responses={200: RutaSerializer})
     def patch(self, request, pk):
@@ -100,22 +108,10 @@ class RouteDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if "activa" in request.data:
-            ruta.activa = bool(request.data["activa"])
-        if "duracion_min" in request.data:
-            try:
-                duracion = int(request.data["duracion_min"])
-                if duracion <= 0:
-                    return Response(
-                        {"code": "invalid_duration", "message": "La duración debe ser mayor a 0 minutos."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                ruta.duracion_min = duracion
-            except (ValueError, TypeError):
-                return Response(
-                    {"code": "invalid_duration", "message": "La duración debe ser un número entero válido."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        serializer = RutaUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        for field, value in serializer.validated_data.items():
+            setattr(ruta, field, value)
         ruta.save()
         return Response(RutaSerializer(ruta).data, status=status.HTTP_200_OK)
 
@@ -123,7 +119,7 @@ class RouteDetailView(APIView):
 class FlightsView(APIView):
     def get_permissions(self):
         if self.request.method == "POST":
-            return [IsAuthenticated(), IsAdminOrRoot()]
+            return [IsAuthenticated(), IsAdministrator()]
         return [AllowAny()]
 
     @extend_schema(responses={200: VueloListSerializer(many=True)})
@@ -131,6 +127,8 @@ class FlightsView(APIView):
         queryset = Vuelo.objects.select_related("ruta__origen", "ruta__destino").order_by(
             "-salida_utc"
         )
+        if not (request.user.is_authenticated and request.user.role == "ADMINISTRADOR"):
+            queryset = queryset.filter(estado=EstadoVuelo.PROGRAMADO, salida_utc__gt=timezone.now())
         estado = request.query_params.get("estado")
         if estado:
             queryset = queryset.filter(estado=estado.upper())
@@ -165,7 +163,7 @@ class FlightsView(APIView):
 class FlightDetailView(APIView):
     def get_permissions(self):
         if self.request.method == "PATCH":
-            return [IsAuthenticated(), IsAdminOrRoot()]
+            return [IsAuthenticated(), IsAdministrator()]
         return [AllowAny()]
 
     @extend_schema(responses={200: VueloDetalleSerializer})
@@ -186,6 +184,7 @@ class FlightDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         vuelo = editar_vuelo(
             vuelo_id=pk,
+            motivo=serializer.validated_data["motivo"],
             fecha_salida=serializer.validated_data.get("fecha_salida"),
             hora_salida=serializer.validated_data.get("hora_salida"),
             costo_persona_economica=serializer.validated_data.get("costo_persona_economica"),
@@ -197,7 +196,7 @@ class FlightDetailView(APIView):
 
 
 class FlightCancelView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrRoot]
+    permission_classes = [IsAuthenticated, IsAdministrator]
 
     @extend_schema(request=CancelarVueloSerializer, responses={200: VueloDetalleSerializer})
     def post(self, request, pk):
@@ -251,23 +250,27 @@ class FlightSearchView(APIView):
 
             if clase == "PRIMERA_CLASE":
                 qs = qs.filter(cupos_disponibles_primera__gte=pasajeros)
-                if precio_max:
-                    qs = qs.filter(costo_persona_primera__lte=precio_max)
+
             elif clase == "ECONOMICA":
                 qs = qs.filter(cupos_disponibles_economica__gte=pasajeros)
-                if precio_max:
-                    qs = qs.filter(costo_persona_economica__lte=precio_max)
+
             else:
                 qs = qs.filter(
                     Q(cupos_disponibles_economica__gte=pasajeros)
                     | Q(cupos_disponibles_primera__gte=pasajeros)
                 )
-                if precio_max:
-                    qs = qs.filter(
-                        Q(costo_persona_economica__lte=precio_max)
-                        | Q(costo_persona_primera__lte=precio_max)
-                    )
-            return qs.order_by("salida_utc")
+
+            qs = qs.order_by("salida_utc")
+            if precio_max is not None:
+                from apps.sales.services import resolver_precio_vigente
+
+                classes = [clase] if clase else ["ECONOMICA", "PRIMERA_CLASE"]
+                return [
+                    flight
+                    for flight in qs
+                    if any(resolver_precio_vigente(flight, c, now) <= precio_max for c in classes)
+                ]
+            return qs
 
         vuelos_ida = filtrar_qs(
             base_qs,
@@ -332,4 +335,3 @@ class FlightSearchView(APIView):
     @extend_schema(responses={200: FlightSearchResultSerializer})
     def get(self, request):
         return self._execute_search(request, request.query_params)
-

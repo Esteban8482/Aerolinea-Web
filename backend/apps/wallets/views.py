@@ -4,13 +4,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.users.permissions import HasVerifiedEmail
+
 from .models import Wallet
 from .serializers import DepositarSerializer, WalletSerializer
 from .services import depositar
 
 
 class WalletDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasVerifiedEmail]
 
     @extend_schema(responses={200: WalletSerializer})
     def get(self, request):
@@ -19,7 +21,7 @@ class WalletDetailView(APIView):
 
 
 class WalletDepositView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasVerifiedEmail]
 
     @extend_schema(request=DepositarSerializer, responses={200: WalletSerializer})
     def post(self, request):

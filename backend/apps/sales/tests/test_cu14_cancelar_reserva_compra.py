@@ -1,4 +1,5 @@
 from datetime import timedelta
+from uuid import uuid4
 
 import pytest
 from django.utils import timezone
@@ -17,10 +18,15 @@ def test_cancelar_compra_voluntaria_reembolso_exitoso(
 
     # 1. Realizar compra
     data_compra = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "9001",
                 "nombres": "Ana",
                 "apellidos": "Reembolso",
@@ -29,7 +35,12 @@ def test_cancelar_compra_voluntaria_reembolso_exitoso(
             }
         ],
     }
-    res_compra = cliente_client.post("/api/v1/sales/purchases/", data_compra, format="json")
+    res_compra = cliente_client.post(
+        "/api/v1/sales/purchases/",
+        data_compra,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     compra_id = res_compra.json()["id"]
     silla_id = res_compra.json()["tiquetes"][0]["silla"]["id"]
 
@@ -50,6 +61,7 @@ def test_cancelar_compra_voluntaria_reembolso_exitoso(
 
     # 4. Silla liberada
     from apps.flights.models import Silla
+
     silla = Silla.objects.get(pk=silla_id)
     assert silla.estado == EstadoSilla.DISPONIBLE
 
@@ -58,10 +70,15 @@ def test_cancelar_compra_voluntaria_reembolso_exitoso(
 def test_cancelar_compra_fuera_de_plazo_rechazada(vuelo_nacional, cliente_client):
     # 1. Comprar tiquete
     data = {
+        "accepted_total": str(vuelo_nacional.costo_persona_economica * 1),
         "vuelo_id": vuelo_nacional.pk,
         "clase": "ECONOMICA",
         "viajeros": [
             {
+                "genero": "M",
+                "telefono": "3001234567",
+                "nombre_contacto": "Contacto de prueba",
+                "telefono_contacto": "3007654321",
                 "documento": "9002",
                 "nombres": "Pedro",
                 "apellidos": "Tarde",
@@ -70,7 +87,12 @@ def test_cancelar_compra_fuera_de_plazo_rechazada(vuelo_nacional, cliente_client
             }
         ],
     }
-    res_compra = cliente_client.post("/api/v1/sales/purchases/", data, format="json")
+    res_compra = cliente_client.post(
+        "/api/v1/sales/purchases/",
+        data,
+        format="json",
+        HTTP_IDEMPOTENCY_KEY=uuid4().hex,
+    )
     compra_id = res_compra.json()["id"]
 
     # Modificar salida del vuelo a 30 minutos desde ahora (menos del margen de 1 hora)
@@ -81,4 +103,3 @@ def test_cancelar_compra_fuera_de_plazo_rechazada(vuelo_nacional, cliente_client
     res_cancel = cliente_client.post(f"/api/v1/sales/purchases/{compra_id}/cancel/")
     assert res_cancel.status_code == 400
     assert res_cancel.json()["code"] == "cancellation_window_closed"
-

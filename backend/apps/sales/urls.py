@@ -1,5 +1,17 @@
 from django.urls import path
 
+from .journey_views import (
+    BoardingPassView,
+    CheckinView,
+    CompleteFlightView,
+    FlightNewsView,
+    GuestLinkView,
+    GuestSeatView,
+    PromotionsView,
+    QuoteView,
+    RelocationDecisionView,
+    RelocationOffersView,
+)
 from .views import (
     PurchaseCancelView,
     PurchaseDetailView,
@@ -42,4 +54,27 @@ urlpatterns = [
         name="sales-ticket-change-seat",
     ),
     path("search-history/", SearchHistoryView.as_view(), name="sales-search-history"),
+]
+
+
+urlpatterns += [
+    path("check-in/", CheckinView.as_view(), name="sales-checkin"),
+    path("check-in/access/", GuestLinkView.as_view(), name="sales-guest-access"),
+    path("check-in/tickets/<int:pk>/seat/", GuestSeatView.as_view(), name="sales-guest-seat"),
+    path("tickets/<int:pk>/boarding-pass/", BoardingPassView.as_view(), name="sales-boarding-pass"),
+    path("flights/<int:pk>/promotions/", PromotionsView.as_view(), name="sales-promotions"),
+    path("relocations/", RelocationOffersView.as_view(), name="sales-relocations"),
+    path(
+        "relocations/<int:pk>/", RelocationDecisionView.as_view(), name="sales-relocation-decision"
+    ),
+]
+
+
+urlpatterns += [path("quote/", QuoteView.as_view(), name="sales-quote")]
+
+urlpatterns += [
+    path(
+        "flights/<int:pk>/performed/", CompleteFlightView.as_view(), name="sales-flight-performed"
+    ),
+    path("flight-news/", FlightNewsView.as_view(), name="sales-flight-news"),
 ]
