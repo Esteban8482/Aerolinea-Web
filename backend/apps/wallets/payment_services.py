@@ -47,6 +47,11 @@ def register_method(*, actor, data):
     Wallet.objects.select_for_update().get(user=actor)
     attrs = dict(serializer.validated_data)
     number = attrs.pop("numero")
+    if attrs["tipo"] == "TARJETA":
+        brand = attrs["marca"]
+        attrs["entidad"] = brand.title()
+        if not attrs.get("alias"):
+            attrs["alias"] = f"{brand.title()} •••• {number[-4:]}"
     digest = salted_hmac(
         "wallet-payment-number", f"{actor.pk}:{attrs['tipo']}:{number}", algorithm="sha256"
     ).hexdigest()
@@ -79,7 +84,7 @@ def manage_method(*, actor, method_id, alias=None, deactivate=False):
 
 
 @transaction.atomic
-def deposit_from_method(*, actor, method_id, amount, key, reference="Depósito simulado"):
+def deposit_from_method(*, actor, method_id, amount, key, reference="Dinero añadido"):
     from apps.sales.rules import money
 
     authorized_user(actor)

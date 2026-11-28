@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
+import { AuthLayout, Button, Feedback, PasswordField } from '../components/UI'
 
 /**
  * Página de restablecimiento de contraseña.
@@ -8,22 +9,21 @@ import { api, ApiError } from '../api'
  * También se puede acceder manualmente desde el flujo del LoginPage.
  */
 export default function ResetPasswordPage() {
-  const [token, setToken] = useState('')
+  const [token] = useState(
+    () => new URLSearchParams(window.location.hash.slice(1)).get('token') ?? '',
+  )
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [noToken, setNoToken] = useState(false)
-
+  const noToken = !token
   useEffect(() => {
-    const match = window.location.hash.match(/token=([^&]+)/)
-    if (match) {
-      setToken(decodeURIComponent(match[1]))
-    } else {
-      setNoToken(true)
-    }
+    window.history.replaceState(
+      null,
+      '',
+      window.location.pathname + window.location.search,
+    )
   }, [])
 
   async function handleSubmit(e: FormEvent) {
@@ -54,10 +54,7 @@ export default function ResetPasswordPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 400 || err.status === 410) {
-          const msgs = Object.values(err.details)
-            .flat()
-            .map(String)
-            .join(' ')
+          const msgs = Object.values(err.details).flat().map(String).join(' ')
           setError(
             msgs ||
               'El enlace es inválido o ha expirado. Solicite uno nuevo desde la pantalla de inicio de sesión.',
@@ -77,116 +74,63 @@ export default function ResetPasswordPage() {
     }
   }
 
-  if (success) {
+  if (success)
     return (
-      <div className="page page--narrow">
-        <div className="form-container">
-          <h1 className="form-title">Contraseña actualizada</h1>
-          <div className="alert alert--success">
-            <span className="alert__title">¡Listo!</span>
-            <span className="alert__body">
-              Su contraseña ha sido restablecida exitosamente. Todas las sesiones
-              anteriores han sido cerradas. Inicie sesión con su nueva
-              contraseña.
-            </span>
-          </div>
-          <Link to="/login" className="btn btn--primary btn--full">
-            Iniciar sesión
-          </Link>
-        </div>
-      </div>
+      <AuthLayout title="Contraseña actualizada">
+        <Feedback variant="success">
+          Tu contraseña se actualizó y las sesiones anteriores se cerraron.
+          Inicia sesión con tu nueva contraseña.
+        </Feedback>
+        <Link to="/login" className="btn btn--primary">
+          Iniciar sesión
+        </Link>
+      </AuthLayout>
     )
-  }
-
-  if (noToken) {
+  if (noToken)
     return (
-      <div className="page page--narrow">
-        <div className="form-container">
-          <h1 className="form-title">Restablecer contraseña</h1>
-          <div className="alert alert--error">
-            <span className="alert__body">
-              No se encontró un código de restablecimiento en la dirección. Haga
-              clic en el enlace completo que recibió por correo electrónico, o
-              solicite uno nuevo.
-            </span>
-          </div>
-          <Link to="/login" className="btn btn--primary btn--full">
-            Ir a iniciar sesión
-          </Link>
-        </div>
-      </div>
+      <AuthLayout title="Restablecer contraseña">
+        <Feedback>
+          No se encontró un código de restablecimiento. Abre el enlace completo
+          del correo o solicita uno nuevo.
+        </Feedback>
+        <Link to="/login" className="btn btn--secondary">
+          Volver al inicio de sesión
+        </Link>
+      </AuthLayout>
     )
-  }
-
   return (
-    <div className="page page--narrow">
-      <div className="form-container">
-        <h1 className="form-title">Nueva contraseña</h1>
-        <p className="form-subtitle">
-          Ingrese su nueva contraseña. Debe tener al menos 12 caracteres, no ser exclusivamente numérica, común ni similar a tus datos.
-        </p>
-
-        {error && (
-          <div className="alert alert--error">
-            <span className="alert__body">{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="form-group mb-2">
-            <label className="form-label" htmlFor="reset-pass">
-              Nueva contraseña
-            </label>
-            <div className="password-wrapper">
-              <input
-                id="reset-pass"
-                type={showPassword ? 'text' : 'password'}
-                className="form-input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
-              />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={
-                  showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
-                }
-              >
-                {showPassword ? 'Ocultar' : 'Ver'}
-              </button>
-            </div>
-            <span className="form-hint">Mínimo 12 caracteres, no ser exclusivamente numérica, común ni similar a tus datos.</span>
-          </div>
-
-          <div className="form-group mb-2">
-            <label className="form-label" htmlFor="reset-confirm">
-              Confirmar contraseña
-            </label>
-            <input
-              id="reset-confirm"
-              type="password"
-              className="form-input"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              autoComplete="new-password"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn--primary btn--full"
-            disabled={busy}
-          >
-            {busy ? 'Actualizando...' : 'Actualizar contraseña'}
-          </button>
-        </form>
-
-        <div className="login-footer">
-          <Link to="/login">Volver a iniciar sesión</Link>
-        </div>
-      </div>
-    </div>
+    <AuthLayout
+      title="Restablecer contraseña"
+      description="Crea una nueva contraseña para acceder nuevamente a tu cuenta."
+    >
+      {error && <Feedback>{error}</Feedback>}
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <PasswordField
+          id="reset-pass"
+          label="Nueva contraseña"
+          placeholder="Mínimo 12 caracteres"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="new-password"
+          required
+          hint="Mínimo 12 caracteres; no debe ser exclusivamente numérica, común ni similar a tus datos."
+        />
+        <PasswordField
+          id="reset-confirm"
+          label="Confirmar nueva contraseña"
+          placeholder="Repetir contraseña"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          autoComplete="new-password"
+          required
+        />
+        <Button type="submit" busy={busy}>
+          {busy ? 'Actualizando…' : 'Guardar contraseña'}
+        </Button>
+      </form>
+      <Link to="/login" className="btn btn--secondary">
+        Volver al inicio de sesión
+      </Link>
+    </AuthLayout>
   )
 }

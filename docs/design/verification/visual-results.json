@@ -1,0 +1,89 @@
+{
+  "report": [
+    {
+      "screen": "login",
+      "viewport": "desktop",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "recovery",
+      "viewport": "desktop",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "verify-email",
+      "viewport": "desktop",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "reset-password",
+      "viewport": "desktop",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "login",
+      "viewport": "tablet",
+      "width": 768,
+      "scrollWidth": 768,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "recovery",
+      "viewport": "tablet",
+      "width": 768,
+      "scrollWidth": 768,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "verify-email",
+      "viewport": "tablet",
+      "width": 768,
+      "scrollWidth": 768,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "reset-password",
+      "viewport": "tablet",
+      "width": 768,
+      "scrollWidth": 768,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "login",
+      "viewport": "mobile",
+      "width": 390,
+      "scrollWidth": 390,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "recovery",
+      "viewport": "mobile",
+      "width": 390,
+      "scrollWidth": 390,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "verify-email",
+      "viewport": "mobile",
+      "width": 390,
+      "scrollWidth": 390,
+      "duplicateLabels": 0
+    },
+    {
+      "screen": "reset-password",
+      "viewport": "mobile",
+      "width": 390,
+      "scrollWidth": 390,
+      "duplicateLabels": 0
+    }
+  ],
+  "errors": []
+}

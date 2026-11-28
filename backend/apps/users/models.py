@@ -34,6 +34,7 @@ class User(AbstractUser):
         on_delete=models.PROTECT,
         related_name="born_users",
     )
+    phone = models.CharField(max_length=30, blank=True)
     billing_city = models.ForeignKey(
         "reference.Locality",
         null=True,
@@ -126,7 +127,6 @@ class User(AbstractUser):
                 "document_number",
                 "birth_date",
                 "birth_place",
-                "billing_address",
                 "gender",
             ):
                 value = getattr(self, field)

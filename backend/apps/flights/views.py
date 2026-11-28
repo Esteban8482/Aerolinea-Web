@@ -239,7 +239,9 @@ class FlightSearchView(APIView):
         pasajeros = data.get("pasajeros", 1)
         clase = data.get("clase", "")
         tipo_vuelo = data.get("tipo_vuelo", "")
+        precio_min = data.get("precio_min")
         precio_max = data.get("precio_max")
+        orden = data.get("orden", "salida_asc")
 
         def filtrar_qs(qs, orig_id, orig_str, dest_id, dest_str, f_salida):
             if orig_id:
@@ -270,26 +272,70 @@ class FlightSearchView(APIView):
                     | Q(cupos_disponibles_primera__gte=pasajeros)
                 )
 
-            qs = qs.order_by("salida_utc")
-            if precio_max is not None:
-                from apps.sales.services import resolver_precio_vigente
+            from apps.sales.services import resolver_precio_vigente
 
-                classes = [clase] if clase else ["ECONOMICA", "PRIMERA_CLASE"]
-                return [
-                    flight
-                    for flight in qs
-                    if any(
-                        (
+            from decimal import Decimal
+
+            applicable = []
+            for flight in qs:
+                candidates = []
+                if clase:
+                    candidates = [clase]
+                else:
+                    candidates = [
+                        c
+                        for c in ("ECONOMICA", "PRIMERA_CLASE")
+                        if (
                             flight.cupos_disponibles_primera
                             if c == "PRIMERA_CLASE"
                             else flight.cupos_disponibles_economica
-                        )
-                        >= pasajeros
-                        and resolver_precio_vigente(flight, c, now) <= precio_max
-                        for c in classes
+                        ) >= pasajeros
+                    ]
+
+                eligible = []
+                for candidate in candidates:
+                    capacity = (
+                        flight.cupos_disponibles_primera
+                        if candidate == "PRIMERA_CLASE"
+                        else flight.cupos_disponibles_economica
                     )
-                ]
-            return qs
+                    if capacity < pasajeros:
+                        continue
+                    fare = resolver_precio_vigente(flight, candidate, now)
+                    eligible.append((candidate, fare))
+
+                if not eligible:
+                    continue
+                candidate, fare = min(
+                    eligible,
+                    key=lambda item: (item[1], item[0]),
+                )
+                if precio_min is not None and fare < precio_min:
+                    continue
+                if precio_max is not None and fare > precio_max:
+                    continue
+                applicable.append((flight, candidate, fare))
+
+            reverse_price = orden == "precio_desc"
+            reverse_time = orden == "salida_desc"
+            if orden in ("precio_asc", "precio_desc"):
+                applicable.sort(
+                    key=lambda item: (item[0].salida_utc, item[0].pk)
+                )
+                applicable.sort(
+                    key=lambda item: item[2],
+                    reverse=reverse_price,
+                )
+            else:
+                applicable.sort(
+                    key=lambda item: (
+                        item[0].salida_utc,
+                        item[2],
+                        item[0].pk,
+                    ),
+                    reverse=reverse_time,
+                )
+            return [item[0] for item in applicable]
 
         vuelos_ida = filtrar_qs(
             base_qs,
@@ -311,6 +357,15 @@ class FlightSearchView(APIView):
                 dest_str=data.get("origen"),
                 f_salida=data.get("fecha_regreso"),
             )
+            selected_outbound_id = data.get("selected_outbound_id")
+            if selected_outbound_id:
+                outbound = Vuelo.objects.filter(pk=selected_outbound_id).first()
+                if outbound:
+                    vuelos_regreso = [
+                        flight
+                        for flight in vuelos_regreso
+                        if flight.salida_utc > outbound.llegada_utc
+                    ]
 
         # Historial de búsqueda si autenticado (RF-BSQ-09)
         if request.user.is_authenticated:
@@ -335,9 +390,17 @@ class FlightSearchView(APIView):
                 "tipo_trayecto": tipo_trayecto,
                 "pasajeros": pasajeros,
                 "clase": clase,
-                "vuelos_ida": VueloListSerializer(vuelos_ida, many=True).data,
+                "vuelos_ida": VueloListSerializer(
+                    vuelos_ida,
+                    many=True,
+                    context={"clase": clase, "pasajeros": pasajeros, "now": now},
+                ).data,
                 "vuelos_regreso": (
-                    VueloListSerializer(vuelos_regreso, many=True).data
+                    VueloListSerializer(
+                        vuelos_regreso,
+                        many=True,
+                        context={"clase": clase, "pasajeros": pasajeros, "now": now},
+                    ).data
                     if tipo_trayecto == "COMPLETO"
                     else []
                 ),
@@ -384,8 +447,14 @@ class FlightCatalogueView(APIView):
             raise ValidationError({"origen_id": "Indica una ciudad válida."}) from None
         flights = (
             Vuelo.objects.filter(
-                ruta__origen_id=origin, estado=EstadoVuelo.PROGRAMADO, salida_utc__gt=timezone.now()
+                ruta__origen_id=origin,
+                estado=EstadoVuelo.PROGRAMADO,
+                salida_utc__gt=timezone.now(),
+                ruta__activa=True,
+                ruta__origen__activa=True,
+                ruta__destino__activa=True,
             )
+            .filter(Q(cupos_disponibles_economica__gt=0) | Q(cupos_disponibles_primera__gt=0))
             .select_related("ruta__origen", "ruta__destino")
             .order_by("salida_utc", "pk")
         )

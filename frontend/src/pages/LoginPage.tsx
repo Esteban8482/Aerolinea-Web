@@ -1,8 +1,20 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../api'
+import {
+  AuthLayout,
+  Button,
+  Field,
+  PasswordField,
+  Feedback,
+} from '../components/UI'
 
-type Step = 'login' | 'recover-email' | 'recover-token' | 'recover-password' | 'recover-success'
+type Step =
+  | 'login'
+  | 'recover-email'
+  | 'recover-token'
+  | 'recover-password'
+  | 'recover-success'
 
 interface LoginPageProps {
   onLoginSuccess: () => void
@@ -16,7 +28,6 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   /* ---------- login ---------- */
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [loginError, setLoginError] = useState('')
   const [loginBusy, setLoginBusy] = useState(false)
 
@@ -25,15 +36,15 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [recoveryToken, setRecoveryToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
-  const [showNewPassword, setShowNewPassword] = useState(false)
   const [recoverError, setRecoverError] = useState('')
   const [recoverBusy, setRecoverBusy] = useState(false)
 
   /* ---------- leer token del fragmento URL (#token=...) ---------- */
   useEffect(() => {
-    const match = window.location.hash.match(/token=([^&]+)/)
-    if (match) {
-      const token = decodeURIComponent(match[1])
+    const token = new URLSearchParams(window.location.hash.slice(1)).get(
+      'token',
+    )
+    if (token) {
       setRecoveryToken(token)
       setStep('recover-password')
       window.history.replaceState(
@@ -62,7 +73,11 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       await api.post('/auth/login/', credentials)
       onLoginSuccess()
       const intended = new URLSearchParams(window.location.search).get('next')
-      navigate(intended?.startsWith('/') && !intended.startsWith('//') ? intended : '/')
+      navigate(
+        intended?.startsWith('/') && !intended.startsWith('//')
+          ? intended
+          : '/',
+      )
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 429) {
@@ -123,7 +138,9 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     e.preventDefault()
     setRecoverError('')
     if (!recoveryToken.trim()) {
-      setRecoverError('Ingrese el código de verificación que recibió por correo.')
+      setRecoverError(
+        'Ingrese el código de verificación que recibió por correo.',
+      )
       return
     }
     setStep('recover-password')
@@ -158,13 +175,9 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 400) {
-          const msgs = Object.values(err.details)
-            .flat()
-            .map(String)
-            .join(' ')
+          const msgs = Object.values(err.details).flat().map(String).join(' ')
           setRecoverError(
-            msgs ||
-              'El código es inválido o ha expirado. Solicite uno nuevo.',
+            msgs || 'El código es inválido o ha expirado. Solicite uno nuevo.',
           )
         } else if (err.status === 410) {
           setRecoverError(
@@ -195,282 +208,146 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     setNewPasswordConfirm('')
   }
 
-  const stepNumber =
-    step === 'recover-email' ? 1 : step === 'recover-token' ? 2 : 3
-
-  /* ---------- render: éxito de restablecimiento ---------- */
-  if (step === 'recover-success') {
+  if (step === 'recover-success')
     return (
-      <div className="page page--narrow">
-        <div className="form-container">
-          <h1 className="form-title">Contraseña actualizada</h1>
-          <div className="alert alert--success">
-            <span className="alert__title">¡Listo!</span>
-            <span className="alert__body">
-              Su contraseña ha sido restablecida exitosamente. Todas las sesiones
-              anteriores han sido cerradas. Inicie sesión con su nueva contraseña.
-            </span>
-          </div>
+      <AuthLayout title="Contraseña actualizada">
+        <Feedback variant="success">
+          Tu contraseña se actualizó. Las sesiones anteriores se cerraron;
+          inicia sesión con tu nueva contraseña.
+        </Feedback>
+        <Button onClick={resetToLogin}>Ir a iniciar sesión</Button>
+      </AuthLayout>
+    )
+
+  if (step === 'login')
+    return (
+      <AuthLayout
+        title="Inicia sesión"
+        eyebrow="Bienvenido a Alas"
+        description="Accede a tu cuenta y continúa con tu próximo viaje."
+      >
+        {loginError && <Feedback>{loginError}</Feedback>}
+        <form className="auth-form" onSubmit={handleLogin}>
+          <Field
+            id="login-id"
+            label="Correo electrónico"
+            placeholder="Correo o identificador"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            autoComplete="username"
+            required
+          />
+          <PasswordField
+            id="login-pass"
+            label="Contraseña"
+            placeholder="Tu contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          <Button type="submit" busy={loginBusy}>
+            {loginBusy ? 'Iniciando sesión…' : 'Iniciar sesión'}
+          </Button>
           <button
             type="button"
-            className="btn btn--primary btn--full"
-            onClick={resetToLogin}
+            className="auth-link"
+            onClick={() => {
+              setStep('recover-email')
+              setLoginError('')
+            }}
           >
-            Ir a iniciar sesión
+            ¿Olvidaste tu contraseña?
           </button>
-        </div>
-      </div>
+        </form>
+        <p className="auth-footer">
+          ¿No tienes una cuenta? <Link to="/registro">Crear cuenta</Link>
+        </p>
+      </AuthLayout>
     )
-  }
 
-  /* ---------- render: formulario de login ---------- */
-  if (step === 'login') {
-    return (
-      <div className="page page--narrow">
-        <div className="form-container">
-          <h1 className="form-title">Iniciar sesión</h1>
-          <p className="form-subtitle">
-            Ingrese sus credenciales para acceder a su cuenta.
-          </p>
-
-          {loginError && (
-            <div className="alert alert--error">
-              <span className="alert__body">{loginError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} noValidate>
-            <div className="form-group mb-2">
-              <label className="form-label" htmlFor="login-id">
-                Correo electrónico
-              </label>
-              <input
-                id="login-id"
-                type="text"
-                className="form-input"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                autoComplete="username"
-                placeholder="correo@ejemplo.com"
-              />
-            </div>
-
-            <div className="form-group mb-2">
-              <label className="form-label" htmlFor="login-pass">
-                Contraseña
-              </label>
-              <div className="password-wrapper">
-                <input
-                  id="login-pass"
-                  type={showPassword ? 'text' : 'password'}
-                  className="form-input"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={
-                    showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
-                  }
-                >
-                  {showPassword ? 'Ocultar' : 'Ver'}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="btn btn--primary btn--full"
-              disabled={loginBusy}
-            >
-              {loginBusy ? 'Iniciando sesión...' : 'Iniciar sesión'}
-            </button>
-          </form>
-
-          <div className="login-footer">
-            <button
-              type="button"
-              className="login-link"
-              onClick={() => {
-                setStep('recover-email')
-                setLoginError('')
-              }}
-            >
-              ¿Olvidó su contraseña?
-            </button>
-          </div>
-
-          <div className="login-footer">
-            ¿No tiene una cuenta creada?{' '}
-            <Link to="/registro">Registrarse aquí</Link>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  /* ---------- render: pasos de recuperación ---------- */
   return (
-    <div className="page page--narrow">
-      <div className="form-container">
-        <button type="button" className="login-back" onClick={resetToLogin}>
-          ← Volver a iniciar sesión
-        </button>
-
-        <h1 className="form-title">Recuperar contraseña</h1>
-
-        {/* Indicador de paso */}
-        <div className="step-indicator">
-          {[1, 2, 3].map((n) => (
-            <div
-              key={n}
-              className={`step-indicator__step ${n <= stepNumber ? 'step-indicator__step--active' : ''}`}
+    <AuthLayout
+      title={
+        step === 'recover-password'
+          ? 'Restablecer contraseña'
+          : 'Recupera tu contraseña'
+      }
+      eyebrow="Seguridad de tu cuenta"
+      description={
+        step === 'recover-email'
+          ? 'Ingresa el correo asociado a tu cuenta. Si podemos identificarla, te enviaremos instrucciones.'
+          : undefined
+      }
+    >
+      {recoverError && <Feedback>{recoverError}</Feedback>}
+      {step === 'recover-email' && (
+        <form
+          className="auth-form auth-form--compact"
+          onSubmit={handleRecoveryRequest}
+        >
+          <Field
+            id="recover-email"
+            label="Correo electrónico"
+            type="email"
+            placeholder="nombre@correo.com"
+            value={recoveryEmail}
+            onChange={(e) => setRecoveryEmail(e.target.value)}
+            autoComplete="email"
+            required
+          />
+          <Button type="submit" busy={recoverBusy}>
+            {recoverBusy ? 'Enviando…' : 'Enviar instrucciones'}
+          </Button>
+        </form>
+      )}
+      {step === 'recover-token' && (
+        <>
+          <Feedback variant="info">
+            Si la cuenta existe, recibirás instrucciones de recuperación. Revisa
+            tu correo y abre el enlace o copia su código.
+          </Feedback>
+          <form className="auth-form" onSubmit={handleTokenSubmit}>
+            <Field
+              id="recover-token"
+              label="Código de verificación"
+              value={recoveryToken}
+              onChange={(e) => setRecoveryToken(e.target.value)}
+              required
             />
-          ))}
-        </div>
-
-        {recoverError && (
-          <div className="alert alert--error">
-            <span className="alert__body">{recoverError}</span>
-          </div>
-        )}
-
-        {/* Paso 1: correo electrónico */}
-        {step === 'recover-email' && (
-          <>
-            <p className="form-subtitle">
-              Ingrese el correo electrónico asociado a su cuenta. Le enviaremos
-              un código de verificación.
-            </p>
-            <form onSubmit={handleRecoveryRequest} noValidate>
-              <div className="form-group mb-2">
-                <label className="form-label" htmlFor="recover-email">
-                  Correo electrónico
-                </label>
-                <input
-                  id="recover-email"
-                  type="email"
-                  className="form-input"
-                  value={recoveryEmail}
-                  onChange={(e) => setRecoveryEmail(e.target.value)}
-                  autoComplete="email"
-                  placeholder="correo@ejemplo.com"
-                />
-              </div>
-              <button
-                type="submit"
-                className="btn btn--primary btn--full"
-                disabled={recoverBusy}
-              >
-                {recoverBusy ? 'Enviando...' : 'Enviar código'}
-              </button>
-            </form>
-          </>
-        )}
-
-        {/* Paso 2: código de verificación */}
-        {step === 'recover-token' && (
-          <>
-            <div className="alert alert--info">
-              <span className="alert__body">
-                Si la cuenta existe, hemos enviado un correo con un enlace de
-                recuperación a <strong>{recoveryEmail}</strong>. Revise su
-                bandeja de entrada y copie el código o haga clic en el enlace
-                del correo.
-              </span>
-            </div>
-            <form onSubmit={handleTokenSubmit} noValidate>
-              <div className="form-group mb-2">
-                <label className="form-label" htmlFor="recover-token">
-                  Código de verificación
-                </label>
-                <input
-                  id="recover-token"
-                  className="form-input"
-                  value={recoveryToken}
-                  onChange={(e) => setRecoveryToken(e.target.value)}
-                  placeholder="Pegue aquí el código del correo"
-                />
-                <span className="form-hint">
-                  El código se encuentra en el enlace de recuperación que
-                  recibió por correo electrónico.
-                </span>
-              </div>
-              <button
-                type="submit"
-                className="btn btn--primary btn--full"
-                disabled={!recoveryToken.trim()}
-              >
-                Continuar
-              </button>
-            </form>
-          </>
-        )}
-
-        {/* Paso 3: nueva contraseña */}
-        {step === 'recover-password' && (
-          <>
-            <p className="form-subtitle">
-              Ingrese su nueva contraseña. Debe tener al menos 12 caracteres, no ser exclusivamente numérica, común ni similar a tus datos.
-            </p>
-            <form onSubmit={handlePasswordReset} noValidate>
-              <div className="form-group mb-2">
-                <label className="form-label" htmlFor="new-pass">
-                  Nueva contraseña
-                </label>
-                <div className="password-wrapper">
-                  <input
-                    id="new-pass"
-                    type={showNewPassword ? 'text' : 'password'}
-                    className="form-input"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    aria-label={
-                      showNewPassword
-                        ? 'Ocultar contraseña'
-                        : 'Mostrar contraseña'
-                    }
-                  >
-                    {showNewPassword ? 'Ocultar' : 'Ver'}
-                  </button>
-                </div>
-                <span className="form-hint">Mínimo 12 caracteres, no ser exclusivamente numérica, común ni similar a tus datos.</span>
-              </div>
-
-              <div className="form-group mb-2">
-                <label className="form-label" htmlFor="confirm-pass">
-                  Confirmar contraseña
-                </label>
-                <input
-                  id="confirm-pass"
-                  type="password"
-                  className="form-input"
-                  value={newPasswordConfirm}
-                  onChange={(e) => setNewPasswordConfirm(e.target.value)}
-                  autoComplete="new-password"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn--primary btn--full"
-                disabled={recoverBusy}
-              >
-                {recoverBusy ? 'Actualizando...' : 'Actualizar contraseña'}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
+            <Button type="submit">Continuar</Button>
+          </form>
+        </>
+      )}
+      {step === 'recover-password' && (
+        <form className="auth-form" onSubmit={handlePasswordReset}>
+          <PasswordField
+            label="Nueva contraseña"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+            hint="Mínimo 12 caracteres; no debe ser exclusivamente numérica, común ni similar a tus datos."
+          />
+          <PasswordField
+            label="Confirmar nueva contraseña"
+            value={newPasswordConfirm}
+            onChange={(e) => setNewPasswordConfirm(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+          <Button type="submit" busy={recoverBusy}>
+            {recoverBusy ? 'Actualizando…' : 'Guardar contraseña'}
+          </Button>
+        </form>
+      )}
+      <button
+        type="button"
+        className="auth-link auth-link--back"
+        onClick={resetToLogin}
+      >
+        Volver al inicio de sesión
+      </button>
+    </AuthLayout>
   )
 }

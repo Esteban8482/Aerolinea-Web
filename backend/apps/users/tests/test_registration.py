@@ -59,9 +59,7 @@ def data(registration_settings, reference_city):
         "document_number": "00123456",
         "birth_date": "1995-06-15",
         "birth_city_id": reference_city.pk,
-        "billing_city_id": reference_city.pk,
         "document_type": "CC",
-        "billing_address": "Dirección ficticia",
         "gender": "F",
         "password": PASSWORD,
         "accepts_data_policy": True,
@@ -108,9 +106,7 @@ def test_register_creates_client_consent_wallet_and_durable_delivery_together(da
         "document_number",
         "birth_date",
         "birth_city_id",
-        "billing_city_id",
         "document_type",
-        "billing_address",
         "gender",
         "password",
         "accepts_data_policy",
@@ -123,6 +119,19 @@ def test_required_fields_are_rejected_without_persistence(data, field):
     with pytest.raises(ValidationError) as exc:
         register_customer(data=data)
     assert field in exc.value.detail
+    assert not User.objects.exists()
+
+
+@pytest.mark.django_db
+def test_registration_does_not_accept_billing_fields(data):
+    data["billing_city_id"] = 1
+    data["billing_address"] = "Dirección ficticia"
+
+    with pytest.raises(ValidationError) as exc:
+        register_customer(data=data)
+
+    assert "billing_city_id" in exc.value.detail
+    assert "billing_address" in exc.value.detail
     assert not User.objects.exists()
 
 
@@ -579,3 +588,19 @@ def test_registration_accepts_phone(data, csrf_client, settings):
     assert response.json() == {"status": "unverified", "delivery": "pending"}
     user = User.objects.get(email="customer_phone@example.invalid")
     assert user.role == User.Role.CLIENTE
+    assert user.phone == "+57 300 1234567"
+
+
+@pytest.mark.django_db
+def test_profile_contract_exposes_phone_without_billing_fields(data, reference_city):
+    data["phone"] = "+57 300 1234567"
+    user = register_customer(data=data)
+
+    client = APIClient()
+    client.force_authenticate(user=user)
+    response = client.get("/api/v1/auth/profile/")
+
+    assert response.status_code == 200
+    assert response.json()["phone"] == "+57 300 1234567"
+    assert "billing_address" not in response.json()
+    assert "billing_city_id" not in response.json()

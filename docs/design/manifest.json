@@ -1,0 +1,289 @@
+{
+  "version": "1.0",
+  "baseline": "8e16221 (última auditoría citada en conversación, no verificación actual)",
+  "pages": [
+    {
+      "slug": "home",
+      "title": "Inicio",
+      "role": "public",
+      "desc": "Portada comercial, búsqueda principal y catálogo.",
+      "hu": "HU-005/006"
+    },
+    {
+      "slug": "flight-search",
+      "title": "Buscar vuelos",
+      "role": "public",
+      "desc": "Formulario comercial con selector integrado.",
+      "hu": "HU-005"
+    },
+    {
+      "slug": "flight-results",
+      "title": "Resultados de vuelos",
+      "role": "public",
+      "desc": "Tarjetas comerciales y filtros de precio/horario interactivos.",
+      "hu": "HU-005/006"
+    },
+    {
+      "slug": "flight-catalogue",
+      "title": "Catálogo de destinos",
+      "role": "public",
+      "desc": "Catálogo público por origen.",
+      "hu": "HU-006"
+    },
+    {
+      "slug": "round-trip",
+      "title": "Seleccionar regreso",
+      "role": "public",
+      "desc": "Segundo trayecto compatible.",
+      "hu": "HU-005/013"
+    },
+    {
+      "slug": "registration",
+      "title": "Crear cuenta",
+      "role": "public",
+      "desc": "Registro sin facturación; catálogo de nacimiento.",
+      "hu": "HU-007"
+    },
+    {
+      "slug": "login",
+      "title": "Iniciar sesión",
+      "role": "public",
+      "desc": "Acceso común por email o ID ROOT.",
+      "hu": "HU-008"
+    },
+    {
+      "slug": "recovery",
+      "title": "Recuperar acceso",
+      "role": "public",
+      "desc": "Recuperación con respuesta no enumerativa.",
+      "hu": "HU-008"
+    },
+    {
+      "slug": "wallet",
+      "title": "Billetera",
+      "role": "client",
+      "desc": "Saldo, métodos de pago y movimientos.",
+      "hu": "HU-010"
+    },
+    {
+      "slug": "wallet-empty",
+      "title": "Billetera sin métodos",
+      "role": "client",
+      "desc": "Estado inicial sin método ni saldo.",
+      "hu": "HU-010"
+    },
+    {
+      "slug": "add-card",
+      "title": "Añadir tarjeta",
+      "role": "client",
+      "desc": "Formulario de 16 dígitos, vencimiento y facturación individual.",
+      "hu": "HU-010"
+    },
+    {
+      "slug": "checkout",
+      "title": "Información de viajeros",
+      "role": "client",
+      "desc": "Datos de viajeros y contacto de emergencia.",
+      "hu": "HU-012/013"
+    },
+    {
+      "slug": "checkout-review",
+      "title": "Revisar compra",
+      "role": "client",
+      "desc": "Cotización, aceptación, compra o reserva.",
+      "hu": "HU-012/013"
+    },
+    {
+      "slug": "checkout-funds",
+      "title": "Saldo insuficiente",
+      "role": "client",
+      "desc": "Continuidad de compra al añadir saldo.",
+      "hu": "HU-010/013"
+    },
+    {
+      "slug": "my-trips",
+      "title": "Mis viajes",
+      "role": "client",
+      "desc": "Reservas, compras y eventualidades sin implementar historial avanzado.",
+      "hu": "HU-012/013/014/003"
+    },
+    {
+      "slug": "cancellations",
+      "title": "Gestionar cancelación",
+      "role": "client",
+      "desc": "Resolución grupal; alcance e importe previo al reembolso.",
+      "hu": "HU-003/014"
+    },
+    {
+      "slug": "guest-checkin",
+      "title": "Check-in",
+      "role": "public",
+      "desc": "Solicitud de enlace privado para viajero.",
+      "hu": "HU-016"
+    },
+    {
+      "slug": "checkin-group",
+      "title": "Check-in de grupo",
+      "role": "client",
+      "desc": "Selección por compra y vuelo; confirmación atómica.",
+      "hu": "HU-016/017"
+    },
+    {
+      "slug": "seat-selection",
+      "title": "Cambiar asiento",
+      "role": "client",
+      "desc": "Mapa de asientos para cliente o invitado autorizado.",
+      "hu": "HU-017"
+    },
+    {
+      "slug": "boarding-pass",
+      "title": "Pasabordo disponible",
+      "role": "client",
+      "desc": "Estado confirmado y descarga del documento real por API.",
+      "hu": "HU-016"
+    },
+    {
+      "slug": "profile",
+      "title": "Mi perfil",
+      "role": "client",
+      "desc": "Información personal sin datos de facturación.",
+      "hu": "HU-007/008/010"
+    },
+    {
+      "slug": "admin-dashboard",
+      "title": "Panel operativo",
+      "role": "admin",
+      "desc": "Composición administrativa; métricas ilustrativas sujetas a aprobación y API.",
+      "hu": "HU-001/002/003/004"
+    },
+    {
+      "slug": "admin-flights",
+      "title": "Gestión de vuelos",
+      "role": "admin",
+      "desc": "Tabla operativa legible y filtros administrativos.",
+      "hu": "HU-001/002/003/004"
+    },
+    {
+      "slug": "admin-flight-create",
+      "title": "Programar vuelo",
+      "role": "admin",
+      "desc": "Formulario administrativo con rutas autorizadas.",
+      "hu": "HU-001"
+    },
+    {
+      "slug": "admin-flight-edit",
+      "title": "Editar vuelo",
+      "role": "admin",
+      "desc": "Edición con motivo, ruta inmutable e impacto.",
+      "hu": "HU-002"
+    },
+    {
+      "slug": "admin-flight-detail",
+      "title": "Detalle operativo",
+      "role": "admin",
+      "desc": "Panel por vuelo y doble confirmación de cancelación.",
+      "hu": "HU-002/003/004"
+    },
+    {
+      "slug": "admin-promotions",
+      "title": "Promociones",
+      "role": "admin",
+      "desc": "Promociones con vigencia y clase explícitas.",
+      "hu": "HU-004"
+    },
+    {
+      "slug": "admin-cancellations",
+      "title": "Seguimiento de cancelaciones",
+      "role": "admin",
+      "desc": "Estados por pasajero y resumen de afectación.",
+      "hu": "HU-003"
+    },
+    {
+      "slug": "profile-admin",
+      "title": "Mi cuenta administrativa",
+      "role": "admin",
+      "desc": "Perfil operativo sin servicios comerciales.",
+      "hu": "HU-008/009"
+    },
+    {
+      "slug": "root-dashboard",
+      "title": "Administradores",
+      "role": "root",
+      "desc": "Listado y accesos a funciones autorizadas de ROOT.",
+      "hu": "HU-009"
+    },
+    {
+      "slug": "root-create",
+      "title": "Crear administrador",
+      "role": "root",
+      "desc": "Alta ROOT; campos exactos dependen del contrato actual.",
+      "hu": "HU-009"
+    },
+    {
+      "slug": "root-admin-password",
+      "title": "Cambiar contraseña de administrador",
+      "role": "root",
+      "desc": "Cambio de clave de otra cuenta administrativa.",
+      "hu": "HU-009"
+    },
+    {
+      "slug": "root-security",
+      "title": "Mi seguridad",
+      "role": "root",
+      "desc": "Cambio propio de ROOT y revocación de sesiones.",
+      "hu": "HU-009"
+    },
+    {
+      "slug": "verify-email",
+      "title": "Verificar correo",
+      "role": "public",
+      "desc": "Estados de verificación y reenvío.",
+      "hu": "HU-007"
+    },
+    {
+      "slug": "reset-password",
+      "title": "Restablecer contraseña",
+      "role": "public",
+      "desc": "Formulario desde enlace de recuperación válido.",
+      "hu": "HU-008"
+    },
+    {
+      "slug": "guest-authorized",
+      "title": "Check-in del viajero",
+      "role": "public",
+      "desc": "Vista limitada de invitado mediante enlace privado.",
+      "hu": "HU-016/017"
+    },
+    {
+      "slug": "guest-seat",
+      "title": "Cambiar asiento del viajero",
+      "role": "public",
+      "desc": "Selección de silla de invitado sin navegación financiera.",
+      "hu": "HU-017"
+    },
+    {
+      "slug": "cancellation-no-alternatives",
+      "title": "Cancelación sin alternativas",
+      "role": "client",
+      "desc": "Reembolso accesible incluso cuando no existen vuelos compatibles.",
+      "hu": "HU-003/014"
+    },
+    {
+      "slug": "purchase-confirmation",
+      "title": "Compra confirmada",
+      "role": "client",
+      "desc": "Confirmación tras respuesta autoritativa del servidor, no tras clic.",
+      "hu": "HU-013"
+    }
+  ],
+  "viewports": {
+    "desktop": [
+      1440,
+      1000
+    ],
+    "mobile": [
+      390,
+      844
+    ]
+  }
+}

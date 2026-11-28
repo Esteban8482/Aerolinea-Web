@@ -1,0 +1,31 @@
+{
+  "mockedVerifySuccess": true,
+  "singleVerificationPost": 1,
+  "mockedResetSuccess": true,
+  "confirmationValidation": true,
+  "realRecoveryNonexistent": 202,
+  "commercialSelector": true,
+  "layouts": [
+    {
+      "path": "/",
+      "overflow": false,
+      "missingLabels": 0
+    },
+    {
+      "path": "/vuelos",
+      "overflow": false,
+      "missingLabels": 0
+    },
+    {
+      "path": "/registro",
+      "overflow": false,
+      "missingLabels": 1
+    },
+    {
+      "path": "/check-in",
+      "overflow": false,
+      "missingLabels": 0
+    }
+  ],
+  "errors": []
+}

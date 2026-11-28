@@ -1,6 +1,15 @@
-import CatalogueSelect from '../components/CatalogueSelect'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BadgeCheck,
+  Plane,
+  PlaneLanding,
+  PlaneTakeoff,
+  Search,
+  Sparkles,
+} from 'lucide-react'
 import { api, ApiError } from '../api'
 import FlightCitySelect from '../components/FlightCitySelect'
 import type { Vuelo } from '../types/flight'
@@ -12,7 +21,7 @@ export default function HomePage() {
   const [fechaSalida, setFechaSalida] = useState('')
   const [fechaRegreso, setFechaRegreso] = useState('')
   const [pasajeros, setPasajeros] = useState<number>(1)
-  const [clase, setClase] = useState<'ECONOMICA' | 'PRIMERA_CLASE'>('ECONOMICA')
+  const [clase, setClase] = useState<'' | 'ECONOMICA' | 'PRIMERA_CLASE'>('')
 
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
@@ -24,6 +33,20 @@ export default function HomePage() {
   async function handleSearch(e: FormEvent) {
     e.preventDefault()
     setSearchError('')
+    if (origenId && destinoId && origenId === destinoId) {
+      setSearchError('El origen y el destino no pueden ser la misma ciudad.')
+      return
+    }
+    if (tipoTrayecto === 'COMPLETO') {
+      if (!fechaSalida || !fechaRegreso) {
+        setSearchError('Para ida y regreso debes seleccionar ambas fechas.')
+        return
+      }
+      if (fechaRegreso < fechaSalida) {
+        setSearchError('La fecha de regreso no puede ser anterior a la de salida.')
+        return
+      }
+    }
     setLoading(true)
     setHasSearched(true)
 
@@ -31,8 +54,8 @@ export default function HomePage() {
       const payload: Record<string, unknown> = {
         tipo_trayecto: tipoTrayecto,
         pasajeros,
-        clase,
       }
+        if (clase) payload.clase = clase
       if (origenId) payload.origen_id = origenId
       if (destinoId) payload.destino_id = destinoId
       if (fechaSalida) payload.fecha_salida = fechaSalida
@@ -67,14 +90,16 @@ export default function HomePage() {
           </p>
           <div className="home-actions">
             <Link to="/vuelos" className="btn btn--primary">
-              Buscar vuelos <span aria-hidden="true">→</span>
+              Buscar vuelos <ArrowRight aria-hidden="true" size={18} />
             </Link>
             <Link to="/registro" className="btn btn--secondary">
               Crear cuenta
             </Link>
           </div>
           <div className="home-trust">
-            <span className="home-trust__avatars" aria-hidden="true">✦ ✈ ●</span>
+            <span className="home-trust__avatars" aria-hidden="true">
+              <Sparkles size={18} />
+            </span>
             <span>Gestiona tus viajes desde tu cuenta</span>
           </div>
         </div>
@@ -90,7 +115,9 @@ export default function HomePage() {
                 <strong>PEI</strong>
                 <span>Pereira</span>
               </div>
-              <div className="home-route__line"><span>✈</span></div>
+              <div className="home-route__line">
+                <span aria-hidden="true"><Plane size={20} /></span>
+              </div>
               <div className="home-route__destination">
                 <strong>MAD</strong>
                 <span>Madrid</span>
@@ -98,24 +125,28 @@ export default function HomePage() {
             </div>
             <div className="home-route-card__bottom">
               <span>Consulta rutas y horarios disponibles</span>
-              <Link to="/vuelos" style={{ color: '#ffe8f0', fontWeight: 700 }}>
-                Ver vuelos ↗
+              <Link to="/vuelos" className="home-route-card__link">
+                Ver vuelos <ArrowUpRight aria-hidden="true" size={16} />
               </Link>
             </div>
           </div>
           <div className="home-floating-card home-floating-card--top">
-            <span className="home-floating-card__icon">↗</span>
+            <span className="home-floating-card__icon">
+              <ArrowUpRight aria-hidden="true" size={16} />
+            </span>
             <span>Destinos por explorar</span>
           </div>
           <div className="home-floating-card home-floating-card--bottom">
-            <span className="home-floating-card__icon">✓</span>
+            <span className="home-floating-card__icon">
+              <BadgeCheck aria-hidden="true" size={16} />
+            </span>
             <span><strong>Reserva fácil</strong><br />en pocos pasos</span>
           </div>
         </div>
       </section>
 
       {/* MOTOR DE BÚSQUEDA INTERACTIVO */}
-      <section className="home-section" style={{ paddingTop: '0.5rem', paddingBottom: '2.5rem' }}>
+      <section className="home-section home-section--search">
         <div className="home-section__heading">
           <div>
             <span className="home-eyebrow">Búsqueda rápida en tiempo real</span>
@@ -123,10 +154,10 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="flight-search-box" style={{ background: 'white', padding: '1.5rem', borderRadius: '1rem', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)', color: '#1e293b' }}>
-          <form onSubmit={handleSearch} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 600 }}>
+        <div className="flight-search-box home-search-box">
+          <form onSubmit={handleSearch} className="home-search-form">
+            <div className="home-trip-options" role="radiogroup" aria-label="Tipo de trayecto">
+              <label className="home-trip-option">
                 <input
                   type="radio"
                   name="trayecto"
@@ -135,7 +166,7 @@ export default function HomePage() {
                 />
                 Solo ida
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontWeight: 600 }}>
+              <label className="home-trip-option">
                 <input
                   type="radio"
                   name="trayecto"
@@ -146,48 +177,41 @@ export default function HomePage() {
               </label>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.8rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Origen</label>
-                <FlightCitySelect side="origin" value={origenId} opposite={destinoId} date={fechaSalida} passengers={pasajeros} travelClass={clase} onChange={id => setOrigenId(id || 0)} />
-              </div>
+            <div className="flight-search-grid">
+              <FlightCitySelect side="origin" value={origenId} opposite={destinoId} date={fechaSalida} passengers={pasajeros} travelClass={clase} onChange={id => setOrigenId(id || 0)} />
+              <FlightCitySelect side="destination" value={destinoId} opposite={origenId} date={fechaSalida} passengers={pasajeros} travelClass={clase} onChange={id => setDestinoId(id || 0)} />
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Destino</label>
-                <FlightCitySelect side="destination" value={destinoId} opposite={origenId} date={fechaSalida} passengers={pasajeros} travelClass={clase} onChange={id => setDestinoId(id || 0)} />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Fecha de salida</label>
+              <div className="form-group">
+                <label className="form-label" htmlFor="home-departure-date">Fecha de salida</label>
                 <input
+                  id="home-departure-date"
                   type="date"
-                  className="form-control"
+                  className="form-input"
                   value={fechaSalida}
                   onChange={(e) => setFechaSalida(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid #cbd5e1' }}
                 />
               </div>
 
               {tipoTrayecto === 'COMPLETO' && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Fecha de regreso</label>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="home-return-date">Fecha de regreso</label>
                   <input
+                    id="home-return-date"
                     type="date"
-                    className="form-control"
+                    className="form-input"
                     value={fechaRegreso}
                     onChange={(e) => setFechaRegreso(e.target.value)}
-                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid #cbd5e1' }}
                   />
                 </div>
               )}
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Pasajeros</label>
+              <div className="form-group">
+                <label className="form-label" htmlFor="home-passengers">Pasajeros</label>
                 <select
-                  className="form-control"
+                  id="home-passengers"
+                  className="form-select"
                   value={pasajeros}
                   onChange={(e) => setPasajeros(Number(e.target.value))}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '0.4rem', border: '1px solid #cbd5e1' }}
                 >
                   {[1, 2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>
@@ -197,23 +221,29 @@ export default function HomePage() {
                 </select>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.2rem' }}>Clase</label>
-                <CatalogueSelect category="travel_class" label="Clase de viaje" value={clase} onChange={value => setClase(value as 'ECONOMICA' | 'PRIMERA_CLASE')} />
+              <div className="form-group">
+                <label className="form-label" htmlFor="home-class">Clase de viaje</label>
+                <select id="home-class" className="form-select" value={clase} onChange={(event) => setClase(event.target.value as '' | 'ECONOMICA' | 'PRIMERA_CLASE')}>
+                  <option value="">Cualquier clase disponible</option>
+                  <option value="ECONOMICA">Económica</option>
+                  <option value="PRIMERA_CLASE">Primera clase</option>
+                </select>
               </div>
             </div>
 
             {searchError && (
-              <div style={{ color: '#dc2626', fontSize: '0.875rem' }}>{searchError}</div>
+              <div className="form-error" role="alert">
+                {searchError}
+              </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="btn btn--primary"
-              style={{ alignSelf: 'flex-start', padding: '0.6rem 1.8rem', fontSize: '1rem' }}
+              className="btn btn--primary home-search-submit"
+              aria-busy={loading}
             >
-              {loading ? 'Buscando vuelos...' : '🔍 Buscar vuelos disponibles'}
+              {loading ? 'Buscando vuelos...' : <><Search aria-hidden="true" size={18} /> Buscar vuelos disponibles</>}
             </button>
           </form>
         </div>
@@ -221,7 +251,7 @@ export default function HomePage() {
 
       {/* RESULTADOS DE BÚSQUEDA */}
       {hasSearched && (
-        <section className="home-section" style={{ background: '#f8fafc', padding: '2rem 1.5rem', borderRadius: '1rem', margin: '2rem 0' }}>
+        <section className="home-section home-results">
           <div className="home-section__heading">
             <div>
               <span className="home-eyebrow">Resultados de búsqueda</span>
@@ -229,9 +259,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div style={{ marginTop: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: '#0f172a' }}>
-              🛫 Vuelos de ida ({vuelosIda.length})
+          <div className="home-results__content">
+            <h3 className="home-results__title">
+              <PlaneTakeoff aria-hidden="true" size={20} />
+              <span>Vuelos de ida ({vuelosIda.length})</span>
             </h3>
             {vuelosIda.length === 0 ? (
               <p style={{ color: '#64748b' }}>No se encontraron vuelos de ida que coincidan con los criterios seleccionados.</p>
@@ -261,7 +292,7 @@ export default function HomePage() {
                         </div>
                       </div>
                       <Link to="/vuelos" className="btn btn--primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
-                        Reservar / Comprar ↗
+                        Reservar / Comprar <ArrowUpRight aria-hidden="true" size={16} />
                       </Link>
                     </div>
                   </div>
@@ -271,8 +302,9 @@ export default function HomePage() {
 
             {tipoTrayecto === 'COMPLETO' && (
               <div style={{ marginTop: '2.5rem' }}>
-                <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: '#0f172a' }}>
-                  🛬 Vuelos de regreso ({vuelosRegreso.length})
+                <h3 className="home-results__title">
+                <PlaneLanding aria-hidden="true" size={20} />
+                <span>Vuelos de regreso ({vuelosRegreso.length})</span>
                 </h3>
                 {vuelosRegreso.length === 0 ? (
                   <p style={{ color: '#64748b' }}>No se encontraron vuelos de regreso para la fecha seleccionada.</p>
@@ -302,7 +334,7 @@ export default function HomePage() {
                             </div>
                           </div>
                           <Link to="/vuelos" className="btn btn--primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
-                            Reservar / Comprar ↗
+                            Reservar / Comprar <ArrowUpRight aria-hidden="true" size={16} />
                           </Link>
                         </div>
                       </div>
@@ -334,7 +366,7 @@ export default function HomePage() {
                 <h3>Madrid</h3>
                 <p>Historia, arte y atardeceres</p>
               </div>
-              <span className="destination-card__arrow">↗</span>
+              <ArrowUpRight className="destination-card__arrow" aria-hidden="true" size={20} />
             </article>
           </Link>
           <Link to="/vuelos" style={{ textDecoration: 'none' }}>
@@ -344,7 +376,7 @@ export default function HomePage() {
                 <h3>Bogotá</h3>
                 <p>Cultura, gastronomía y negocios</p>
               </div>
-              <span className="destination-card__arrow">↗</span>
+              <ArrowUpRight className="destination-card__arrow" aria-hidden="true" size={20} />
             </article>
           </Link>
           <Link to="/vuelos" style={{ textDecoration: 'none' }}>
@@ -354,7 +386,7 @@ export default function HomePage() {
                 <h3>Cartagena</h3>
                 <p>Sol, playa y arquitectura colonial</p>
               </div>
-              <span className="destination-card__arrow">↗</span>
+              <ArrowUpRight className="destination-card__arrow" aria-hidden="true" size={20} />
             </article>
           </Link>
         </div>
@@ -396,7 +428,7 @@ export default function HomePage() {
           <h2>¿Listo para despegar?</h2>
         </div>
         <Link to="/vuelos" className="btn btn--light">
-          Empezar ahora <span aria-hidden="true">→</span>
+          Empezar ahora <ArrowRight aria-hidden="true" size={18} />
         </Link>
       </section>
     </main>

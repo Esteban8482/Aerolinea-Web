@@ -1,0 +1,782 @@
+[
+  {
+    "page": "home",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1030
+    },
+    "errors": []
+  },
+  {
+    "page": "flight-search",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "flight-results",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1190
+    },
+    "errors": []
+  },
+  {
+    "page": "flight-catalogue",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "round-trip",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "registration",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1404
+    },
+    "errors": []
+  },
+  {
+    "page": "login",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "recovery",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "wallet",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1228
+    },
+    "errors": []
+  },
+  {
+    "page": "wallet-empty",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "add-card",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1262
+    },
+    "errors": []
+  },
+  {
+    "page": "checkout",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1131
+    },
+    "errors": []
+  },
+  {
+    "page": "checkout-review",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "checkout-funds",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "my-trips",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1074
+    },
+    "errors": []
+  },
+  {
+    "page": "cancellations",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1024
+    },
+    "errors": []
+  },
+  {
+    "page": "guest-checkin",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "checkin-group",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "seat-selection",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "boarding-pass",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "profile",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-dashboard",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1037
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-flights",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-flight-create",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1017
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-flight-edit",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1265
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-flight-detail",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-promotions",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-cancellations",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "profile-admin",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "root-dashboard",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "root-create",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "root-admin-password",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "root-security",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "verify-email",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "reset-password",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "guest-authorized",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "guest-seat",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "cancellation-no-alternatives",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "purchase-confirmation",
+    "view": "desktop",
+    "width": {
+      "w": 1440,
+      "client": 1440,
+      "h": 1000
+    },
+    "errors": []
+  },
+  {
+    "page": "home",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1709
+    },
+    "errors": []
+  },
+  {
+    "page": "flight-search",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1196
+    },
+    "errors": []
+  },
+  {
+    "page": "flight-results",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1808
+    },
+    "errors": []
+  },
+  {
+    "page": "flight-catalogue",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1202
+    },
+    "errors": []
+  },
+  {
+    "page": "round-trip",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1065
+    },
+    "errors": []
+  },
+  {
+    "page": "registration",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 2140
+    },
+    "errors": []
+  },
+  {
+    "page": "login",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 844
+    },
+    "errors": []
+  },
+  {
+    "page": "recovery",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 844
+    },
+    "errors": []
+  },
+  {
+    "page": "wallet",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1570
+    },
+    "errors": []
+  },
+  {
+    "page": "wallet-empty",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 918
+    },
+    "errors": []
+  },
+  {
+    "page": "add-card",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1592
+    },
+    "errors": []
+  },
+  {
+    "page": "checkout",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1910
+    },
+    "errors": []
+  },
+  {
+    "page": "checkout-review",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1283
+    },
+    "errors": []
+  },
+  {
+    "page": "checkout-funds",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1156
+    },
+    "errors": []
+  },
+  {
+    "page": "my-trips",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1317
+    },
+    "errors": []
+  },
+  {
+    "page": "cancellations",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1636
+    },
+    "errors": []
+  },
+  {
+    "page": "guest-checkin",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 961
+    },
+    "errors": []
+  },
+  {
+    "page": "checkin-group",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1066
+    },
+    "errors": []
+  },
+  {
+    "page": "seat-selection",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1202
+    },
+    "errors": []
+  },
+  {
+    "page": "boarding-pass",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 844
+    },
+    "errors": []
+  },
+  {
+    "page": "profile",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1188
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-dashboard",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1690
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-flights",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1220
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-flight-create",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1602
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-flight-edit",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1908
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-flight-detail",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1515
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-promotions",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1313
+    },
+    "errors": []
+  },
+  {
+    "page": "admin-cancellations",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1241
+    },
+    "errors": []
+  },
+  {
+    "page": "profile-admin",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 954
+    },
+    "errors": []
+  },
+  {
+    "page": "root-dashboard",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1414
+    },
+    "errors": []
+  },
+  {
+    "page": "root-create",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1221
+    },
+    "errors": []
+  },
+  {
+    "page": "root-admin-password",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1021
+    },
+    "errors": []
+  },
+  {
+    "page": "root-security",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1010
+    },
+    "errors": []
+  },
+  {
+    "page": "verify-email",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 844
+    },
+    "errors": []
+  },
+  {
+    "page": "reset-password",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 844
+    },
+    "errors": []
+  },
+  {
+    "page": "guest-authorized",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 844
+    },
+    "errors": []
+  },
+  {
+    "page": "guest-seat",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 1165
+    },
+    "errors": []
+  },
+  {
+    "page": "cancellation-no-alternatives",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 961
+    },
+    "errors": []
+  },
+  {
+    "page": "purchase-confirmation",
+    "view": "mobile",
+    "width": {
+      "w": 390,
+      "client": 390,
+      "h": 844
+    },
+    "errors": []
+  }
+]

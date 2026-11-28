@@ -376,3 +376,11 @@ After migrations and airline catalogue initialization run `python manage.py load
 This imports the checked-in worldwide snapshot offline and links existing service cities.
 See [API contracts and frontend handoff](../docs/backend/catalogues-and-root.md).
 New registration requires catalogue city IDs; ROOT wallet access is disabled.
+
+### Correo vacío en Compose de desarrollo
+
+En `config.settings.development`, un `EMAIL_BACKEND` ausente o vacío utiliza el backend
+local de consola; `DEFAULT_FROM_EMAIL` vacío utiliza `no-reply@example.invalid`. Esto
+resuelve el `ImportError` que producía la variable vacía inyectada por Compose. La
+configuración de producción no cambia. Después de cambiar settings, reiniciar el worker
+para que cargue la configuración. No confundir salida local de consola con entrega SMTP.

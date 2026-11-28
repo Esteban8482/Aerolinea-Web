@@ -177,6 +177,7 @@ def eligible(resolution, destination):
             .exists()
         ):
             raise ResolutionConflict("Un viajero ya tiene reserva en la alternativa.")
+    current_by_traveler = {ticket.viajero_id: ticket for ticket in tickets}
     for other in (
         resolution.purchase.tiquetes.filter(
             estado__in=[EstadoTiquete.ACTIVO, EstadoTiquete.PENDIENTE_RESOLUCION]
@@ -184,14 +185,21 @@ def eligible(resolution, destination):
         .exclude(vuelo_id=resolution.flight_id)
         .select_related("vuelo__ruta")
     ):
+        current = current_by_traveler.get(other.viajero_id)
+        if current is None:
+            continue
         leg = other.vuelo
-        if (
+        inverse_route = (
             leg.ruta.origen_id == destination.ruta.destino_id
-            and leg.salida_utc <= destination.llegada_utc
-        ) or (
-            leg.ruta.destino_id == destination.ruta.origen_id
-            and leg.llegada_utc >= destination.salida_utc
-        ):
+            and leg.ruta.destino_id == destination.ruta.origen_id
+        )
+        # Replacements retain their original ticket ID; purchase creation orders outbound first.
+        current_is_outbound = _original_ticket_id(current) < _original_ticket_id(other)
+        conflicts_with_outbound = current_is_outbound and leg.salida_utc <= destination.llegada_utc
+        conflicts_with_return = (
+            not current_is_outbound and destination.salida_utc <= leg.llegada_utc
+        )
+        if inverse_route and (conflicts_with_outbound or conflicts_with_return):
             raise ResolutionConflict(
                 "La alternativa es incompatible con la otra etapa del itinerario."
             )

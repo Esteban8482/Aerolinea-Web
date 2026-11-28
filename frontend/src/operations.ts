@@ -15,13 +15,32 @@ export function useOperationKey() {
 import { api, ApiError } from './api'
 export function useConfirmedPurchase() {
   const pending = useRef<{ input: string; payload: Record<string, unknown>; key: string } | null>(null)
-  return async (input: Record<string, unknown>, quoteInput: Record<string, unknown>) => {
+  return async (
+    input: Record<string, unknown>,
+    quoteInput: Record<string, unknown>,
+    confirm?: (info: { total: string; balance: string }) => Promise<boolean>,
+  ) => {
     const fingerprint = JSON.stringify(input)
     if (!pending.current || pending.current.input !== fingerprint) {
       const quote = await api.post('/sales/quote/', quoteInput)
       const wallet = await api.get('/sales/wallet/')
-      if (Number(wallet.balance) < Number(quote.total)) throw new ApiError(400, { code: 'insufficient_wallet_balance', message: `Saldo insuficiente. Total cotizado: $${quote.total} COP; saldo $${wallet.balance} COP. Registra un medio y deposita fondos para continuar.` })
-      if (!window.confirm(`Total cotizado: $${quote.total} COP. Saldo disponible: $${wallet.balance} COP. ¿Aceptas pagar este total?`)) return null
+      if (Number(wallet.balance) < Number(quote.total)) {
+        const total = Number(quote.total)
+        const balance = Number(wallet.balance)
+        throw new ApiError(400, {
+          code: 'insufficient_wallet_balance',
+          message: `Saldo insuficiente. Total cotizado: $${total} COP; saldo $${balance} COP.`,
+          details: {
+            total: String(total),
+            balance: String(balance),
+            difference: String(total - balance),
+          },
+        })
+      }
+      if (confirm) {
+        const accepted = await confirm({ total: String(quote.total), balance: String(wallet.balance) })
+        if (!accepted) return null
+      }
       pending.current = { input: fingerprint, payload: { ...input, accepted_total: quote.total }, key: crypto.randomUUID() }
     }
     try {

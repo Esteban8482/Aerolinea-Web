@@ -50,10 +50,6 @@ class RegistrationSerializer(StrictSerializer):
     birth_city_id = serializers.PrimaryKeyRelatedField(
         source="birth_city", queryset=Locality.objects.filter(active=True, country__active=True)
     )
-    billing_city_id = serializers.PrimaryKeyRelatedField(
-        source="billing_city", queryset=Locality.objects.filter(active=True, country__active=True)
-    )
-    billing_address = serializers.CharField(max_length=200)
     gender = CatalogueCodeField("gender", max_length=20)
     phone = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
     password = serializers.CharField(write_only=True, trim_whitespace=False)
@@ -106,13 +102,13 @@ class RegistrationSerializer(StrictSerializer):
         return sanitize_profile_image(value)
 
     def validate(self, attrs):
-        for field in ("birth_city", "billing_city"):
-            place = attrs[field]
+        if "birth_city" in attrs:
+            place = attrs["birth_city"]
             if place.subdivision_id and not place.subdivision.active:
                 raise serializers.ValidationError(
-                    {field + "_id": "La división territorial no está activa."}
+                    {"birth_city_id": "La división territorial no está activa."}
                 )
-        attrs["birth_place"] = attrs["birth_city"].label
+            attrs["birth_place"] = place.label
         profile = {
             k: v
             for k, v in attrs.items()
@@ -184,10 +180,9 @@ class ProfileSerializer(serializers.Serializer):
     document_type = serializers.CharField()
     birth_date = serializers.DateField(allow_null=True)
     birth_place = serializers.CharField()
-    billing_address = serializers.CharField()
+    phone = serializers.CharField(allow_blank=True)
     gender = serializers.CharField()
     role = serializers.CharField()
     is_email_verified = serializers.BooleanField()
     wallet_balance = serializers.CharField(allow_null=True)
     birth_city_id = serializers.IntegerField(allow_null=True)
-    billing_city_id = serializers.IntegerField(allow_null=True)

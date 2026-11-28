@@ -50,7 +50,6 @@ def register_customer(*, data):
     serializer.is_valid(raise_exception=True)
     attrs = dict(serializer.validated_data)
     password = attrs.pop("password")
-    attrs.pop("phone", "")
     attrs.pop("accepts_data_policy")
     attrs.pop("policy_reference")
     attrs.pop("policy_version")

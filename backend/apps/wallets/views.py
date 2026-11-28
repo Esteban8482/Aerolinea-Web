@@ -72,7 +72,7 @@ class PaymentMethodsView(APIView):
     def post(self, request):
         serializer = PaymentMethodCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        method = register_method(actor=request.user, data=serializer.validated_data)
+        method = register_method(actor=request.user, data=request.data)
         return Response(PaymentMethodSerializer(method).data, status=status.HTTP_201_CREATED)
 
 

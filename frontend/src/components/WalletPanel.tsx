@@ -1,8 +1,22 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
 import { useOperationKey } from '../operations'
-import CatalogueSelect from './CatalogueSelect'
-interface Method { id: number; tipo: string; alias: string; numero_enmascarado: string; activo: boolean; mes_vencimiento: number | null; anio_vencimiento: number | null }
+import { Dialog } from './UI'
+interface Method {
+  id: number
+  tipo: string
+  alias: string
+  titular: string
+  cardholder_first_name: string
+  cardholder_last_name: string
+  marca: string
+  numero_enmascarado: string
+  activo: boolean
+  disponibilidad: 'DISPONIBLE' | 'VENCIDO' | 'INACTIVO'
+  mes_vencimiento: number | null
+  anio_vencimiento: number | null
+}
 interface Movement { id: number; tipo: string; valor: string; saldo_resultante: string; referencia: string; creado_en: string }
 export default function WalletPanel({ onBalance }: { onBalance?: (balance: string) => void }) {
   const [balance, setBalance] = useState('')
@@ -13,7 +27,8 @@ export default function WalletPanel({ onBalance }: { onBalance?: (balance: strin
   const [amount, setAmount] = useState('1000')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
-  const [form, setForm] = useState({ tipo: 'TARJETA', alias: '', titular: '', entidad: '', numero: '', mes_vencimiento: '1', anio_vencimiento: String(new Date().getFullYear()) })
+  const [confirmDeposit, setConfirmDeposit] = useState(false)
+  const [removeMethod, setRemoveMethod] = useState<Method | null>(null)
   const key = useOperationKey()
   const load = useCallback(async () => {
     const [wallet, firstMethods, history] = await Promise.all([api.get('/sales/wallet/'), api.get('/sales/wallet/payment-methods/'), api.get('/sales/wallet/movements/')])
@@ -25,51 +40,179 @@ export default function WalletPanel({ onBalance }: { onBalance?: (balance: strin
   }, [onBalance])
   useEffect(() => { load().catch(() => setNotice('No se pudo cargar la billetera.')) }, [load])
   const errorText = (error: unknown) => error instanceof ApiError ? `${error.message} ${Object.values(error.details).flat().join(' ')}` : 'No se confirmó el resultado. Puedes reintentar la misma operación.'
-  async function register(e: FormEvent) {
-    e.preventDefault(); setBusy(true); setNotice('')
-    try {
-      const { mes_vencimiento, anio_vencimiento, ...rest } = form
-      await api.post('/sales/wallet/payment-methods/', { ...rest, ...(form.tipo === 'TARJETA' ? { mes_vencimiento: Number(mes_vencimiento), anio_vencimiento: Number(anio_vencimiento) } : {}) })
-      setForm({ ...form, numero: '', alias: '' }); setNotice('Medio simulado registrado.'); await load()
-    } catch (e) { setNotice(errorText(e)) } finally { setBusy(false) }
-  }
   async function deposit() {
-    if (!selected || !window.confirm(`¿Confirmas el depósito simulado de $${amount} COP con el medio seleccionado?`)) return
+    if (!selected) return
     const payload = { monto: amount, medio_pago_id: Number(selected) }
     setBusy(true); setNotice('')
     try {
       await api.postWithHeaders('/sales/wallet/deposit/', payload, { 'Idempotency-Key': key.forRequest(payload) })
       key.clear(); setNotice('Depósito confirmado.'); try { await load() } catch { setNotice('Depósito confirmado. No fue posible actualizar el saldo visible; recarga la consulta antes de otra operación.') }
-    } catch (e) { setNotice(errorText(e)) } finally { setBusy(false) }
+    } catch (e) { setNotice(errorText(e)) } finally { setBusy(false); setConfirmDeposit(false) }
   }
-  async function manage(method: Method, deactivate = false) {
-    const alias = deactivate ? null : window.prompt('Nuevo alias', method.alias)
-    if (deactivate ? !window.confirm('¿Desactivar este medio de pago? Se conservará el historial.') : !alias) return
+  async function remove(method: Method) {
     setBusy(true)
-    try { if (deactivate) await api.delete(`/sales/wallet/payment-methods/${method.id}/`); else await api.patch(`/sales/wallet/payment-methods/${method.id}/`, { alias }); await load() } catch (e) { setNotice(errorText(e)) } finally { setBusy(false) }
+    try {
+      await api.delete(`/sales/wallet/payment-methods/${method.id}/`)
+      setNotice('Método de pago eliminado.')
+      setRemoveMethod(null)
+      await load()
+    } catch (e) {
+      setNotice(errorText(e))
+    } finally {
+      setBusy(false)
+    }
   }
   async function more() {
     if (!next) return
     try { const url = new URL(next, location.origin); const data = await api.get(url.pathname.replace('/api/v1', '') + url.search); setMovements([...movements, ...data.results]); setNext(data.next) } catch (e) { setNotice(errorText(e)) }
   }
-  return <section className="form-container" aria-label="Billetera">
-    <h2>Billetera virtual</h2><p>Simulación académica. No introduzcas datos bancarios reales ni CVV.</p><p>Saldo disponible: <strong>${balance || '…'} COP</strong></p>
-    {notice && <p role="status" className="alert">{notice}</p>}
-    <h3>Medios registrados</h3>
-    {!methods.length && <p>No tienes medios registrados.</p>}
-    {methods.map(m => <div key={m.id}><span>{m.alias} — {m.numero_enmascarado} — {m.activo ? 'Activo' : 'Inactivo'} {m.mes_vencimiento && `(vence ${m.mes_vencimiento}/${m.anio_vencimiento})`}</span>{m.activo && <><button type="button" disabled={busy} onClick={() => manage(m)}>Modificar alias</button><button type="button" disabled={busy} onClick={() => manage(m, true)}>Desactivar</button></>}</div>)}
-    <details><summary>Registrar medio simulado</summary><form onSubmit={register}>
-      <CatalogueSelect category="payment_method_type" label="Tipo de medio" value={form.tipo} onChange={tipo => setForm({ ...form, tipo })} />
-      {(['alias', 'titular', 'entidad', 'numero'] as const).map(field => <label className="form-group" key={field}>{({alias:'Alias',titular:'Titular',entidad:'Entidad',numero:'Número simulado'})[field]}<input className="form-input" required autoComplete="off" value={form[field]} onChange={e => setForm({ ...form, [field]: e.target.value })} /></label>)}
-      {form.tipo === 'TARJETA' && <><label>Mes de vencimiento<select value={form.mes_vencimiento} onChange={e => setForm({ ...form, mes_vencimiento: e.target.value })}>{Array.from({length:12}, (_, i) => <option key={i} value={i+1}>{i+1}</option>)}</select></label><label>Año de vencimiento<input type="number" min={new Date().getFullYear()} value={form.anio_vencimiento} onChange={e => setForm({ ...form, anio_vencimiento: e.target.value })} /></label></>}
-      <button className="btn btn--primary" disabled={busy}>Registrar</button>
-    </form></details>
-    <h3>Depositar fondos simulados</h3>
-    <label>Medio registrado<select className="form-select" value={selected} onChange={e => setSelected(e.target.value)}><option value="">Selecciona un medio</option>{methods.filter(m => m.activo).map(m => <option key={m.id} value={m.id}>{m.alias} {m.numero_enmascarado}</option>)}</select></label>
-    <label>Monto COP<input className="form-input" type="number" min="1000" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
-    <button type="button" className="btn btn--primary" disabled={busy || !selected || Number(amount) < 1000} onClick={deposit}>Confirmar depósito</button>
-    <h3>Movimientos</h3>{!movements.length && <p>No hay movimientos.</p>}
-    <ul>{movements.map(m => <li key={m.id}>{new Date(m.creado_en).toLocaleString('es-CO')} — {m.tipo}: ${m.valor} COP · Saldo ${m.saldo_resultante} · {m.referencia}</li>)}</ul>
-    {next && <button type="button" onClick={more}>Más movimientos</button>}
-  </section>
+  return (
+    <section className="wallet-panel form-container" aria-label="Billetera">
+      <header className="wallet-panel__header">
+        <div>
+          <h2>Billetera</h2>
+        </div>
+        <p className="wallet-panel__balance">
+          Saldo disponible <strong>${balance || '…'} COP</strong>
+        </p>
+      </header>
+      {notice && <p role="status" className="alert">{notice}</p>}
+
+      <div className="wallet-panel__section">
+        <h3>Métodos de pago registrados</h3>
+        {!methods.length && (
+          <div className="empty-state">
+            <strong>Aún no tienes métodos de pago.</strong>
+            <p>Añade tu primer método para agregar dinero a tu billetera.</p>
+            <Link className="btn btn--primary" to="/metodos/nueva">Añadir tarjeta</Link>
+          </div>
+        )}
+        <div className="wallet-panel__methods">
+          {methods.map((method) => (
+            <div className="wallet-panel__method" key={method.id}>
+              <div>
+                <strong>{method.marca ? `${method.marca === 'MASTERCARD' ? 'Mastercard' : 'Visa'} ${method.numero_enmascarado}` : method.alias}</strong>
+                <div>
+                  {method.cardholder_first_name || method.cardholder_last_name
+                    ? `${method.cardholder_first_name} ${method.cardholder_last_name}`
+                    : method.titular}
+                  {method.mes_vencimiento && ` · Vence ${String(method.mes_vencimiento).padStart(2, '0')}/${String(method.anio_vencimiento).slice(-2)}`}
+                </div>
+                <span className={`tag tag--${method.disponibilidad === 'DISPONIBLE' ? 'success' : 'warning'}`}>
+                  {method.disponibilidad === 'DISPONIBLE' ? 'Disponible' : method.disponibilidad === 'VENCIDO' ? 'Vencido' : 'Inactivo'}
+                </span>
+              </div>
+              {method.activo && (
+                <div className="wallet-panel__actions">
+                  <button type="button" className="btn btn--secondary btn--small" disabled={busy} onClick={() => setRemoveMethod(method)}>
+                    Eliminar método de pago
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {methods.length > 0 && (
+          <Link className="btn btn--secondary" to="/metodos/nueva" style={{ marginTop: '0.75rem' }}>
+            Añadir otra tarjeta
+          </Link>
+        )}
+      </div>
+
+      <div className="wallet-panel__section">
+        <h3>Añadir dinero</h3>
+        <div className="wallet-panel__deposit-form">
+          <label className="form-group">
+            Método de pago registrado
+            <select className="form-select" value={selected} onChange={event => setSelected(event.target.value)}>
+              <option value="">Selecciona un método</option>
+              {methods.filter(method => method.activo && method.disponibilidad === 'DISPONIBLE').map(method => (
+                <option key={method.id} value={method.id}>{method.marca ? `${method.marca === 'MASTERCARD' ? 'Mastercard' : 'Visa'} ${method.numero_enmascarado}` : method.alias}</option>
+              ))}
+            </select>
+          </label>
+          <label className="form-group">
+            Monto COP
+            <input className="form-input" type="number" min="1000" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} />
+          </label>
+          <button type="button" className="btn btn--primary" disabled={busy || !selected || Number(amount) < 1000} onClick={() => setConfirmDeposit(true)}>
+            Confirmar depósito
+          </button>
+        </div>
+      </div>
+
+      <div className="wallet-panel__section">
+        <h3>Actividad reciente</h3>
+        {!movements.length && <p>No hay movimientos.</p>}
+        <ul className="wallet-panel__movements">
+          {movements.map(movement => {
+            const descriptions: Record<string, string> = {
+              DEPOSITO: 'Dinero añadido',
+              COMPRA: 'Compra de tiquetes',
+              REEMBOLSO: 'Reembolso',
+              RETIRO: 'Retiro',
+            }
+            const date = new Date(movement.creado_en).toLocaleString('es-CO', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })
+            const amount = new Intl.NumberFormat('es-CO', {
+              style: 'currency',
+              currency: 'COP',
+              maximumFractionDigits: 2,
+            }).format(Number(movement.valor))
+            return (
+              <li key={movement.id}>
+                <strong>{descriptions[movement.tipo] ?? movement.tipo}</strong>
+                <span> · {date} · {movement.referencia}</span>
+                <strong className={movement.tipo === 'COMPRA' || movement.tipo === 'RETIRO' ? '' : 'movement-positive'}> · {movement.tipo === 'COMPRA' || movement.tipo === 'RETIRO' ? '−' : '+'}{amount}</strong>
+              </li>
+            )
+          })}
+        </ul>
+        {next && <button type="button" className="btn btn--secondary btn--small" disabled={busy} onClick={more}>Más movimientos</button>}
+      </div>
+      {confirmDeposit && (
+        <Dialog title="Confirmar depósito" onClose={() => setConfirmDeposit(false)} closeDisabled={busy}>
+          <p>Revisa el importe y el método antes de confirmar.</p>
+          <div className="movement-summary">
+            <span>Importe</span>
+            <strong>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(Number(amount))}</strong>
+          </div>
+          <div className="movement-summary">
+            <span>Método de pago</span>
+            <strong>
+              {(() => {
+                const method = methods.find((item) => item.id === Number(selected))
+                return method?.marca
+                  ? `${method.marca === 'MASTERCARD' ? 'Mastercard' : 'Visa'} ${method.numero_enmascarado}`
+                  : method?.alias ?? 'No seleccionado'
+              })()}
+            </strong>
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn btn--primary" disabled={busy} onClick={deposit}>
+              {busy ? 'Confirmando…' : 'Confirmar depósito'}
+            </button>
+            <button type="button" className="btn btn--secondary" disabled={busy} onClick={() => setConfirmDeposit(false)}>
+              Volver
+            </button>
+          </div>
+        </Dialog>
+      )}
+      {removeMethod && (
+        <Dialog title="Eliminar método de pago" onClose={() => setRemoveMethod(null)} closeDisabled={busy}>
+          <p>El método dejará de estar disponible. Los movimientos históricos se conservarán.</p>
+          <div className="form-actions">
+            <button type="button" className="btn btn--danger" disabled={busy} onClick={() => remove(removeMethod)}>
+              {busy ? 'Eliminando…' : 'Eliminar método de pago'}
+            </button>
+            <button type="button" className="btn btn--secondary" disabled={busy} onClick={() => setRemoveMethod(null)}>
+              Cancelar
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </section>
+  )
 }

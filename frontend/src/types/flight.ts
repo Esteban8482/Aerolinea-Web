@@ -38,6 +38,11 @@ export interface Vuelo {
   cupos_disponibles_primera: number
   cupos_disponibles_economica: number
   estado: 'PROGRAMADO' | 'REALIZADO' | 'CANCELADO'
+  clase_aplicable?: 'ECONOMICA' | 'PRIMERA_CLASE' | ''
+  precio_por_persona?: string
+  precio_original?: string
+  tiene_promocion?: boolean
+  asientos_disponibles?: number
 }
 
 export interface VueloDetalle extends Vuelo {
@@ -123,7 +128,7 @@ export interface PerfilUsuario {
   document_type: string
   birth_date: string | null
   birth_place: string | null
-  billing_address: string | null
+  phone: string
   gender: string | null
   role: string
   is_email_verified: boolean

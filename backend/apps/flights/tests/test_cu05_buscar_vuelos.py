@@ -166,3 +166,71 @@ def test_buscar_vuelos_registra_historial_para_usuario_autenticado(
     historial = HistorialBusqueda.objects.filter(usuario=client_user)
     assert historial.exists()
     assert historial.first().pasajeros == 2
+
+
+@pytest.mark.django_db
+def test_buscar_vuelos_precio_min_max_y_rango_invalido(vuelos_de_prueba, anon_client):
+    bogota = Ciudad.objects.get(nombre="Bogotá")
+    pereira = Ciudad.objects.get(nombre="Pereira")
+    base = {
+        "origen_id": bogota.pk,
+        "destino_id": pereira.pk,
+        "clase": "ECONOMICA",
+        "precio_min": "100000.00",
+        "precio_max": "200000.00",
+    }
+    response = anon_client.post("/api/v1/flights/search/", base, format="json")
+    assert response.status_code == 200
+    assert response.json()["vuelos_ida"]
+    assert all(
+        Decimal(flight["precio_por_persona"]) >= Decimal("100000")
+        and Decimal(flight["precio_por_persona"]) <= Decimal("200000")
+        for flight in response.json()["vuelos_ida"]
+    )
+
+    invalid = anon_client.post(
+        "/api/v1/flights/search/",
+        {**base, "precio_min": "200000", "precio_max": "100000"},
+        format="json",
+    )
+    assert invalid.status_code == 400
+    assert "precio_min" in invalid.json()["details"]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "orden",
+    ["precio_asc", "precio_desc", "salida_asc", "salida_desc"],
+)
+def test_buscar_vuelos_admite_todos_los_ordenes(vuelos_de_prueba, anon_client, orden):
+    bogota = Ciudad.objects.get(nombre="Bogotá")
+    pereira = Ciudad.objects.get(nombre="Pereira")
+    response = anon_client.post(
+        "/api/v1/flights/search/",
+        {
+            "origen_id": bogota.pk,
+            "destino_id": pereira.pk,
+            "orden": orden,
+        },
+        format="json",
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db
+def test_buscar_sin_clase_identifica_tarifa_elegible_y_clase(vuelos_de_prueba, anon_client):
+    bogota = Ciudad.objects.get(nombre="Bogotá")
+    pereira = Ciudad.objects.get(nombre="Pereira")
+    response = anon_client.post(
+        "/api/v1/flights/search/",
+        {
+            "origen_id": bogota.pk,
+            "destino_id": pereira.pk,
+            "pasajeros": 1,
+        },
+        format="json",
+    )
+    assert response.status_code == 200
+    flight = response.json()["vuelos_ida"][0]
+    assert flight["clase_aplicable"] == "ECONOMICA"
+    assert Decimal(flight["precio_por_persona"]) == Decimal("150000.00")

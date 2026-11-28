@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { api } from './api'
 import CancellationsPage from './pages/CancellationsPage'
@@ -12,6 +12,7 @@ import FlightsPage from './pages/FlightsPage'
 import CheckInPage from './pages/CheckInPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import AddCardPage from './pages/AddCardPage'
 
 interface Session {
   authenticated: boolean
@@ -20,7 +21,10 @@ interface Session {
 }
 
 export default function App() {
+  const sessionGeneration = useRef(0)
+  const logoutPending = useRef(false)
   const [loading, setLoading] = useState(true)
+  const [logoutBusy, setLogoutBusy] = useState(false)
   const [sessionError, setSessionError] = useState('')
   const [session, setSession] = useState<Session>({
     authenticated: false,
@@ -29,14 +33,19 @@ export default function App() {
   })
 
   const refreshSession = useCallback(async () => {
+    if (logoutPending.current) return
+    const generation = ++sessionGeneration.current
     try {
       const data = await api.get('/auth/session/')
+      if (generation !== sessionGeneration.current) return
+      setSessionError('')
       setSession({
         authenticated: Boolean(data.authenticated),
         role: data.role ?? null,
         is_email_verified: Boolean(data.is_email_verified),
       })
     } catch {
+      if (generation !== sessionGeneration.current) return
       setSessionError('No fue posible comprobar la sesión. Reintenta antes de continuar.')
     } finally { setLoading(false) }
   }, [])
@@ -46,7 +55,7 @@ export default function App() {
   }, [refreshSession])
 
   useEffect(() => {
-    const expired = () => { setSession({ authenticated: false, role: null, is_email_verified: false }); setSessionError('Tu sesión terminó. Inicia sesión de nuevo para continuar.') }
+    const expired = () => { sessionGeneration.current++; setSession({ authenticated: false, role: null, is_email_verified: false }); setSessionError('Tu sesión terminó. Inicia sesión de nuevo para continuar.') }
     window.addEventListener('session-expired', expired)
     return () => window.removeEventListener('session-expired', expired)
   }, [])
@@ -58,7 +67,7 @@ export default function App() {
     const activity = () => {
       if (document.visibilityState !== 'visible' || pending || Date.now() - lastSent < 61000) return
       pending = true; lastSent = Date.now()
-      api.post('/api/v1/auth/session/activity/', {}).then(() => refreshSession()).catch(() => {}).finally(() => { pending = false })
+      api.post('/auth/session/activity/', {}).then(() => refreshSession()).catch(() => {}).finally(() => { pending = false })
     }
     window.addEventListener('pointerdown', activity)
     window.addEventListener('keydown', activity)
@@ -73,14 +82,21 @@ export default function App() {
   }, [refreshSession])
 
   async function handleLogout() {
+    if (logoutPending.current) return
+    logoutPending.current = true
+    sessionGeneration.current++
+    setLogoutBusy(true)
     try {
       await api.post('/auth/logout/', {})
+      sessionGeneration.current++
       setSession({ authenticated: false, role: null, is_email_verified: false })
       setSessionError('')
     } catch { setSessionError('No se pudo confirmar el cierre de sesión. Reintenta.') }
+    finally { logoutPending.current = false; setLogoutBusy(false) }
   }
 
   function clearSessionAfterPasswordChange() {
+    sessionGeneration.current++
     setSession({ authenticated: false, role: null, is_email_verified: false })
     setSessionError('')
   }
@@ -92,9 +108,24 @@ export default function App() {
       <Header
         authenticated={session.authenticated}
         role={session.role}
+        logoutBusy={logoutBusy}
         onLogout={handleLogout}
       />
-      {sessionError && <div className="alert alert--error" role="alert">{sessionError}<button type="button" onClick={() => { setSessionError(''); refreshSession() }}>Reintentar</button></div>}
+      {sessionError && (
+        <div className="alert alert--error" role="alert">
+          <span className="alert__body">{sessionError}</span>
+          <button
+            type="button"
+            className="btn btn--secondary btn--small"
+            onClick={() => {
+              setSessionError('')
+              refreshSession()
+            }}
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/vuelos" element={<FlightsPage session={session} />} />
@@ -122,6 +153,10 @@ export default function App() {
         />
         <Route path="/verificar" element={<VerifyEmailPage />} />
         <Route path="/restablecer" element={<ResetPasswordPage />} />
+        <Route
+          path="/metodos/nueva"
+          element={<AddCardPage session={session} />}
+        />
       </Routes>
     </div>
   )

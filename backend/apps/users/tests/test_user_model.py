@@ -70,7 +70,6 @@ def test_client_email_and_profile_username_are_independent(profile):
         "document_number",
         "birth_date",
         "birth_place",
-        "billing_address",
         "gender",
     ],
 )

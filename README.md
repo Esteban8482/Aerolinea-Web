@@ -340,7 +340,7 @@ Para facilitar las pruebas manuales y la navegación en desarrollo local, el com
 
 | Rol | Identificador / Correo | Contraseña | Estado / Saldo Billetera |
 |---|---|---|---|
-| **ROOT** | `root` (correo: `root@alas.com`) | `Root12345678!` | Billetera activa (\$0.00 COP). Permite crear Administradores y cambiar su contraseña propia. |
+| **ROOT** | `root` (correo: `root@alas.com`) | Configurada por el inicializador; no se publica aquí | Sin billetera personal. Puede crear administradores y cambiar su propia contraseña. |
 | **Administrador** | `admin@alas.com` | `Admin12345!` | Administrador activo (Carlos Administrador, CC 1000000001). Permite programar (CU-01), editar (CU-02) y cancelar (CU-03) vuelos. |
 | **Cliente** | `cliente@alas.com` | `Cliente12345!` | Correo verificado (Mariana Ríos, CC 1088123456). **Billetera con \$5.000.000 COP** disponible para compras y reservas. |
 

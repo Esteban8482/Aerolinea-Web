@@ -102,8 +102,6 @@ function Hu007Register() {
     first_name: '',
     last_name: '',
     birth_date: '',
-    birth_place: '',
-    billing_address: '',
     gender: '',
     email: '',
     username: '',
@@ -136,8 +134,6 @@ function Hu007Register() {
       document_number: form.document_number,
       document_type: 'DNI',
       birth_date: form.birth_date,
-      birth_place: form.birth_place,
-      billing_address: form.billing_address,
       gender: form.gender,
       password: form.password,
       accepts_data_policy: form.accepts,
@@ -175,8 +171,6 @@ function Hu007Register() {
         <Field label="Nombres" required value={form.first_name} onChange={(e) => update('first_name', e.target.value)} />
         <Field label="Apellidos" required value={form.last_name} onChange={(e) => update('last_name', e.target.value)} />
         <Field label="Fecha de nacimiento" type="date" required value={form.birth_date} onChange={(e) => update('birth_date', e.target.value)} />
-        <Field label="Lugar de nacimiento" required value={form.birth_place} onChange={(e) => update('birth_place', e.target.value)} />
-        <Field label="Dirección de facturación" required value={form.billing_address} onChange={(e) => update('billing_address', e.target.value)} />
         <Select
           label="Género"
           required

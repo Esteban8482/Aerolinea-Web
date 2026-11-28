@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { ChevronDown, CircleDot } from 'lucide-react'
 
 interface ColumnFilterProps {
   label: string
@@ -51,15 +52,14 @@ export default function ColumnFilter({ label, active = false, children }: Column
       >
         {label}
         <span
+          className="column-filter__indicator"
           aria-hidden="true"
           style={{
-            fontSize: '0.65rem',
-            lineHeight: 1,
             color: active ? 'var(--color-primary, #4b0082)' : 'inherit',
             opacity: active ? 1 : 0.55,
           }}
         >
-          {active ? '●' : '▼'}
+          {active ? <CircleDot size={14} /> : <ChevronDown size={14} />}
         </span>
       </button>
       {open && (

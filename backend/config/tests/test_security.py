@@ -156,3 +156,33 @@ def test_test_settings_never_fall_back_to_development_database(production_env):
         "test_config", "aerolinea"
     )
     assert configure_in_subprocess(production_env).returncode != 0
+
+
+def test_development_empty_mail_environment_uses_local_backend():
+    """Compose passes empty strings: initialization must never import an empty path."""
+    env = {
+        **os.environ,
+        "DJANGO_SETTINGS_MODULE": "config.settings.development",
+        "EMAIL_BACKEND": "",
+        "DEFAULT_FROM_EMAIL": "",
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import django; django.setup(); "
+                "from django.core.mail import get_connection; "
+                "from django.conf import settings; "
+                "assert get_connection().__class__.__module__ == "
+                "'django.core.mail.backends.console'; "
+                "assert settings.DEFAULT_FROM_EMAIL == 'no-reply@example.invalid'"
+            ),
+        ],
+        cwd=Path(__file__).resolve().parents[2],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr

@@ -1,0 +1,38 @@
+const { chromium } = require('playwright')
+const fs = require('fs')
+const assert = require('assert')
+;(async () => {
+  const b = await chromium.launch()
+  const p = await b.newPage()
+  await p.goto('http://localhost:5173/login')
+  const line = fs
+    .readFileSync('README.md', 'utf8')
+    .split('\n')
+    .find((x) => x.includes('admin@alas.com') && x.includes('|'))
+  await p.getByLabel('Correo electrónico').fill('admin@alas.com')
+  await p
+    .getByLabel('Contraseña', { exact: true })
+    .fill([...line.matchAll(/`([^`]+)`/g)][1][1])
+  await p.getByRole('button', { name: 'Iniciar sesión', exact: true }).click()
+  await p.getByRole('button', { name: 'Cerrar sesión' }).waitFor()
+  await p.goto('http://localhost:5173/vuelos')
+  await p.getByRole('tab', { name: 'Gestión', exact: true }).click()
+  const trigger = p.getByRole('button', { name: /Cancelar/ }).first()
+  await trigger.click()
+  const dialog = p.getByRole('dialog')
+  await dialog.waitFor()
+  assert(await dialog.evaluate((d) => d.contains(document.activeElement)))
+  await p.keyboard.press('Shift+Tab')
+  assert(await dialog.evaluate((d) => d.contains(document.activeElement)))
+  await p.keyboard.press('Escape')
+  assert.equal(await dialog.count(), 0)
+  assert(await trigger.evaluate((x) => document.activeElement === x))
+  await p.getByRole('button', { name: 'Cerrar sesión' }).click()
+  console.log(
+    'Dialog: focus containment, Escape and return focus passed; no cancellation submitted.',
+  )
+  await b.close()
+})().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

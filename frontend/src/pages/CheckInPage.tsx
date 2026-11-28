@@ -372,10 +372,7 @@ export default function CheckInPage({ session }: CheckInPageProps) {
                   autoComplete="off"
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="guest-document-type">Tipo de documento</label>
-                <CatalogueSelect category="document_type" label="Tipo de documento" value={guestForm.document_type} onChange={document_type => setGuestForm({ ...guestForm, document_type })} />
-              </div>
+              <CatalogueSelect category="document_type" label="Tipo de documento" value={guestForm.document_type} onChange={document_type => setGuestForm({ ...guestForm, document_type })} />
               <div className="form-group">
                 <label className="form-label" htmlFor="guest-document">Número de documento</label>
                 <input

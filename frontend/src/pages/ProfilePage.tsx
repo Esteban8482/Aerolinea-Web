@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Armchair, PlaneTakeoff, UserRound, Wallet, X } from 'lucide-react'
 import { api, ApiError } from '../api'
 import WalletPanel from '../components/WalletPanel'
+import { Dialog } from '../components/UI'
 import { useConfirmedPurchase } from '../operations'
 import type { Compra, PerfilUsuario, Reserva, Silla } from '../types/flight'
 
@@ -23,6 +25,11 @@ export default function ProfilePage({ session, onPasswordChanged }: ProfilePageP
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const purchase = useConfirmedPurchase()
+  const [purchaseApproval, setPurchaseApproval] = useState<{
+    total: string
+    balance: string
+    resolve: (accepted: boolean) => void
+  } | null>(null)
 
   // Estado para cambio de silla
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null)
@@ -147,7 +154,13 @@ export default function ProfilePage({ session, onPasswordChanged }: ProfilePageP
   async function handlePayReservation(reservaId: number) {
     setNotification(null)
     try {
-      const res = await purchase({ reserva_id: reservaId }, { reserva_id: reservaId })
+      const res = await purchase(
+        { reserva_id: reservaId },
+        { reserva_id: reservaId },
+        (info) => new Promise<boolean>((resolve) => {
+          setPurchaseApproval({ ...info, resolve })
+        }),
+      )
       if (!res) return
       setNotification({ type: 'success', message: `¡Compra confirmada! Código localizador: ${res.localizador}` })
       await loadData()
@@ -207,21 +220,96 @@ export default function ProfilePage({ session, onPasswordChanged }: ProfilePageP
         </div>
       )}
 
-      {/* TARJETA DE PERFIL Y BILLETERA */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <div className="form-container" style={{ margin: 0 }}>
-          <h2 className="form-title" style={{ fontSize: '1.4rem' }}>👤 Mis Datos Personales</h2>
-          <p className="form-subtitle">Información de la cuenta</p>
+      {purchaseApproval && (
+        <Dialog
+          title="Confirmar compra"
+          onClose={() => {
+            purchaseApproval.resolve(false)
+            setPurchaseApproval(null)
+          }}
+        >
+          <p>Se descontará el total cotizado de tu billetera.</p>
+          <div className="movement-summary">
+            <span>Total a pagar</span>
+            <strong>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(Number(purchaseApproval.total))}</strong>
+          </div>
+          <div className="movement-summary">
+            <span>Saldo disponible</span>
+            <strong>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(Number(purchaseApproval.balance))}</strong>
+          </div>
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => {
+                purchaseApproval.resolve(true)
+                setPurchaseApproval(null)
+              }}
+            >
+              Confirmar compra
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={() => {
+                purchaseApproval.resolve(false)
+                setPurchaseApproval(null)
+              }}
+            >
+              Volver
+            </button>
+          </div>
+        </Dialog>
+      )}
 
-          <div className="profile-item"><span className="profile-item__label">Nombre</span><span className="profile-item__value">{profile?.first_name} {profile?.last_name}</span></div>
-          <div className="profile-item"><span className="profile-item__label">Correo</span><span className="profile-item__value">{profile?.email}</span></div>
-          <div className="profile-item"><span className="profile-item__label">Documento</span><span className="profile-item__value">{profile?.document_type} {profile?.document_number}</span></div>
-          <div className="profile-item"><span className="profile-item__label">Rol</span><span className="profile-item__value">{profile?.role}</span></div>
-          <div className="profile-item"><span className="profile-item__label">Estado</span><span className="profile-item__value">{profile?.is_email_verified ? 'Verificado' : 'Sin verificar'}</span></div>
+      <div className="page-head">
+        <div>
+          <h1>Mi perfil</h1>
+          <p>Consulta tu información personal y accede a tus servicios.</p>
         </div>
-
-        {session.role === 'CLIENTE' && session.is_email_verified && <WalletPanel />}
       </div>
+
+      {profile && (
+        <section className="card" style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
+            <div className="tile-icon" aria-hidden="true"><UserRound size={22} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 style={{ margin: 0 }}>{profile.first_name} {profile.last_name}</h2>
+              <p style={{ margin: '0.25rem 0 0', color: 'var(--color-text-secondary)' }}>{profile.email}</p>
+            </div>
+            {profile.is_email_verified && <span className="tag tag--success">Correo verificado</span>}
+          </div>
+          <hr className="divider" />
+          <div className="profile-grid">
+            <div className="profile-item">
+              <span className="profile-item__label">Nombre de usuario</span>
+              <span className="profile-item__value">{profile.username}</span>
+            </div>
+            <div className="profile-item">
+              <span className="profile-item__label">Lugar de nacimiento</span>
+              <span className="profile-item__value">{profile.birth_place || 'No registrado'}</span>
+            </div>
+            <div className="profile-item">
+              <span className="profile-item__label">Documento</span>
+              <span className="profile-item__value">
+                {profile.document_number
+                  ? `${profile.document_type} •••• ${profile.document_number.slice(-4)}`
+                  : 'No registrado'}
+              </span>
+            </div>
+            <div className="profile-item">
+              <span className="profile-item__label">Teléfono</span>
+              <span className="profile-item__value">{profile.phone || 'No registrado'}</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {session.role === 'CLIENTE' && session.is_email_verified && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+          <WalletPanel />
+        </div>
+      )}
       {session.role === 'ROOT' && (
         <section className="form-container" style={{ maxWidth: '680px', margin: '2rem 0' }}>
           <h2 className="form-title" style={{ fontSize: '1.4rem' }}>Cambiar mi contraseña</h2>
@@ -295,7 +383,10 @@ export default function ProfilePage({ session, onPasswordChanged }: ProfilePageP
       {/* SECCIÓN MIS COMPRAS */}
       <section style={{ marginBottom: '3rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1.5rem', color: 'var(--color-primary)', margin: 0 }}>🛫 Mis Viajes Confirmados (Compras)</h2>
+          <h2 className="profile-section-title">
+            <PlaneTakeoff aria-hidden="true" size={22} />
+            <span>Mis Viajes Confirmados (Compras)</span>
+          </h2>
           <Link to="/check-in" className="btn btn--primary btn--small">Check-in y pasabordo</Link>
         </div>
         {compras.length === 0 ? (
@@ -342,7 +433,10 @@ export default function ProfilePage({ session, onPasswordChanged }: ProfilePageP
                       <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Vuelo: {t.vuelo.codigo_vuelo} ({t.vuelo.origen} ➔ {t.vuelo.destino})</div>
                       <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Clase: {t.clase} · Pagado: ${t.precio_pagado} COP</div>
                       <div style={{ marginTop: '0.6rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 700, color: '#0f172a' }}>💺 Silla #{t.silla.numero_silla}</span>
+                        <span className="ticket-seat-label">
+                          <Armchair aria-hidden="true" size={16} />
+                          Silla #{t.silla.numero_silla}
+                        </span>
                         {compra.estado === 'CONFIRMADA' &&
                           t.numero_cambios_silla === 0 &&
                           t.estado_checkin !== 'CONFIRMADO' &&
@@ -401,7 +495,8 @@ export default function ProfilePage({ session, onPasswordChanged }: ProfilePageP
                         className="btn btn--primary"
                         style={{ fontSize: '0.85rem', padding: '0.4rem 0.8rem' }}
                       >
-                        💳 Pagar con Billetera
+                        <Wallet aria-hidden="true" size={16} />
+                        Pagar con Billetera
                       </button>
                       <button
                         type="button"
@@ -425,8 +520,18 @@ export default function ProfilePage({ session, onPasswordChanged }: ProfilePageP
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ background: 'white', padding: '2rem', borderRadius: '1rem', maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.3rem' }}>💺 Mapa de Sillas del Vuelo</h3>
-              <button type="button" onClick={() => setSelectedTicketId(null)} style={{ border: 'none', background: 'transparent', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
+              <h3 className="profile-seat-map__title">
+                <Armchair aria-hidden="true" size={20} />
+                <span>Mapa de sillas del vuelo</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedTicketId(null)}
+                className="icon-button"
+                aria-label="Cerrar mapa de sillas"
+              >
+                <X aria-hidden="true" size={20} />
+              </button>
             </div>
 
             {loadingSeatMap ? (

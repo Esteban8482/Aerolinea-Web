@@ -29,3 +29,16 @@ La interfaz de autenticación incluye ingreso, creación de cuenta, recuperació
 - El acceso de invitado conserva el token solo en memoria después de leerlo del fragmento `#token=...`, lo elimina de la barra de direcciones y lo envía exclusivamente en `X-Checkin-Token`. Las operaciones y ventanas permitidas las valida el backend.
 
 Estas pantallas requieren que el backend de la iteración 3 esté integrado y sus migraciones/procesadores estén configurados; el build del frontend no verifica entrega de correos ni disponibilidad de PostgreSQL.
+## Sistema visual — Hito 1
+
+Los tokens compartidos se mantienen en `src/styles.css` y los componentes de formulario,
+feedback, carga, contenedor de acceso y diálogo en `src/components/UI.tsx`. `RemoteSelect`
+usa una selección cerrada y búsqueda remota paginada dentro del desplegable; no descarga
+el catálogo geográfico completo. Los selectores comerciales conservan su API independiente.
+Los breakpoints comunes de composición son 760 px y 460 px; los ajustes existentes de
+pantallas de negocio se conservan hasta su hito correspondiente.
+
+Las rutas de autenticación y sus contratos siguen vigentes. El estado de sesión descarta
+respuestas iniciadas antes del logout, y los tokens de verificación/restablecimiento se
+retiran del fragmento de URL. Las comprobaciones y capturas reales, con limitaciones
+explícitas, están en [el checkpoint del Hito 1](../docs/design/IMPLEMENTATION_PROGRESS.md).

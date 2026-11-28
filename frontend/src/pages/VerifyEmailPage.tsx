@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api'
+import { Mail } from 'lucide-react'
+import { AuthLayout, Feedback, Loading } from '../components/UI'
 
 type Status = 'loading' | 'success' | 'error' | 'no-token'
 
@@ -8,14 +10,18 @@ export default function VerifyEmailPage() {
   const [status, setStatus] = useState<Status>('loading')
   const [message, setMessage] = useState('')
 
+  const started = useRef(false)
   useEffect(() => {
-    const match = window.location.hash.match(/token=([^&]+)/)
-    if (!match) {
+    if (started.current) return
+    started.current = true
+    const token = new URLSearchParams(window.location.hash.slice(1)).get(
+      'token',
+    )
+    if (!token) {
       setStatus('no-token')
       return
     }
 
-    const token = decodeURIComponent(match[1])
     // Limpiar el token de la barra de direcciones por seguridad.
     window.history.replaceState(
       null,
@@ -36,7 +42,9 @@ export default function VerifyEmailPage() {
               'El enlace de verificación ha expirado. Solicite un nuevo correo de verificación desde su cuenta.',
             )
           } else if (err.status === 409) {
-            setMessage('Su correo electrónico ya ha sido verificado anteriormente.')
+            setMessage(
+              'Su correo electrónico ya ha sido verificado anteriormente.',
+            )
           } else {
             setMessage(
               err.message ||
@@ -50,57 +58,38 @@ export default function VerifyEmailPage() {
   }, [])
 
   return (
-    <div className="page page--narrow">
-      <div className="form-container">
-        <h1 className="form-title">Verificación de correo</h1>
-
-        {status === 'loading' && (
-          <p className="form-subtitle">Verificando su correo electrónico...</p>
-        )}
-
-        {status === 'no-token' && (
-          <>
-            <div className="alert alert--error">
-              <span className="alert__body">
-                No se encontró un código de verificación en la dirección. Haga
-                clic en el enlace completo que recibió por correo electrónico.
-              </span>
-            </div>
-            <Link to="/login" className="btn btn--primary btn--full">
-              Ir a iniciar sesión
-            </Link>
-          </>
-        )}
-
-        {status === 'success' && (
-          <>
-            <div className="alert alert--success">
-              <span className="alert__title">¡Correo verificado!</span>
-              <span className="alert__body">
-                Su dirección de correo electrónico ha sido verificada
-                exitosamente. Ya puede iniciar sesión y utilizar todos los
-                servicios.
-              </span>
-            </div>
-            <Link to="/login" className="btn btn--primary btn--full">
-              Iniciar sesión
-            </Link>
-          </>
-        )}
-
-        {status === 'error' && (
-          <>
-            <div className="alert alert--error">
-              <span className="alert__title">No se pudo verificar</span>
-              <span className="alert__body">{message}</span>
-            </div>
-            <Link to="/login" className="btn btn--secondary btn--full">
-              Ir a iniciar sesión
-            </Link>
-          </>
-        )}
-      </div>
-    </div>
+    <AuthLayout
+      title={status === 'success' ? 'Correo verificado' : 'Verifica tu correo'}
+      eyebrow="Verificación de cuenta"
+      icon={<Mail size={22} />}
+    >
+      {status === 'loading' && <Loading>Verificando tu correo…</Loading>}
+      {status === 'no-token' && (
+        <Feedback>
+          No se encontró un código de verificación. Abre el enlace completo que
+          recibiste por correo.
+        </Feedback>
+      )}
+      {status === 'error' && <Feedback>{message}</Feedback>}
+      {status === 'success' && (
+        <Feedback variant="success">
+          Tu correo se verificó correctamente. Ya puedes acceder a los servicios
+          de tu cuenta.
+        </Feedback>
+      )}
+      {status !== 'loading' && (
+        <>
+          <Link to="/login" className="btn btn--primary">
+            Iniciar sesión
+          </Link>
+          <Link to="/perfil" className="btn btn--secondary">
+            Ir a mi cuenta
+          </Link>
+          <p className="form-hint">
+            Desde tu cuenta puedes solicitar otro correo de verificación.
+          </p>
+        </>
+      )}
+    </AuthLayout>
   )
 }
-

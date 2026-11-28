@@ -9,6 +9,7 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.test import APIClient
 
+from apps.reference.models import Country, Locality, Subdivision
 from apps.users.models import User
 from apps.wallets.models import MovimientoBilletera, PaymentMethod, Wallet
 from apps.wallets.payment_services import (
@@ -44,14 +45,32 @@ def owner():
 
 @pytest.fixture
 def card_data():
+    country = Country.objects.create(
+        id=170, code="CO", name="Colombia", search_text="colombia"
+    )
+    subdivision = Subdivision.objects.create(
+        id=1, country=country, code="RAS", name="Risaralda", search_text="risaralda"
+    )
+    city = Locality.objects.create(
+        id=1,
+        country=country,
+        subdivision=subdivision,
+        name="Pereira",
+        search_text="pereira",
+    )
     return dict(
         tipo="TARJETA",
-        alias="Test card",
-        titular="Synthetic Owner",
-        entidad="Test issuer",
         numero="4111 1111 1111 1111",
         mes_vencimiento=12,
         anio_vencimiento=timezone.now().year + 1,
+        titular="Synthetic Owner",
+        cardholder_first_name="Synthetic",
+        cardholder_last_name="Owner",
+        billing_country_id=country.pk,
+        billing_subdivision_id=subdivision.pk,
+        billing_city_id=city.pk,
+        billing_address="Calle sintética 123",
+        postal_code="660001",
     )
 
 
@@ -84,6 +103,57 @@ def test_private_storage_and_masked_api(owner, client, card_data):
     duplicate = client.post(URL + "payment-methods/", card_data, format="json")
     assert duplicate.status_code == 400
     assert PaymentMethod.objects.count() == 1
+
+
+@pytest.mark.parametrize(
+    "number",
+    [
+        "411111111111111",
+        "41111111111111111",
+        "4111A11111111111",
+        "4242424242424242",
+    ],
+)
+def test_card_rejects_invalid_lengths_characters_and_non_synthetic_pan(client, card_data, number):
+    response = client.post(
+        URL + "payment-methods/",
+        {**card_data, "numero": number},
+        format="json",
+    )
+    assert response.status_code == 400
+    assert not PaymentMethod.objects.exists()
+
+
+def test_mastercard_fixture_and_billing_location_are_accepted(owner, client, card_data):
+    payload = {
+        **card_data,
+        "numero": "5555 5555 5555 4444",
+        "cardholder_first_name": "Mariana",
+        "cardholder_last_name": "Ríos",
+        "titular": "Mariana Ríos",
+    }
+    response = client.post(URL + "payment-methods/", payload, format="json")
+    assert response.status_code == 201, response.data
+    assert response.data["marca"] == "MASTERCARD"
+    assert response.data["numero_enmascarado"] == "**** 4444"
+    method = PaymentMethod.objects.get()
+    assert method.billing_city_id == card_data["billing_city_id"]
+    assert method.postal_code == "660001"
+    assert "5555555555554444" not in str(method.__dict__)
+
+
+def test_card_billing_location_must_be_consistent(client, card_data):
+    other_country = Country.objects.create(
+        id=724, code="ES", name="España", search_text="españa"
+    )
+    response = client.post(
+        URL + "payment-methods/",
+        {**card_data, "billing_country_id": other_country.pk},
+        format="json",
+    )
+    assert response.status_code == 400
+    assert "billing_city_id" in response.data["details"]
+    assert not PaymentMethod.objects.exists()
 
 
 def test_bank_deposit_and_history(owner, client):

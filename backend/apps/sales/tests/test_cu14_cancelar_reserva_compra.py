@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.flights.models import EstadoSilla
 from apps.sales.models import Compra, EstadoCompra
 from apps.wallets.models import MovimientoBilletera
+from apps.wallets.services import depositar
 
 
 @pytest.mark.django_db
@@ -75,9 +76,15 @@ def test_cancelar_compra_voluntaria_reembolso_exitoso(
 )
 @pytest.mark.django_db
 def test_cancelar_compra_fuera_de_plazo_rechazada(
-    request, flight_fixture, departure_delta, cliente_client
+    request, flight_fixture, departure_delta, cliente_client, cliente_con_billetera
 ):
     flight = request.getfixturevalue(flight_fixture)
+    if flight_fixture == "vuelo_internacional":
+        depositar(
+            cliente_con_billetera.wallet.pk,
+            flight.costo_persona_economica,
+            "Fondos para prueba de cancelación internacional",
+        )
     # 1. Comprar tiquete
     data = {
         "accepted_total": str(flight.costo_persona_economica * 1),
@@ -103,6 +110,7 @@ def test_cancelar_compra_fuera_de_plazo_rechazada(
         format="json",
         HTTP_IDEMPOTENCY_KEY=uuid4().hex,
     )
+    assert res_compra.status_code < 300, res_compra.data
     compra_id = res_compra.json()["id"]
     compra = Compra.objects.get(pk=compra_id)
     compra.disrupted = True

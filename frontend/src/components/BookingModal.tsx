@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { CircleCheck, Clock3, UsersRound, Wallet, X } from 'lucide-react'
 import { api, ApiError } from '../api'
 import { useConfirmedPurchase, useOperationKey } from '../operations'
 import WalletPanel from './WalletPanel'
 import CatalogueSelect from './CatalogueSelect'
+import { Dialog } from './UI'
 import type { PerfilUsuario, Vuelo } from '../types/flight'
 
 export interface ViajeroFormData {
@@ -67,12 +69,18 @@ export default function BookingModal({
   })
 
   const [walletBalance, setWalletBalance] = useState<number | null>(null)
+  const [insufficient, setInsufficient] = useState<{ total: string; balance: string; difference: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [confirmation, setConfirmation] = useState<{
     type: 'RESERVA' | 'COMPRA'
     localizador?: string
     limiteVigencia?: string
+  } | null>(null)
+  const [purchaseApproval, setPurchaseApproval] = useState<{
+    total: string
+    balance: string
+    resolve: (accepted: boolean) => void
   } | null>(null)
 
   // Cargar saldo de billetera si el usuario es cliente
@@ -249,7 +257,13 @@ export default function BookingModal({
         })),
       }
 
-      const res = await purchase(payload, { vuelo_id: vuelo.id, vuelo_regreso_id: vueloRegreso?.id, clase, tipo_trayecto: payload.tipo_trayecto, passenger_count: viajeros.length })
+      const res = await purchase(
+        payload,
+        { vuelo_id: vuelo.id, vuelo_regreso_id: vueloRegreso?.id, clase, tipo_trayecto: payload.tipo_trayecto, passenger_count: viajeros.length },
+        (info) => new Promise<boolean>((resolve) => {
+          setPurchaseApproval({ ...info, resolve })
+        }),
+      )
       if (!res) return
       setConfirmation({
         type: 'COMPRA',
@@ -257,7 +271,14 @@ export default function BookingModal({
       })
       onSuccess(`¡Compra exitosa! Código localizador: ${res.localizador}`)
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'insufficient_wallet_balance') setShowFunding(true)
+      if (err instanceof ApiError && err.code === 'insufficient_wallet_balance') {
+        setInsufficient({
+          total: String(err.details.total ?? ''),
+          balance: String(err.details.balance ?? ''),
+          difference: String(err.details.difference ?? ''),
+        })
+        setShowFunding(true)
+      }
       const msg = err instanceof ApiError ? err.message : 'Error al procesar la compra.'
       setErrorMsg(msg)
     } finally {
@@ -281,18 +302,63 @@ export default function BookingModal({
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}
+            className="icon-button"
+            aria-label="Cerrar ventana"
           >
-            ✕
+            <X aria-hidden="true" size={20} />
           </button>
         </div>
+
+        {purchaseApproval && (
+          <Dialog
+            title="Confirmar compra"
+            onClose={() => {
+              purchaseApproval.resolve(false)
+              setPurchaseApproval(null)
+            }}
+          >
+            <p>Se descontará el total cotizado de tu billetera.</p>
+            <div className="movement-summary">
+              <span>Total a pagar</span>
+              <strong>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(Number(purchaseApproval.total))}</strong>
+            </div>
+            <div className="movement-summary">
+              <span>Saldo disponible</span>
+              <strong>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(Number(purchaseApproval.balance))}</strong>
+            </div>
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => {
+                  purchaseApproval.resolve(true)
+                  setPurchaseApproval(null)
+                }}
+              >
+                Confirmar compra
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => {
+                  purchaseApproval.resolve(false)
+                  setPurchaseApproval(null)
+                }}
+              >
+                Volver
+              </button>
+            </div>
+          </Dialog>
+        )}
 
         {/* PANTALLA DE ÉXITO TRAS COMPLETAR */}
         {confirmation ? (
           <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
             {confirmation.type === 'COMPRA' ? (
               <>
-                <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎉</div>
+                <div className="booking-success__icon">
+                  <CircleCheck aria-hidden="true" size={56} />
+                </div>
                 <h3 style={{ color: 'var(--color-primary)', fontSize: '1.6rem', marginBottom: '0.5rem' }}>
                   ¡Compra Confirmada Exitosamente!
                 </h3>
@@ -349,8 +415,34 @@ export default function BookingModal({
           </div>
         ) : (
           /* FORMULARIO DE RESERVA / COMPRA */
-          <> {showFunding && session.role === 'CLIENTE' && session.is_email_verified && <WalletPanel />}
-        <button type="button" className="btn btn--secondary" onClick={() => setShowFunding(!showFunding)}>Gestionar fondos sin perder viajeros</button>
+          <>
+            {showFunding && session.role === 'CLIENTE' && session.is_email_verified && (
+              <div className="funding-recovery">
+                {insufficient && (
+                  <div className="notice notice--warning">
+                    <strong>Saldo insuficiente</strong>
+                    <p>Necesitas ${insufficient.difference} COP adicionales para completar la compra.</p>
+                    <div>Saldo disponible: <strong>${insufficient.balance} COP</strong></div>
+                    <div>Total cotizado: <strong>${insufficient.total} COP</strong></div>
+                  </div>
+                )}
+                <WalletPanel onBalance={(balance) => setWalletBalance(Number(balance))} />
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={() => {
+                    setInsufficient(null)
+                    setShowFunding(false)
+                    setErrorMsg('Actualizamos el saldo. Revisa el nuevo importe antes de confirmar nuevamente.')
+                  }}
+                >
+                  Volver a revisar compra
+                </button>
+              </div>
+            )}
+            <button type="button" className="btn btn--secondary" onClick={() => setShowFunding(!showFunding)}>
+              {showFunding ? 'Ocultar billetera' : 'Recargar billetera'}
+            </button>
         <form noValidate>
             {errorMsg && (
               <div className="alert alert--error" style={{ marginBottom: '1.5rem' }}>
@@ -361,10 +453,7 @@ export default function BookingModal({
             {/* SELECCIÓN DE CLASE Y PASAJEROS */}
             <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label">Clase de Cabina</label>
-                  <CatalogueSelect category="travel_class" label="Clase de viaje" value={clase} onChange={value => setClase(value as 'ECONOMICA' | 'PRIMERA_CLASE')} />
-                </div>
+                <CatalogueSelect category="travel_class" label="Clase de cabina" value={clase} onChange={value => setClase(value as 'ECONOMICA' | 'PRIMERA_CLASE')} />
 
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label">Cantidad de Pasajeros</label>
@@ -403,8 +492,9 @@ export default function BookingModal({
 
             {/* FORMULARIOS DE PASAJEROS */}
             <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.15rem', marginBottom: '0.75rem', color: '#0f172a' }}>
-                📋 Información de los Viajeros
+              <h3 className="booking-section-heading" style={{ fontSize: '1.15rem', marginBottom: '0.75rem', color: '#0f172a' }}>
+                <UsersRound aria-hidden="true" size={20} />
+                <span>Información de los viajeros</span>
               </h3>
               <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>
                 Al menos un pasajero debe ser mayor de edad (18 años o más).
@@ -426,10 +516,7 @@ export default function BookingModal({
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-                      <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.8rem' }}>Tipo Doc.</label>
-                        <CatalogueSelect category="document_type" label="Tipo de documento" value={viajero.tipo_documento} onChange={value => updateViajero(idx, 'tipo_documento', value)} />
-                      </div>
+                      <CatalogueSelect category="document_type" label="Tipo de documento" value={viajero.tipo_documento} onChange={value => updateViajero(idx, 'tipo_documento', value)} />
 
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.8rem' }}>Número de Documento *</label>
@@ -478,10 +565,7 @@ export default function BookingModal({
                         />
                       </div>
 
-                      <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.8rem' }}>Género</label>
-                        <CatalogueSelect category="gender" label="Género" value={viajero.genero} onChange={value => updateViajero(idx, 'genero', value)} />
-                      </div>
+                      <CatalogueSelect category="gender" label="Género" value={viajero.genero} onChange={value => updateViajero(idx, 'genero', value)} />
 
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.8rem' }}>Correo Electrónico *</label>
@@ -551,7 +635,7 @@ export default function BookingModal({
                   disabled={busy}
                   style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
                 >
-                  {busy ? 'Procesando...' : '⏳ Apartar Reserva Temporal'}
+                  {busy ? 'Procesando...' : <><Clock3 aria-hidden="true" size={16} /> Apartar reserva temporal</>}
                 </button>
 
                 <button
@@ -560,7 +644,7 @@ export default function BookingModal({
                   className="btn btn--primary"
                   disabled={busy}
                 >
-                  {busy ? 'Procesando pago...' : `💳 Pagar $${costoTotal.toLocaleString('es-CO')} COP con Billetera`}
+                  {busy ? 'Procesando pago...' : <><Wallet aria-hidden="true" size={16} /> Pagar ${costoTotal.toLocaleString('es-CO')} COP con billetera</>}
                 </button>
               </div>
             )}

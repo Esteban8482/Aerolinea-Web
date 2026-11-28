@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { X } from 'lucide-react'
 import { api, ApiError } from '../api'
 import ColumnFilter from '../components/ColumnFilter'
 import type { Ciudad, Ruta } from '../types/flight'
@@ -187,12 +188,12 @@ export default function CatalogPage({ session }: CatalogPageProps) {
   }
 
   return (
-    <div className="page-shell">
-      <div className="page-card" style={{ maxWidth: '1100px' }}>
+    <div className="page-shell page-shell--embedded">
+      <div className="page-card page-card--embedded">
         <header className="page-card__header">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <h1 className="page-card__title">Catálogo de Rutas</h1>
+              <h2 className="page-card__title">Catálogo de Rutas</h2>
               <p className="page-card__subtitle">
                 {isAuthorized
                   ? 'Gestión de rutas activas e itinerarios base para vuelos comerciales.'
@@ -224,8 +225,9 @@ export default function CatalogPage({ session }: CatalogPageProps) {
               type="button"
               onClick={() => setNotification(null)}
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+              aria-label="Cerrar notificación"
             >
-              ✕
+              <X aria-hidden="true" size={18} />
             </button>
           </div>
         )}
@@ -460,8 +462,9 @@ export default function CatalogPage({ session }: CatalogPageProps) {
                               style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }}
                               onClick={() => setEditingRouteId(null)}
                               disabled={actionBusy}
+                              aria-label="Cancelar edición de ruta"
                             >
-                              ✕
+                              <X aria-hidden="true" size={14} />
                             </button>
                           </div>
                         ) : (

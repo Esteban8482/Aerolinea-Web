@@ -6,8 +6,8 @@ from django.db import models
 
 class PaymentMethod(models.Model):
     class Kind(models.TextChoices):
-        CARD = "TARJETA", "Tarjeta simulada"
-        BANK = "CUENTA_BANCARIA", "Cuenta bancaria simulada"
+        CARD = "TARJETA", "Tarjeta"
+        BANK = "CUENTA_BANCARIA", "Cuenta bancaria"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="payment_methods"
@@ -16,6 +16,32 @@ class PaymentMethod(models.Model):
     alias = models.CharField(max_length=80)
     titular = models.CharField(max_length=160)
     entidad = models.CharField(max_length=100)
+    cardholder_first_name = models.CharField(max_length=80, blank=True, default="")
+    cardholder_last_name = models.CharField(max_length=80, blank=True, default="")
+    marca = models.CharField(max_length=20, blank=True, default="")
+    billing_country = models.ForeignKey(
+        "reference.Country",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="billing_payment_methods",
+    )
+    billing_subdivision = models.ForeignKey(
+        "reference.Subdivision",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="billing_payment_methods",
+    )
+    billing_city = models.ForeignKey(
+        "reference.Locality",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="billing_payment_methods",
+    )
+    billing_address = models.CharField(max_length=200, blank=True, default="")
+    postal_code = models.CharField(max_length=20, blank=True, default="")
     # Simulation never needs the original number again. Keep only a keyed fingerprint
     # for deduplication and its last four digits; no PAN/account number or CVV at rest.
     fingerprint = models.CharField(max_length=64, editable=False)

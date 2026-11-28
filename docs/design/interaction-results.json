@@ -1,0 +1,242 @@
+{
+  "checks": [
+    {
+      "test": "Todos los enlaces locales a archivos existen",
+      "pass": true
+    },
+    {
+      "test": "Combobox filtra y muestra Medellín",
+      "pass": true
+    },
+    {
+      "test": "Combobox selecciona y cierra",
+      "pass": true
+    },
+    {
+      "test": "Ida/regreso revela fecha",
+      "pass": true
+    },
+    {
+      "test": "Orden precio descendente",
+      "pass": true
+    },
+    {
+      "test": "Orden salida ascendente",
+      "pass": true
+    },
+    {
+      "test": "Rango de precio",
+      "pass": true
+    },
+    {
+      "test": "Rango inválido / estado vacío",
+      "pass": true
+    },
+    {
+      "test": "PAN de prueba se agrupa en cuatro bloques",
+      "pass": true
+    },
+    {
+      "test": "Formato MM/AA",
+      "pass": true
+    },
+    {
+      "test": "Importe preseleccionado",
+      "pass": true
+    },
+    {
+      "test": "Confirmación de depósito",
+      "pass": true
+    },
+    {
+      "test": "Cancelar diálogo de depósito",
+      "pass": true
+    },
+    {
+      "test": "Primera confirmación",
+      "pass": true
+    },
+    {
+      "test": "Segunda confirmación",
+      "pass": true
+    },
+    {
+      "test": "Selección grupal actualiza contador",
+      "pass": true
+    },
+    {
+      "test": "Sin selección, confirmar deshabilitado",
+      "pass": true
+    },
+    {
+      "test": "Selección de asiento actualiza resumen",
+      "pass": true
+    },
+    {
+      "test": "Visibilidad de contraseña",
+      "pass": true
+    },
+    {
+      "test": "Sin desbordamiento global a 768px",
+      "pass": true
+    }
+  ],
+  "tablet": [
+    {
+      "page": "home",
+      "width": 768
+    },
+    {
+      "page": "flight-search",
+      "width": 768
+    },
+    {
+      "page": "flight-results",
+      "width": 768
+    },
+    {
+      "page": "flight-catalogue",
+      "width": 768
+    },
+    {
+      "page": "round-trip",
+      "width": 768
+    },
+    {
+      "page": "registration",
+      "width": 768
+    },
+    {
+      "page": "login",
+      "width": 768
+    },
+    {
+      "page": "recovery",
+      "width": 768
+    },
+    {
+      "page": "wallet",
+      "width": 768
+    },
+    {
+      "page": "wallet-empty",
+      "width": 768
+    },
+    {
+      "page": "add-card",
+      "width": 768
+    },
+    {
+      "page": "checkout",
+      "width": 768
+    },
+    {
+      "page": "checkout-review",
+      "width": 768
+    },
+    {
+      "page": "checkout-funds",
+      "width": 768
+    },
+    {
+      "page": "my-trips",
+      "width": 768
+    },
+    {
+      "page": "cancellations",
+      "width": 768
+    },
+    {
+      "page": "guest-checkin",
+      "width": 768
+    },
+    {
+      "page": "checkin-group",
+      "width": 768
+    },
+    {
+      "page": "seat-selection",
+      "width": 768
+    },
+    {
+      "page": "boarding-pass",
+      "width": 768
+    },
+    {
+      "page": "profile",
+      "width": 768
+    },
+    {
+      "page": "admin-dashboard",
+      "width": 768
+    },
+    {
+      "page": "admin-flights",
+      "width": 768
+    },
+    {
+      "page": "admin-flight-create",
+      "width": 768
+    },
+    {
+      "page": "admin-flight-edit",
+      "width": 768
+    },
+    {
+      "page": "admin-flight-detail",
+      "width": 768
+    },
+    {
+      "page": "admin-promotions",
+      "width": 768
+    },
+    {
+      "page": "admin-cancellations",
+      "width": 768
+    },
+    {
+      "page": "profile-admin",
+      "width": 768
+    },
+    {
+      "page": "root-dashboard",
+      "width": 768
+    },
+    {
+      "page": "root-create",
+      "width": 768
+    },
+    {
+      "page": "root-admin-password",
+      "width": 768
+    },
+    {
+      "page": "root-security",
+      "width": 768
+    },
+    {
+      "page": "verify-email",
+      "width": 768
+    },
+    {
+      "page": "reset-password",
+      "width": 768
+    },
+    {
+      "page": "guest-authorized",
+      "width": 768
+    },
+    {
+      "page": "guest-seat",
+      "width": 768
+    },
+    {
+      "page": "cancellation-no-alternatives",
+      "width": 768
+    },
+    {
+      "page": "purchase-confirmation",
+      "width": 768
+    }
+  ]
+}

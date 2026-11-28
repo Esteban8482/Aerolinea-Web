@@ -150,6 +150,7 @@ def test_refunding_outbound_cascades_to_return_and_is_repeat_safe(
     cancel(admin_user, vuelo_nacional.pk, "Cancelación del tramo de ida")
     resolution = CancellationResolution.objects.get(purchase=purchase, flight=vuelo_nacional)
 
+    purchase.refresh_from_db()
     assert purchase.disrupted
     result = resolve(cliente_con_billetera, resolution.pk, "REFUND")
     assert result.status == "REFUNDED"
@@ -222,6 +223,7 @@ def test_pending_airline_resolution_blocks_whole_ordinary_cancellation(
     cliente_con_billetera, vuelo_nacional, admin_user
 ):
     purchase, inbound = round_trip(cliente_con_billetera, vuelo_nacional, admin_user)
+    cliente_con_billetera.wallet.refresh_from_db()
     balance_before = cliente_con_billetera.wallet.balance
     cancel(admin_user, vuelo_nacional.pk, "Cancelación de ida")
 
@@ -277,6 +279,35 @@ def test_relocation_options_never_place_outbound_after_return(
 
     assert inbound.salida_utc < after_return.salida_utc
     assert [flight.pk for flight in alternatives(resolution)] == [on_time.pk]
+
+
+def test_relocation_options_keep_return_after_outbound(
+    cliente_con_billetera, vuelo_nacional, admin_user
+):
+    purchase, inbound = round_trip(cliente_con_billetera, vuelo_nacional, admin_user)
+    earlier_return = programar_vuelo(
+        origen_id=vuelo_nacional.ruta.destino_id,
+        destino_id=vuelo_nacional.ruta.origen_id,
+        fecha_salida=date.today() + timedelta(days=4),
+        hora_salida=time(10),
+        costo_persona_economica="150000",
+        costo_persona_primera="220000",
+        actor=admin_user,
+    )
+    later_return = programar_vuelo(
+        origen_id=vuelo_nacional.ruta.destino_id,
+        destino_id=vuelo_nacional.ruta.origen_id,
+        fecha_salida=date.today() + timedelta(days=10),
+        hora_salida=time(10),
+        costo_persona_economica="150000",
+        costo_persona_primera="220000",
+        actor=admin_user,
+    )
+    cancel(admin_user, inbound.pk, "Cancelación de regreso")
+    resolution = CancellationResolution.objects.get(purchase=purchase, flight=inbound)
+
+    assert earlier_return.salida_utc < vuelo_nacional.llegada_utc
+    assert [flight.pk for flight in alternatives(resolution)] == [later_return.pk]
 
 
 def test_relocation_group_rollback(cancelled_group, replacement):

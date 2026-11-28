@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { CalendarDays } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api, ApiError, toFormData } from '../api'
 import LocationFields from '../components/LocationFields'
@@ -24,9 +25,7 @@ export default function RegisterPage() {
     phone: '',
     birth_date: '',
     birth_city_id: '',
-    billing_city_id: '',
     document_type: '',
-    billing_address: '',
     gender: '',
     email: '',
     username: '',
@@ -166,9 +165,6 @@ export default function RegisterPage() {
       errors.first_name = ['Este campo es obligatorio.']
     if (!form.last_name.trim())
       errors.last_name = ['Este campo es obligatorio.']
-    if (!form.phone.trim())
-      errors.phone = ['Este campo es obligatorio.']
-
     // Validación de fecha de nacimiento
     if (!birthDateDisplay.trim()) {
       errors.birth_date = ['Este campo es obligatorio.']
@@ -183,10 +179,7 @@ export default function RegisterPage() {
 
     if (!form.birth_city_id)
       errors.birth_city_id = ['Este campo es obligatorio.']
-    if (!form.billing_city_id) errors.billing_city_id = ['Selecciona la ciudad de facturación.']
     if (!form.document_type) errors.document_type = ['Selecciona el tipo de documento.']
-    if (!form.billing_address.trim())
-      errors.billing_address = ['Este campo es obligatorio.']
     if (!form.gender) errors.gender = ['Seleccione una opción.']
     if (!form.email.trim()) errors.email = ['Este campo es obligatorio.']
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
@@ -237,9 +230,7 @@ export default function RegisterPage() {
       phone: form.phone.trim(),
       birth_date: isoDate,
       birth_city_id: form.birth_city_id,
-      billing_city_id: form.billing_city_id,
       document_type: form.document_type,
-      billing_address: form.billing_address,
       gender: form.gender,
       password: form.password,
       accepts_data_policy: true,
@@ -327,9 +318,9 @@ export default function RegisterPage() {
   return (
     <div className="page page--wide">
       <div className="form-container">
-        <h1 className="form-title">Crear una cuenta nueva</h1>
+        <h1 className="form-title">Crea tu cuenta</h1>
         <p className="form-subtitle">
-          Complete los campos para registrarse en el sistema de tiquetes aéreos.
+          Organiza tus viajes y accede a los servicios de Alas.
         </p>
 
         {policyError && (
@@ -423,7 +414,7 @@ export default function RegisterPage() {
                     title="Abrir calendario interactivo"
                     aria-label="Abrir calendario interactivo"
                   >
-                    📅
+                    <CalendarDays aria-hidden="true" size={18} />
                   </button>
                   <input
                     ref={nativeDatePickerRef}
@@ -435,15 +426,13 @@ export default function RegisterPage() {
                   />
                 </div>
                 <span className="form-hint">
-                  Escriba Día/Mes/Año o pulse el calendario 📅.
+                  Escriba Día/Mes/Año o pulse el calendario.
                 </span>
                 {fieldError('birth_date')}
               </div>
 
               <LocationFields label="Lugar de nacimiento" onChange={value => update('birth_city_id', value)} />
               {fieldError('birth_city_id')}
-              <LocationFields label="Ubicación de facturación" onChange={value => update('billing_city_id', value)} />
-              {fieldError('billing_city_id')}
               <CatalogueSelect category="document_type" label="Tipo de documento" value={form.document_type} onChange={value => update('document_type', value)} />
               {fieldError('document_type')}
               <CatalogueSelect category="gender" label="Género" value={form.gender} onChange={value => update('gender', value)} />
@@ -457,8 +446,7 @@ export default function RegisterPage() {
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label" htmlFor="reg-phone">
-                  Teléfono
-                  <span className="form-label__required">*</span>
+                  Teléfono <span className="form-label__optional">(opcional)</span>
                 </label>
                 <input
                   id="reg-phone"
@@ -508,20 +496,6 @@ export default function RegisterPage() {
                 {fieldError('username')}
               </div>
 
-              <div className="form-group form-group--full">
-                <label className="form-label" htmlFor="reg-addr">
-                  Dirección de facturación
-                  <span className="form-label__required">*</span>
-                </label>
-                <input
-                  id="reg-addr"
-                  className={`form-input ${fieldErrors.billing_address ? 'form-input--error' : ''}`}
-                  value={form.billing_address}
-                  onChange={(e) => update('billing_address', e.target.value)}
-                  placeholder="Ej. Calle 100 # 15-20, Bogotá"
-                />
-                {fieldError('billing_address')}
-              </div>
             </div>
           </div>
 

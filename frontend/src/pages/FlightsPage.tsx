@@ -1,6 +1,8 @@
+import { Dialog } from '../components/UI'
 import CatalogueSelect from '../components/CatalogueSelect'
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { Check, Info, Plane, PlaneLanding, Search, Settings2, X } from 'lucide-react'
 import { api, ApiError } from '../api'
 import CancellationPanel from '../components/CancellationPanel'
 import FlightCitySelect from '../components/FlightCitySelect'
@@ -42,7 +44,13 @@ export default function FlightsPage({ session }: FlightsPageProps) {
   const [searchPasajeros, setSearchPasajeros] = useState<number>(1)
   const [searchClase, setSearchClase] = useState<string>('')
   const [searchMaxPrecio, setSearchMaxPrecio] = useState<string>('')
+  const [searchMinPrecio, setSearchMinPrecio] = useState<string>('')
+  const [searchOrden, setSearchOrden] = useState<'precio_asc' | 'precio_desc' | 'salida_asc' | 'salida_desc'>('salida_asc')
+  const [selectedOutbound, setSelectedOutbound] = useState<Vuelo | null>(null)
+  const [selectedReturn, setSelectedReturn] = useState<Vuelo | null>(null)
+  const searchGeneration = useRef(0)
   const [searchCityOriginId, setSearchCityOriginId] = useState<number | ''>('')
+  const [catalogueResults, setCatalogueResults] = useState<Vuelo[]>([])
   const [searchResults, setSearchResults] = useState<FlightSearchResult | null>(null)
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
@@ -108,6 +116,17 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     window.addEventListener('focus', loadCatalogos)
     return () => window.removeEventListener('focus', loadCatalogos)
   }, [loadCatalogos])
+
+  useEffect(() => {
+    if (!searchCityOriginId) {
+      setCatalogueResults([])
+      return
+    }
+    api
+      .get(`/flights/catalogue/?origen_id=${searchCityOriginId}`)
+      .then((data) => setCatalogueResults(data))
+      .catch(() => setCatalogueResults([]))
+  }, [searchCityOriginId])
 
   // Cargar vuelos
   const loadFlights = useCallback(async () => {
@@ -208,9 +227,22 @@ export default function FlightsPage({ session }: FlightsPageProps) {
       setSearchError('El origen y el destino no pueden ser la misma ciudad.')
       return
     }
+    if (searchTipoTrayecto === 'COMPLETO' && (!searchFechaSalida || !searchFechaRegreso)) {
+      setSearchError('Para ida y regreso debes seleccionar fecha de salida y regreso.')
+      return
+    }
+    if (searchTipoTrayecto === 'COMPLETO' && searchFechaRegreso < searchFechaSalida) {
+      setSearchError('La fecha de regreso no puede ser anterior a la de salida.')
+      return
+    }
+    if (searchMinPrecio && searchMaxPrecio && Number(searchMinPrecio) > Number(searchMaxPrecio)) {
+      setSearchError('El precio mínimo no puede superar el precio máximo.')
+      return
+    }
 
     setSearching(true)
     setSearchError('')
+    const generation = ++searchGeneration.current
     try {
       const params = new URLSearchParams()
       if (searchOrigenId) params.append('origen_id', String(searchOrigenId))
@@ -222,15 +254,22 @@ export default function FlightsPage({ session }: FlightsPageProps) {
       params.append('tipo_trayecto', searchTipoTrayecto)
       params.append('pasajeros', String(searchPasajeros))
       if (searchClase) params.append('clase', searchClase)
+      if (searchMinPrecio) params.append('precio_min', searchMinPrecio)
       if (searchMaxPrecio) params.append('precio_max', searchMaxPrecio)
+      params.append('orden', searchOrden)
 
       const data = await api.get(`/flights/search/?${params.toString()}`)
+      if (generation !== searchGeneration.current) return
       setSearchResults(data)
+      const url = new URL(window.location.href)
+      url.search = params.toString()
+      window.history.replaceState({}, '', url)
     } catch (err) {
+      if (generation !== searchGeneration.current) return
       const msg = err instanceof ApiError ? err.message : 'Error al buscar vuelos.'
       setSearchError(msg)
     } finally {
-      setSearching(false)
+      if (generation === searchGeneration.current) setSearching(false)
     }
   }
 
@@ -241,11 +280,89 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     setSearchFechaRegreso('')
     setSearchPasajeros(1)
     setSearchClase('')
+    setSearchMinPrecio('')
     setSearchMaxPrecio('')
+    setSearchOrden('salida_asc')
     setSearchCityOriginId('')
+    setCatalogueResults([])
     setSearchResults(null)
     setSearchError('')
   }
+
+  const handleSelectOutbound = async (flight: Vuelo) => {
+    setSelectedOutbound(flight)
+    setSelectedReturn(null)
+    setBookingClase(flight.clase_aplicable === 'PRIMERA_CLASE' ? 'PRIMERA_CLASE' : 'ECONOMICA')
+    if (!searchResults || searchResults.tipo_trayecto !== 'COMPLETO') {
+      setBookingFlight(flight)
+      setBookingFlightRegreso(null)
+      return
+    }
+    try {
+      const params = new URLSearchParams({
+        tipo_trayecto: 'COMPLETO',
+        fecha_salida: searchFechaSalida,
+        fecha_regreso: searchFechaRegreso,
+        pasajeros: String(searchPasajeros),
+        orden: searchOrden,
+        selected_outbound_id: String(flight.id),
+      })
+      if (searchOrigenId) params.set('origen_id', String(searchOrigenId))
+      if (searchDestinoId) params.set('destino_id', String(searchDestinoId))
+      if (searchClase) params.set('clase', searchClase)
+      if (searchMinPrecio) params.set('precio_min', searchMinPrecio)
+      if (searchMaxPrecio) params.set('precio_max', searchMaxPrecio)
+      const data = await api.get(`/flights/search/?${params.toString()}`)
+      setSearchResults(data)
+    } catch (error) {
+      setSearchError(error instanceof ApiError ? error.message : 'No fue posible validar los vuelos de regreso.')
+    }
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.toString()) return
+    const origin = Number(params.get('origen_id'))
+    const destination = Number(params.get('destino_id'))
+    const departure = params.get('fecha_salida') || ''
+    const returnDate = params.get('fecha_regreso') || ''
+    const passengers = Number(params.get('pasajeros'))
+    const trip = params.get('tipo_trayecto')
+    const travelClass = params.get('clase') || ''
+    const minPrice = params.get('precio_min') || ''
+    const maxPrice = params.get('precio_max') || ''
+    const order = params.get('orden')
+
+    setSearchOrigenId(origin || '')
+    setSearchDestinoId(destination || '')
+    setSearchFechaSalida(departure)
+    setSearchFechaRegreso(returnDate)
+    setSearchPasajeros(passengers >= 1 && passengers <= 5 ? passengers : 1)
+    setSearchTipoTrayecto(trip === 'COMPLETO' ? 'COMPLETO' : 'UNICO')
+    setSearchClase(travelClass)
+    setSearchMinPrecio(minPrice)
+    setSearchMaxPrecio(maxPrice)
+    if (order === 'precio_asc' || order === 'precio_desc' || order === 'salida_asc' || order === 'salida_desc') {
+      setSearchOrden(order)
+    }
+
+    const generation = ++searchGeneration.current
+    setSearching(true)
+    setSearchError('')
+    api
+      .get(`/flights/search/?${params.toString()}`)
+      .then((data) => {
+        if (generation === searchGeneration.current) setSearchResults(data)
+      })
+      .catch((error) => {
+        if (generation === searchGeneration.current) {
+          setSearchError(error instanceof ApiError ? error.message : 'No fue posible cargar la búsqueda.')
+        }
+      })
+      .finally(() => {
+        if (generation === searchGeneration.current) setSearching(false)
+      })
+  }, [])
 
   // Lista visible: según búsqueda activa (HU-005), catálogo por ciudad (HU-006) o tabla general
   const currentList = useMemo(() => {
@@ -256,13 +373,11 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     }
 
     if (searchCityOriginId) {
-      const city = cities.find((c) => c.id === searchCityOriginId)
-      if (!city) return displayFlights
-      return displayFlights.filter((f) => f.origen === city.nombre)
+      return catalogueResults
     }
 
     return filteredFlights
-  }, [effectiveTab, filteredFlights, searchResults, searchCityOriginId, cities, displayFlights])
+  }, [effectiveTab, filteredFlights, searchResults, searchCityOriginId, catalogueResults])
 
   // Manejo de: Programar Vuelo
   const handleCreateSubmit = async (e: FormEvent) => {
@@ -479,14 +594,16 @@ export default function FlightsPage({ session }: FlightsPageProps) {
               type="button"
               onClick={() => setNotification(null)}
               style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+              aria-label="Cerrar notificación"
             >
-              ✕
+              <X aria-hidden="true" size={18} />
             </button>
           </div>
         )}
 
         {panelFlightId && isAdmin && <div className="form-container"><button type="button" onClick={() => setPanelFlightId(null)}>Cerrar consulta</button><CancellationPanel flightId={panelFlightId} /></div>}
-      {/* ============================================================
+
+        {/* ============================================================
             VISTA: CREACIÓN
             ============================================================ */}
         {view === 'CREATE' && (
@@ -661,7 +778,10 @@ export default function FlightsPage({ session }: FlightsPageProps) {
             </div>
 
             <div className="flight-calc-box">
-              <div className="flight-calc-box__title">⚙️ Calculado automáticamente por el sistema</div>
+              <div className="flight-calc-box__title">
+                <Settings2 aria-hidden="true" size={16} />
+                <span>Calculado automáticamente por el sistema</span>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                 <div>
                   <strong>Código de vuelo:</strong>
@@ -820,8 +940,9 @@ export default function FlightsPage({ session }: FlightsPageProps) {
               />
             </div>
 
-            <p className="form-hint" style={{ margin: '1rem 0' }}>
-              ℹ️ La fecha y hora de llegada se recalcularán automáticamente en la hora local del destino al confirmar los cambios.
+            <p className="form-hint flight-info-hint" style={{ margin: '1rem 0' }}>
+              <Info aria-hidden="true" size={16} />
+              <span>La fecha y hora de llegada se recalcularán automáticamente en la hora local del destino al confirmar los cambios.</span>
             </p>
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
@@ -917,8 +1038,9 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                   }}
                 >
                   <div>
-                    <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--color-primary)' }}>
-                      🔍 Encuentra tu próximo vuelo
+                    <h2 className="flight-search-heading" style={{ fontSize: '1.25rem', margin: 0, color: 'var(--color-primary)' }}>
+                      <Search aria-hidden="true" size={20} />
+                      <span>Encuentra tu próximo vuelo</span>
                     </h2>
                     <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
                       Consulta itinerarios, disponibilidad de cupos y tarifas en tiempo real.
@@ -982,33 +1104,16 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                 )}
 
                 <form onSubmit={handleExecuteSearch} noValidate>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                      gap: '1rem',
-                      marginBottom: '1rem',
-                    }}
-                  >
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
-                        Ciudad de Origen
-                      </label>
-                      <FlightCitySelect side="origin" value={searchOrigenId} opposite={searchDestinoId} date={searchFechaSalida} passengers={searchPasajeros} travelClass={searchClase} onChange={setSearchOrigenId} />
-                    </div>
+                  <div className="flight-search-grid">
+                    <FlightCitySelect side="origin" value={searchOrigenId} opposite={searchDestinoId} date={searchFechaSalida} passengers={searchPasajeros} travelClass={searchClase} onChange={setSearchOrigenId} />
+                    <FlightCitySelect side="destination" value={searchDestinoId} opposite={searchOrigenId} date={searchFechaSalida} passengers={searchPasajeros} travelClass={searchClase} onChange={setSearchDestinoId} />
 
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
-                        Ciudad de Destino
-                      </label>
-                      <FlightCitySelect side="destination" value={searchDestinoId} opposite={searchOrigenId} date={searchFechaSalida} passengers={searchPasajeros} travelClass={searchClase} onChange={setSearchDestinoId} />
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="search-outbound-date">
                         Fecha de ida
                       </label>
                       <input
+                        id="search-outbound-date"
                         type="date"
                         className="form-input"
                         value={searchFechaSalida}
@@ -1017,11 +1122,12 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                     </div>
 
                     {searchTipoTrayecto === 'COMPLETO' && (
-                      <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="search-return-date">
                           Fecha de regreso
                         </label>
                         <input
+                          id="search-return-date"
                           type="date"
                           className="form-input"
                           value={searchFechaRegreso}
@@ -1031,11 +1137,12 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                       </div>
                     )}
 
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="search-passengers">
                         Pasajeros (máx. 5)
                       </label>
                       <select
+                        id="search-passengers"
                         className="form-select"
                         value={searchPasajeros}
                         onChange={(e) => setSearchPasajeros(Number(e.target.value))}
@@ -1048,12 +1155,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                       </select>
                     </div>
 
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.85rem' }}>
-                        Clase
-                      </label>
-                      <CatalogueSelect category="travel_class" label="Clase de viaje" value={searchClase} onChange={value => setSearchClase(value as string)} />
-                    </div>
+                    <CatalogueSelect category="travel_class" label="Clase de viaje" value={searchClase} onChange={value => setSearchClase(value as string)} />
                   </div>
 
                   <div
@@ -1072,7 +1174,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                       <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
                         O consultar catálogo por ciudad:
                       </span>
-                      <FlightCitySelect side="origin" value={searchCityOriginId} opposite="" date="" passengers={1} travelClass="" onChange={setSearchCityOriginId} />
+                      <FlightCitySelect side="origin" label="Ciudad del catálogo" value={searchCityOriginId} opposite="" date="" passengers={1} travelClass="" onChange={setSearchCityOriginId} />
                     </div>
 
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -1096,7 +1198,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                         style={{ padding: '0.45rem 1.25rem', fontSize: '0.9rem' }}
                         disabled={searching}
                       >
-                        {searching ? 'Buscando vuelos...' : '🔍 Buscar Vuelos'}
+                        {searching ? 'Buscando vuelos...' : <><Search aria-hidden="true" size={16} /> Buscar vuelos</>}
                       </button>
                     </div>
                   </div>
@@ -1118,12 +1220,15 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                   borderRadius: '0.35rem',
                 }}
               >
-                <span style={{ fontWeight: 600, color: '#166534', fontSize: '0.95rem' }}>
-                  ✓ {searchResults.vuelos_ida.length}{' '}
-                  {searchResults.vuelos_ida.length === 1 ? 'vuelo encontrado' : 'vuelos encontrados'}{' '}
-                  para tu búsqueda de ida
-                  {searchResults.tipo_trayecto === 'COMPLETO' &&
-                    ` (${searchResults.vuelos_regreso.length} de regreso)`}
+                <span className="flight-search-summary" style={{ fontWeight: 600, color: '#166534', fontSize: '0.95rem' }}>
+                  <Check aria-hidden="true" size={16} />
+                  <span>
+                    {searchResults.vuelos_ida.length}{' '}
+                    {searchResults.vuelos_ida.length === 1 ? 'vuelo encontrado' : 'vuelos encontrados'}{' '}
+                    para tu búsqueda de ida
+                    {searchResults.tipo_trayecto === 'COMPLETO' &&
+                      ` (${searchResults.vuelos_regreso.length} de regreso)`}
+                  </span>
                 </span>
                 <button
                   type="button"
@@ -1142,6 +1247,212 @@ export default function FlightsPage({ session }: FlightsPageProps) {
               </div>
             )}
 
+            {searchResults !== null && effectiveTab === 'PUBLIC' && (
+              <section className="flight-results-layout" aria-label="Resultados y filtros">
+                <aside className="card flight-results-filter">
+                  <h2>Filtros</h2>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="flight-price-min">Precio mínimo por persona</label>
+                    <input id="flight-price-min" className="form-input" type="number" min="0" step="1000" value={searchMinPrecio} onChange={(event) => setSearchMinPrecio(event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="flight-price-max">Precio máximo por persona</label>
+                    <input id="flight-price-max" className="form-input" type="number" min="0" step="1000" value={searchMaxPrecio} onChange={(event) => setSearchMaxPrecio(event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="flight-order">Ordenar por</label>
+                    <select id="flight-order" className="form-select" value={searchOrden} onChange={(event) => setSearchOrden(event.target.value as typeof searchOrden)}>
+                      <option value="precio_asc">Menor precio</option>
+                      <option value="precio_desc">Mayor precio</option>
+                      <option value="salida_asc">Salida más temprana</option>
+                      <option value="salida_desc">Salida más tarde</option>
+                    </select>
+                  </div>
+                  <button type="button" className="btn btn--primary" disabled={searching} onClick={() => void handleExecuteSearch()}>
+                    Aplicar filtros
+                  </button>
+                  {(searchMinPrecio || searchMaxPrecio || searchOrden !== 'salida_asc') && (
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      onClick={() => {
+                        setSearchMinPrecio('')
+                        setSearchMaxPrecio('')
+                        setSearchOrden('salida_asc')
+                        window.setTimeout(() => void handleExecuteSearch(), 0)
+                      }}
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </aside>
+                <div className="flight-results-list">
+                  <p className="small" aria-live="polite">{searchResults.vuelos_ida.length} vuelos disponibles</p>
+                  {searchResults.vuelos_ida.map((flight) => (
+                    <article className="card flight-commercial-card" key={flight.id}>
+                      <div className="flight-commercial-card__head">
+                        <strong className="flight-airline"><Plane aria-hidden="true" size={18} /> Alas</strong>
+                        <span>{flight.codigo_vuelo}</span>
+                        {flight.tiene_promocion && <span className="badge badge--warning">Oferta</span>}
+                      </div>
+                      <div className="flight-route-display">
+                        <div>
+                          <strong className="flight-time">{flight.hora_salida}</strong>
+                          <span>{flight.origen}</span>
+                          <small>{flight.fecha_salida}</small>
+                        </div>
+                        <div className="flight-route-line">
+                          <small>{flight.tiempo_vuelo_min} min</small>
+                          <Plane aria-hidden="true" size={18} />
+                          <small>Directo</small>
+                        </div>
+                        <div className="flight-route-arrival">
+                          <strong className="flight-time">{flight.hora_llegada}</strong>
+                          <span>{flight.destino}</span>
+                          <small>{flight.fecha_llegada}</small>
+                        </div>
+                      </div>
+                      <div className="flight-commercial-card__foot">
+                        <div>
+                          <small>Precio por persona · {flight.clase_aplicable === 'PRIMERA_CLASE' ? 'Primera clase' : 'Económica'}</small>
+                          {flight.tiene_promocion && (
+                            <small className="flight-original-price">
+                              Antes {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(flight.precio_original))}
+                            </small>
+                          )}
+                          <strong className="flight-fare">
+                            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(flight.precio_por_persona))}
+                          </strong>
+                          <small>{flight.asientos_disponibles ?? 0} asientos disponibles</small>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn--primary"
+                          onClick={() => {
+                            void handleSelectOutbound(flight)
+                          }}
+                        >
+                          {searchResults.tipo_trayecto === 'COMPLETO' ? 'Seleccionar ida' : 'Seleccionar vuelo'}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                  {searchResults.vuelos_ida.length === 0 && (
+                    <div className="empty-state">
+                      <strong>No hay vuelos dentro del rango seleccionado.</strong>
+                      <button type="button" className="btn btn--secondary" onClick={handleClearSearch}>Modificar o limpiar búsqueda</button>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {searchResults?.tipo_trayecto === 'COMPLETO' && effectiveTab === 'PUBLIC' && selectedOutbound && (
+              <section className="card" aria-label="Vuelos de regreso compatibles" style={{ marginBottom: '1.5rem' }}>
+                <h2>Vuelo de regreso</h2>
+                {searchResults.vuelos_regreso.length === 0 ? (
+                  <div className="empty-state">
+                    <strong>No hay vuelos de regreso compatibles con la hora de llegada.</strong>
+                    <button type="button" className="btn btn--secondary" onClick={handleClearSearch}>Modificar búsqueda</button>
+                  </div>
+                ) : (
+                  <div className="flight-results-list">
+                    {searchResults.vuelos_regreso.map((flight) => (
+                      <article className="card flight-commercial-card" key={flight.id}>
+                        <div className="flight-commercial-card__head">
+                          <strong className="flight-airline"><Plane aria-hidden="true" size={18} /> Alas</strong>
+                          <span>{flight.codigo_vuelo}</span>
+                        </div>
+                        <div className="flight-route-display">
+                          <div><strong className="flight-time">{flight.hora_salida}</strong><span>{flight.origen}</span><small>{flight.fecha_salida}</small></div>
+                          <div className="flight-route-line"><small>{flight.tiempo_vuelo_min} min</small><Plane aria-hidden="true" size={18} /><small>Directo</small></div>
+                          <div className="flight-route-arrival"><strong className="flight-time">{flight.hora_llegada}</strong><span>{flight.destino}</span><small>{flight.fecha_llegada}</small></div>
+                        </div>
+                        <div className="flight-commercial-card__foot">
+                          <div>
+                            <small>Precio por persona · {flight.clase_aplicable === 'PRIMERA_CLASE' ? 'Primera clase' : 'Económica'}</small>
+                            <strong className="flight-fare">
+                              {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(flight.precio_por_persona))}
+                            </strong>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn--primary"
+                            onClick={() => {
+                              setSelectedReturn(flight)
+                              setBookingFlight(selectedOutbound)
+                              setBookingFlightRegreso(flight)
+                            }}
+                          >
+                            Seleccionar regreso
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {selectedOutbound && searchResults?.tipo_trayecto === 'COMPLETO' && selectedReturn && (
+              <div className="card" aria-live="polite" style={{ marginBottom: '1.5rem' }}>
+                <h2>Resumen del itinerario</h2>
+                <p><strong>Vuelo de ida:</strong> {selectedOutbound.origen} → {selectedOutbound.destino} · {selectedOutbound.fecha_salida} · {selectedOutbound.hora_salida}</p>
+                <p><strong>Vuelo de regreso:</strong> {selectedReturn.origen} → {selectedReturn.destino} · {selectedReturn.fecha_salida} · {selectedReturn.hora_salida}</p>
+                <button type="button" className="btn btn--primary" onClick={() => setBookingFlight(selectedOutbound)}>Continuar</button>
+              </div>
+            )}
+
+            {searchResults === null && effectiveTab === 'PUBLIC' && (
+              <section className="flight-results-list" aria-label="Vuelos disponibles">
+                {currentList.map((flight) => (
+                  <article className="card flight-commercial-card" key={flight.id}>
+                    <div className="flight-commercial-card__head">
+                      <strong className="flight-airline"><Plane aria-hidden="true" size={18} /> Alas</strong>
+                      <span>{flight.codigo_vuelo}</span>
+                    </div>
+                    <div className="flight-route-display">
+                      <div>
+                        <strong className="flight-time">{flight.hora_salida}</strong>
+                        <span>{flight.origen}</span>
+                        <small>{flight.fecha_salida}</small>
+                      </div>
+                      <div className="flight-route-line">
+                        <small>{flight.tiempo_vuelo_min} min</small>
+                        <Plane aria-hidden="true" size={18} />
+                        <small>Directo</small>
+                      </div>
+                      <div className="flight-route-arrival">
+                        <strong className="flight-time">{flight.hora_llegada}</strong>
+                        <span>{flight.destino}</span>
+                        <small>{flight.fecha_llegada}</small>
+                      </div>
+                    </div>
+                    <div className="flight-commercial-card__foot">
+                      <div>
+                        <small>Precio por persona · Económica</small>
+                        <strong className="flight-fare">
+                          {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(flight.precio_vigente_economica))}
+                        </strong>
+                        <small>{flight.cupos_disponibles_economica + flight.cupos_disponibles_primera} asientos disponibles</small>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn--primary"
+                        onClick={() => {
+                          setBookingFlight(flight)
+                          setBookingFlightRegreso(null)
+                          setBookingClase('ECONOMICA')
+                        }}
+                      >
+                        Seleccionar vuelo
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </section>
+            )}
+
             {loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                 Cargando itinerarios de vuelos...
@@ -1150,9 +1461,9 @@ export default function FlightsPage({ session }: FlightsPageProps) {
               <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                 No se encontraron vuelos que coincidan con los criterios seleccionados.
               </div>
-            ) : (
+            ) : effectiveTab === 'ADMIN' ? (
               <div className="table-wrap">
-                <table className="admin-table">
+                <table className="admin-table flight-table">
                   <thead>
                     <tr>
                       <ColumnFilter label="Código" active={Boolean(searchTerm.trim())}>
@@ -1233,8 +1544,8 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                               isProgramado ? (
                                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                   {new Date(f.salida_utc).getTime() <= Date.now() && <button type="button" className="btn btn--secondary" onClick={async () => { if (!window.confirm('¿Confirmas que este vuelo fue realizado?')) return; try { await api.post(`/sales/flights/${f.id}/performed/`, {}); loadFlights() } catch (e) { setNotification({ type: 'error', message: e instanceof ApiError ? e.message : 'No se confirmó la operación.' }) } }}>Confirmar realizado</button>}
-                                  
-                              <button
+
+                                  <button
                                     type="button"
                                     className="btn btn--secondary"
                                     style={{ padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}
@@ -1278,7 +1589,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                               <button
                                 type="button"
                                 className="btn btn--primary"
-                                style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                                style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
                                 onClick={() => {
                                   setBookingFlight(f)
                                   setBookingClase(searchClase === 'PRIMERA_CLASE' ? 'PRIMERA_CLASE' : 'ECONOMICA')
@@ -1289,7 +1600,8 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                                   }
                                 }}
                               >
-                                ✈ Reservar / Comprar
+                                <Plane aria-hidden="true" size={16} />
+                                Reservar / Comprar
                               </button>
                             )}
                           </td>
@@ -1299,16 +1611,17 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                   </tbody>
                 </table>
               </div>
-            )}
+            ) : null}
 
             {/* SECCIÓN DE VUELOS DE REGRESO SI BÚSQUEDA COMPLETA (HU-005) */}
             {searchResults && searchResults.tipo_trayecto === 'COMPLETO' && searchResults.vuelos_regreso.length > 0 && (
               <div style={{ marginTop: '2.5rem' }}>
-                <h3 style={{ fontSize: '1.25rem', color: 'var(--color-primary)', marginBottom: '0.75rem' }}>
-                  🔄 Vuelos de Regreso Disponibles ({searchResults.vuelos_regreso.length})
+                <h3 className="flight-search-heading" style={{ fontSize: '1.25rem', color: 'var(--color-primary)', marginBottom: '0.75rem' }}>
+                  <PlaneLanding aria-hidden="true" size={20} />
+                  <span>Vuelos de regreso disponibles ({searchResults.vuelos_regreso.length})</span>
                 </h3>
                 <div className="table-wrap">
-                  <table className="admin-table">
+                  <table className="admin-table flight-table flight-table--returns">
                     <thead>
                       <tr>
                         <th>Código</th>
@@ -1341,7 +1654,7 @@ export default function FlightsPage({ session }: FlightsPageProps) {
                                 setNotification({ type: 'success', message: `Vuelo de regreso ${rf.codigo_vuelo} seleccionado.` })
                               }}
                             >
-                              {bookingFlightRegreso?.id === rf.id ? '✓ Seleccionado' : 'Seleccionar regreso'}
+                              {bookingFlightRegreso?.id === rf.id ? <><Check aria-hidden="true" size={16} /> Seleccionado</> : 'Seleccionar regreso'}
                             </button>
                           </td>
                         </tr>
@@ -1367,68 +1680,64 @@ export default function FlightsPage({ session }: FlightsPageProps) {
           MODAL: CANCELACIÓN DE VUELO
           ============================================================ */}
       {flightToCancel && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <div className="modal-box">
-            <h2 className="modal-box__title">¿Cancelar vuelo {flightToCancel.codigo_vuelo}?</h2>
+        <Dialog title={`¿Cancelar vuelo ${flightToCancel.codigo_vuelo}?`} onClose={() => setFlightToCancel(null)} closeDisabled={cancelBusy}>
+          <div className="flight-details-summary">
+            <p>
+              <strong>Ruta:</strong> {flightToCancel.origen} → {flightToCancel.destino} ({flightToCancel.tipo_vuelo})
+            </p>
+            <p>
+              <strong>Salida programada:</strong> {flightToCancel.fecha_salida} a las {flightToCancel.hora_salida}
+            </p>
+            <p>
+              <strong>Cupos ocupados a proteger:</strong>{' '}
+              {flightToCancel.capacidad_total -
+                (flightToCancel.cupos_disponibles_economica + flightToCancel.cupos_disponibles_primera)}
+            </p>
+          </div>
 
-            <div className="flight-details-summary">
-              <p>
-                <strong>Ruta:</strong> {flightToCancel.origen} → {flightToCancel.destino} ({flightToCancel.tipo_vuelo})
-              </p>
-              <p>
-                <strong>Salida programada:</strong> {flightToCancel.fecha_salida} a las {flightToCancel.hora_salida}
-              </p>
-              <p>
-                <strong>Cupos ocupados a proteger:</strong>{' '}
-                {flightToCancel.capacidad_total -
-                  (flightToCancel.cupos_disponibles_economica + flightToCancel.cupos_disponibles_primera)}
+          {cancelError && (
+            <div className="alert alert--error" style={{ marginBottom: '1.25rem' }}>
+              <span className="alert__body">{cancelError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleCancelSubmit} noValidate>
+            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+              <label className="form-label" htmlFor="cancel-motivo">
+                Motivo de la cancelación<span className="form-label__required">*</span>
+              </label>
+              <textarea
+                id="cancel-motivo"
+                className="form-input"
+                rows={3}
+                placeholder="Detalle el motivo técnico, meteorológico u operacional que justifica la cancelación..."
+                value={cancelMotivo}
+                onChange={(e) => setCancelMotivo(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <p className="journey-inline-note">
+                Al confirmar, se liberan las reservas impagadas. Cada comprador selecciona después reubicación o reembolso para sus tiquetes pagados.
               </p>
             </div>
 
-            {cancelError && (
-              <div className="alert alert--error" style={{ marginBottom: '1.25rem' }}>
-                <span className="alert__body">{cancelError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleCancelSubmit} noValidate>
-              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                <label className="form-label" htmlFor="cancel-motivo">
-                  Motivo de la cancelación<span className="form-label__required">*</span>
-                </label>
-                <textarea
-                  id="cancel-motivo"
-                  className="form-input"
-                  rows={3}
-                  placeholder="Detalle el motivo técnico, meteorológico u operacional que justifica la cancelación..."
-                  value={cancelMotivo}
-                  onChange={(e) => setCancelMotivo(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                <p className="journey-inline-note">
-                  Al confirmar, se liberan las reservas impagadas. Cada comprador selecciona después reubicación o reembolso para sus tiquetes pagados.
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className="btn btn--secondary"
-                  onClick={() => setFlightToCancel(null)}
-                  disabled={cancelBusy}
-                >
-                  Volver
-                </button>
-                <button type="submit" className="btn btn--danger" disabled={cancelBusy}>
-                  {cancelBusy ? 'Cancelando vuelo...' : 'Confirmar cancelación'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => setFlightToCancel(null)}
+                disabled={cancelBusy}
+              >
+                Volver
+              </button>
+              <button type="submit" className="btn btn--danger" disabled={cancelBusy}>
+                {cancelBusy ? 'Cancelando vuelo...' : 'Confirmar cancelación'}
+              </button>
+            </div>
+          </form>
+        </Dialog>
       )}
 
       {promotionFlight && (
@@ -1550,4 +1859,3 @@ export default function FlightsPage({ session }: FlightsPageProps) {
     </div>
   )
 }
-
